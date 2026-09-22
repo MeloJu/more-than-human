@@ -294,6 +294,14 @@ export type SkillDef = {
    */
   precision?: number
   effects: SkillEffect[]
+  /**
+   * Categoria da habilidade ('HADO', 'BAKUDO', 'TAIJUTSU'...). Como
+   * `description`, é dado de APRESENTAÇÃO — o motor nunca lê. Vem junto
+   * porque SkillDef é o que atravessa a fronteira banco->tela, e é a única
+   * informação disponível para escolher ícone de um golpe de dano puro, que
+   * não tem efeito nenhum de onde deduzir.
+   */
+  category?: string
   scalingStat: ScalingStat
   /**
    * Marcadores temáticos da habilidade — 'beam', 'espada', 'fogo'. O schema

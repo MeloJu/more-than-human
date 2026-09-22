@@ -33,6 +33,7 @@ export function toSkillDef(skill: {
   description?: string | null
   effects: unknown
   tags: unknown
+  category?: string
   scalingStat: PrismaScalingStat
 }): SkillDef {
   return {
@@ -44,6 +45,7 @@ export function toSkillDef(skill: {
     cooldown: skill.cooldown,
     description: skill.description ?? undefined,
     effects: parseEffects(skill.effects),
+    category: skill.category,
     // Json sem garantia de forma: só entram as strings.
     tags: Array.isArray(skill.tags) ? skill.tags.filter((t): t is string => typeof t === 'string') : [],
     scalingStat: SCALING_STAT_DO_BANCO[skill.scalingStat],

@@ -3,6 +3,7 @@
 import { useFormStatus } from 'react-dom'
 import { custaStamina, energyCostFor } from '@/app/lib/battle/engine'
 import { descreverEfeitosDaHabilidade } from '@/app/lib/battle/presentation'
+import { IconeDeHabilidade } from './IconeDeHabilidade'
 import type { CombatantState, SkillDef } from '@/app/lib/battle/types'
 
 /**
@@ -64,7 +65,20 @@ function Interior({
       } ${pending ? 'scale-[0.97] border-accent bg-accent/10' : ''}`}
     >
       <div className="flex items-baseline justify-between gap-2">
-        <span className="font-medium">{skill.name}</span>
+        {/* O ícone vem do que a habilidade FAZ, não de arte por golpe — ver
+            IconeDeHabilidade para por que raspar frame de anime não funciona
+            para 620 habilidades. `currentColor` o deixa herdar a cor do
+            botão, inclusive quando ele está apagado por indisponibilidade. */}
+        <span className="flex items-center gap-1.5 min-w-0">
+          <IconeDeHabilidade
+            efeitos={skill.effects}
+            tags={skill.tags}
+            categoria={skill.category}
+            size={16}
+            className="shrink-0 opacity-70 self-center"
+          />
+          <span className="font-medium truncate">{skill.name}</span>
+        </span>
         <span className={`text-xs shrink-0 tabular-nums ${daStamina ? 'text-amber-600 dark:text-amber-400' : 'text-spirit'}`}>
           {custo} {daStamina ? 'ST' : 'EN'}
         </span>
