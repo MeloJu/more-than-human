@@ -19,22 +19,20 @@ import {
   Zap,
 } from 'lucide-react'
 import { saborDoDot } from '@/app/lib/battle/engine'
+import ARTE_DE_HABILIDADE from '@/app/lib/battle/arte-de-habilidade.json'
 import type { DotFlavor, EffectType } from '@/app/lib/battle/types'
 
 /**
  * O ícone de uma habilidade, deduzido do que ela FAZ.
  *
- * POR QUE NÃO É ARTE BUSCADA NA INTERNET. A ideia inicial era raspar frame de
- * anime por habilidade, como foi feito com o retrato dos personagens. Medido,
- * não dá: uma busca em 40 nomes do catálogo devolveu 2 acertos exatos, 2 por
- * raiz e 31 resultados duvidosos — "Análise de Padrão" caiu num personagem
- * aleatório da DC, "Arrow of Fear" num título de capítulo. A causa é
- * estrutural, não de afinação: personagem tem UMA página canônica com
- * infobox, habilidade não. E 29% dos nomes do catálogo são invenção do jogo
- * ("Aura Ardente", "Armadilha de Arame"), que nenhuma wiki vai ter por não
- * existirem em obra nenhuma.
+ * POR QUE EXISTE UM ÍCONE DESENHADO, e não só arte de anime. A arte cobre a
+ * minoria canônica (ver DUAS CAMADAS abaixo), mas não pode cobrir tudo: 29%
+ * dos nomes deste catálogo são invenção do jogo — "Aura Ardente", "Armadilha
+ * de Arame" —, e nenhuma wiki vai ter, porque não existem em obra nenhuma.
+ * Sem uma camada que não dependa de fonte externa, um terço da grade de ações
+ * ficaria com buraco.
  *
- * O ÍCONE DERIVADO DO EFEITO resolve o problema por outro lado, e melhor:
+ * O ÍCONE DERIVADO DO EFEITO fecha isso, e tem vantagens próprias:
  *
  *   - cobre 100% do catálogo por construção, inclusive nome inventado
  *   - é consistente de graça — mesma espessura de traço, mesma grade
@@ -43,11 +41,19 @@ import type { DotFlavor, EffectType } from '@/app/lib/battle/types'
  *   - é obra original: nada a creditar, nada a pedir licença
  *
  * E ensina o jogo: dois golpes com o mesmo ícone se comportam parecido, o que
- * um frame bonito de anime não comunicaria.
+ * um frame bonito de anime não comunicaria. Por isso ele não é só o piso para
+ * quando falta arte — para habilidade inventada, é a leitura certa.
  *
  * A ORDEM DA ESCOLHA É DELIBERADA — do mais específico ao mais genérico:
  * sabor do dano contínuo, depois tipo de efeito, depois categoria. Queimadura
  * é mais informativa que "dano contínuo", que é mais informativo que "Hadō".
+ *
+ * DUAS CAMADAS, E A ARTE VEM PRIMEIRO. Para a minoria canônica — Getsuga
+ * Tenshō, Kamehameha, Amaterasu — existe arte de verdade, achada e
+ * VERIFICADA por scripts/buscar-icones.js (o nome do arquivo na wiki precisa
+ * conter o nome da técnica; sem isso, não entra). Essa camada cobre ~25% do
+ * catálogo. O ícone desenhado cobre o resto, e cobre 100% se a arte sumir —
+ * é piso, não remendo.
  *
  * O SABOR VEM DAS TAGS, NÃO DO EFEITO, pela mesma razão que
  * descreverEfeitosDaHabilidade existe: SkillEffect não guarda o sabor, ele só
@@ -155,18 +161,37 @@ const CUSTOMIZADOS: Partial<Record<EffectType, (p: Props) => React.ReactElement>
  * específico se aplica", que é a leitura certa para o ataque básico.
  */
 export function IconeDeHabilidade({
+  nome,
   efeitos,
   tags = [],
   categoria,
   size = 20,
   className,
 }: {
+  nome?: string
   efeitos: { type: EffectType; flavor?: DotFlavor }[]
   tags?: string[]
   categoria?: string
   size?: number
   className?: string
 }) {
+  const arte = nome ? (ARTE_DE_HABILIDADE as Record<string, string>)[nome] : undefined
+  if (arte) {
+    return (
+      // Recorte quadrado por CSS: a arte da wiki vem em proporção qualquer, e
+      // object-cover é o que faz 100 fontes diferentes lerem como um conjunto.
+      // Sem <Image>: são estáticas, já reduzidas pela CDN, e o container é
+      // pequeno demais para o otimizador render algo.
+      <span
+        className={`inline-block overflow-hidden rounded ring-1 ring-border/60 shrink-0 ${className ?? ''}`}
+        style={{ width: size, height: size }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={arte} alt="" aria-hidden="true" className="w-full h-full object-cover" loading="lazy" />
+      </span>
+    )
+  }
+
   const sabor = efeitos.some((e) => e.type === 'DOT') ? saborDoDot(tags) : undefined
   if (sabor) {
     const Icone = POR_SABOR[sabor]

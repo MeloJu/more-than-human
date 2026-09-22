@@ -71,6 +71,7 @@ function Interior({
             botão, inclusive quando ele está apagado por indisponibilidade. */}
         <span className="flex items-center gap-1.5 min-w-0">
           <IconeDeHabilidade
+            nome={skill.name}
             efeitos={skill.effects}
             tags={skill.tags}
             categoria={skill.category}

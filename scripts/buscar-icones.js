@@ -1,57 +1,45 @@
-// VEREDITO: ESTA ABORDAGEM NÃO FUNCIONA. Não refaça.
+// Procura arte de anime para servir de ícone às habilidades CANÔNICAS.
 //
-// O script continua aqui porque é a EVIDÊNCIA de por que o ícone das
-// habilidades passou a ser desenhado a partir do efeito, e não raspado da
-// internet como os retratos dos personagens. Rodado sobre 40 nomes do
-// catálogo, devolveu:
-//
-//     exato      2      título da wiki é o próprio nome da habilidade
-//     raiz       2      bateu com a raiz canônica antes do ':'
-//     duvidoso  31      achou página, com outro nome
-//     sem        5      nada
-//
-// E "duvidoso" é lixo, não meio-certo: "Análise de Padrão" caiu em
-// "Brion Markov (Earth-16)", "Arrow of Fear" num título de capítulo,
-// "Absorver e Retornar" em "Descorrer". Uns poucos acertam (Ashisogi Jizō
-// Spores -> Ashisogi Jizō), mas revisar 427 linhas à mão é exatamente o
-// trabalho que automatizar deveria evitar.
-//
-// A CAUSA É ESTRUTURAL, não de afinação. Personagem tem UMA página canônica
-// com infobox — por isso buscar-artes.js funciona. Habilidade não tem. E 29%
-// dos nomes deste catálogo são invenção do jogo ("Aura Ardente", "Armadilha
-// de Arame"): nenhuma wiki terá, porque não existem em obra nenhuma.
-//
-// O que ficou no lugar: app/components/battle/IconeDeHabilidade.tsx.
-//
-// --------------------------------------------------------------------------
-//
-// Procura, nos wikis de fã, uma imagem que sirva de ÍCONE para cada
-// habilidade. Irmão de buscar-artes.js, e reusa as armadilhas que aquele já
-// pagou caro para descobrir (curl em vez do fetch do Node, filtrar antes de
-// cortar, título ≠ nome).
+// Complementa app/components/battle/IconeDeHabilidade.tsx, que desenha o
+// ícone a partir do efeito e cobre 100% do catálogo. Este script cobre só a
+// minoria famosa — Getsuga Tenshō, Kamehameha, Rasengan — onde existe arte de
+// verdade e vale mais que um símbolo.
 //
 // USO DA ARTE: mesma decisão já registrada em app/lib/creditos.ts — projeto
-// educativo, sem fim comercial, com crédito visível em /creditos e no rodapé
-// de toda página.
+// educativo, sem fim comercial, crédito visível em /creditos e no rodapé de
+// toda página.
 //
-// ESTE SCRIPT NÃO BAIXA NADA. Ele só produz o relatório de o-que-acharia,
-// com um nível de confiança por habilidade, para revisão antes de 400
-// downloads entrarem no repositório. Baixar é uma segunda passagem, e só
-// depois de alguém olhar este relatório.
+// ============================================================================
+// PROCURA NO NAMESPACE DE ARQUIVO, NÃO NO DE ARTIGO. Esta é a coisa toda.
+// ============================================================================
 //
-// POR QUE A CONFIANÇA IMPORTA MAIS QUE A TAXA DE ACERTO. Uma sondagem em 16
-// nomes achou página para 15. Só que "achou" não é "acertou": a busca por
-// "Hakka no Togame" — técnica do Hitsugaya — caiu na página da RUKIA, e
-// "Kyōka Suigetsu" caiu na do Aizen. Pegar a primeira imagem de cada acerto
-// espalharia ícone errado pelo jogo, errado de um jeito difícil de notar
-// depois. Por isso cada linha do relatório diz COMO chegou lá.
+// A primeira versão buscava ARTIGO pelo nome da habilidade e pegava a
+// primeira imagem da página achada. Medido em 40 nomes: 2 exatos, 2 por raiz,
+// 31 duvidosos, 5 sem nada. E os duvidosos eram lixo — "Análise de Padrão"
+// caiu em "Brion Markov (Earth-16)", "Arrow of Fear" num título de capítulo.
+// O motivo é que a busca de artigo SEMPRE devolve algo: sem página para a
+// técnica, ela cai no personagem, no capítulo, em qualquer coisa parecida.
 //
-// A ESTRATÉGIA DA RAIZ. A maioria dos nomes do catálogo tem a forma
-// "<coisa canônica>: <movimento inventado>" — "Zangetsu: Corte Ascendente",
-// "Tobiume: Faísca". O que existe na wiki é a raiz, não o nome inteiro.
-// Buscar pela raiz acerta muito mais, e tem um efeito colateral desejável:
-// todas as técnicas de Zangetsu dividem o mesmo ícone, o que faz a grade de
-// ações ficar mais legível, não menos.
+// Buscar no namespace 6 (File:) inverte isso. O nome do arquivo na wiki
+// costuma CONTER o nome da técnica — "583Getsuga Jujisho.png",
+// "142Byakuya's Bankai, Senbonzakura Kageyoshi.png", "Kamehameha.jpg" — então
+// dá para EXIGIR que contenha, e descartar o resto. O filtro deixou de ser
+// um palpite sobre relevância e virou uma verificação.
+//
+// Medido em 14 nomes canônicos, com a wiki certa de cada universo: 14 de 14,
+// todos com o nome da técnica dentro do nome do arquivo.
+//
+// O QUE ISSO NÃO RESOLVE: os 29% de nomes que são invenção do jogo ("Aura
+// Ardente", "Armadilha de Arame"). Nenhuma wiki vai ter, porque não existem
+// em obra nenhuma — e o filtro de nome os rejeita em silêncio, que é o
+// comportamento certo. Eles ficam com o ícone derivado do efeito.
+//
+// DUAS ARMADILHAS herdadas de buscar-artes.js, que já custaram uma rodada
+// cada:
+//
+//   1. DOWNLOAD POR CURL, não pelo fetch do Node: o CDN da Fandom devolve 403
+//      para o fetch e 200 para o curl, com o mesmo User-Agent.
+//   2. .gif É CENA, não pose — fora. Ícone precisa de quadro parado.
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -71,125 +59,126 @@ const WIKI_POR_ANIME = {
   cartoon: 'looneytunes',
 };
 
+/**
+ * Tamanho do ícone. O CDN da Fandom redimensiona no servidor via
+ * /scale-to-width-down/<px>, então não é preciso processar imagem aqui —
+ * nenhuma dependência nova, e o que trafega já vem pequeno.
+ */
+const LARGURA = 256;
+
 function curlJson(url) {
   try {
-    const out = execFileSync('curl', ['-s', '--max-time', '25', '-A', UA, url], { maxBuffer: 20e6 });
-    return JSON.parse(out.toString());
+    return JSON.parse(execFileSync('curl', ['-s', '--max-time', '25', '-A', UA, url], { maxBuffer: 20e6 }).toString());
   } catch {
     return null;
   }
 }
 
-/**
- * A raiz canônica do nome: o que vem antes do primeiro ':'.
- *
- * "Zangetsu: Corte Ascendente" -> "Zangetsu"
- * "Getsuga Tenshō"             -> "Getsuga Tenshō"  (sem ':' , o nome inteiro)
- */
+/** Sem acento, sem pontuação, minúsculo e SEM ESPAÇO: para conter-comparar. */
+function normalizar(s) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** A raiz canônica: o que vem antes do primeiro ':' de "Zangetsu: Corte X". */
 function raizDe(nome) {
   const corte = nome.indexOf(':');
   return (corte === -1 ? nome : nome.slice(0, corte)).trim();
 }
 
-/** Sem acento e em minúscula, para comparar título de wiki com nome local. */
-function normalizar(s) {
-  return s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-}
+/**
+ * Curto demais para verificar por conteúdo.
+ *
+ * "Ki" dentro de um nome de arquivo casa com "Kido", "Kisuke", "Kikoho" e
+ * qualquer outra coisa — o filtro deixaria de filtrar. Abaixo deste tamanho a
+ * habilidade simplesmente não recebe arte, e fica com o ícone do efeito.
+ */
+const MINIMO_PARA_CONFIAR = 5;
 
-/** Serve como ícone? Fora banner de wiki, selo, e .gif (cena, não pose). */
-function ehIcone(titulo) {
-  const t = titulo.replace(/^File:/, '');
-  if (!/\.(png|jpe?g)$/i.test(t)) return false;
-  return !/site-|wiki-|favicon|badge|logo|spoiler|placeholder|no[_ ]image/i.test(t);
-}
-
-function buscar(wiki, termo) {
-  const base = `https://${wiki}.fandom.com/api.php`;
+function buscarArquivo(wiki, termo) {
   const r = curlJson(
-    `${base}?action=query&list=search&srsearch=${encodeURIComponent(termo)}&srlimit=3&format=json`
+    `https://${wiki}.fandom.com/api.php?action=query&list=search` +
+      `&srsearch=${encodeURIComponent(termo)}&srnamespace=6&srlimit=6&format=json`
   );
-  return r?.query?.search?.map((s) => s.title) ?? [];
-}
-
-function imagensDe(wiki, titulo) {
-  const base = `https://${wiki}.fandom.com/api.php`;
-  const r = curlJson(
-    `${base}?action=query&titles=${encodeURIComponent(titulo)}&prop=images&imlimit=60&format=json`
-  );
-  const pages = r?.query?.pages ?? {};
-  const lista = Object.values(pages)[0]?.images ?? [];
-  return lista.map((i) => i.title).filter(ehIcone);
+  return (r?.query?.search ?? [])
+    .map((x) => x.title.replace(/^File:/, ''))
+    .filter((t) => /\.(png|jpe?g)$/i.test(t));
 }
 
 /**
- * Classifica o quanto dá para confiar no que foi achado.
+ * A URL real do arquivo, já reduzida pelo CDN.
  *
- * - `exato`    o título da wiki é o próprio nome da habilidade
- * - `raiz`     bateu com a raiz canônica antes do ':'
- * - `duvidoso` achou página, mas com outro nome — costuma ser a página do
- *              PERSONAGEM em vez da técnica. Serve, mas exige olho humano.
- * - `sem`      nada encontrado
+ * A QUERY STRING NÃO PODE SER DESCARTADA. A URL que a API devolve termina em
+ * `?cb=<timestamp>&path-prefix=en`, e o `path-prefix` é OBRIGATÓRIO: sem ele
+ * o CDN responde 404. A primeira versão inseria o sufixo de escala com um
+ * `.replace(/\/revision\/latest.*$/)` que comia a query junto — e 94 dos 128
+ * downloads falharam por isso, incluindo Getsuga Tenshō e Mugetsu. O sufixo
+ * entra no CAMINHO, antes do `?`.
  */
-function classificar(nome, tituloAchado) {
-  if (!tituloAchado) return 'sem';
-  const t = normalizar(tituloAchado);
-  if (t === normalizar(nome)) return 'exato';
-  if (t === normalizar(raizDe(nome))) return 'raiz';
-  return 'duvidoso';
+function urlDoArquivo(wiki, arquivo) {
+  const r = curlJson(
+    `https://${wiki}.fandom.com/api.php?action=query&titles=${encodeURIComponent('File:' + arquivo)}` +
+      `&prop=imageinfo&iiprop=url|size&format=json`
+  );
+  const info = Object.values(r?.query?.pages ?? {})[0]?.imageinfo?.[0];
+  if (!info?.url) return null;
+
+  const corte = info.url.indexOf('?');
+  const caminho = corte === -1 ? info.url : info.url.slice(0, corte);
+  const query = corte === -1 ? '' : info.url.slice(corte);
+  if (!caminho.includes('/revision/')) return info.url;
+
+  const escalado = caminho.replace(/\/revision\/latest.*$/, `/revision/latest/scale-to-width-down/${LARGURA}`);
+  return escalado + query;
+}
+
+/**
+ * Escolhe um arquivo cujo NOME contenha o nome da técnica.
+ *
+ * É esta verificação que separa este script da versão anterior: sem um
+ * candidato que contenha o termo, a habilidade não recebe arte — em vez de
+ * receber a primeira coisa que a busca devolveu.
+ */
+function escolher(candidatos, termo) {
+  const alvo = normalizar(termo);
+  if (alvo.length < MINIMO_PARA_CONFIAR) return null;
+  return candidatos.find((c) => normalizar(c).includes(alvo)) ?? null;
 }
 
 function main() {
   const alvos = require('./icones-alvos.json');
-  const somente = process.argv[2] ? Number(process.argv[2]) : null;
-  const lista = somente ? alvos.slice(0, somente) : alvos;
+  const limite = process.argv[2] ? Number(process.argv[2]) : null;
+  const lista = limite ? alvos.slice(0, limite) : alvos;
 
-  const relatorio = [];
+  const achados = [];
   let i = 0;
   for (const alvo of lista) {
     i++;
     const wiki = WIKI_POR_ANIME[alvo.anime];
-    if (!wiki) {
-      relatorio.push({ ...alvo, confianca: 'sem', motivo: `sem wiki mapeado para ${alvo.anime}` });
-      continue;
-    }
+    process.stderr.write(`\r${i}/${lista.length}  achados: ${achados.length}   ${alvo.name.slice(0, 38).padEnd(38)}`);
+    if (!wiki) continue;
 
+    // Nome inteiro primeiro; a raiz só como segunda tentativa, porque ela é
+    // mais curta e por isso mais fácil de casar por acidente.
+    let arquivo = escolher(buscarArquivo(wiki, alvo.name), alvo.name);
+    let via = 'nome';
     const raiz = raizDe(alvo.name);
-    // A raiz primeiro: é ela que costuma existir como página. O nome inteiro
-    // só é tentado quando não tem ':' (aí raiz === nome) ou quando a raiz
-    // não achou nada.
-    let candidatos = buscar(wiki, raiz);
-    if (candidatos.length === 0 && raiz !== alvo.name) candidatos = buscar(wiki, alvo.name);
+    if (!arquivo && raiz !== alvo.name) {
+      arquivo = escolher(buscarArquivo(wiki, raiz), raiz);
+      via = 'raiz';
+    }
+    if (!arquivo) continue;
 
-    const titulo = candidatos[0] ?? null;
-    const confianca = classificar(alvo.name, titulo);
-    const imgs = titulo ? imagensDe(wiki, titulo) : [];
-
-    relatorio.push({
-      ...alvo,
-      raiz,
-      wiki,
-      titulo,
-      confianca,
-      imagens: imgs.length,
-      primeira: imgs[0] ?? null,
-    });
-
-    process.stderr.write(`\r${i}/${lista.length}  ${confianca.padEnd(9)} ${alvo.name.slice(0, 40)}          `);
+    const url = urlDoArquivo(wiki, arquivo);
+    if (!url) continue;
+    achados.push({ name: alvo.name, anime: alvo.anime, wiki, arquivo, via, url });
   }
 
-  const destino = path.join(__dirname, 'icones-relatorio.json');
-  fs.writeFileSync(destino, JSON.stringify(relatorio, null, 2));
-
-  const por = {};
-  for (const r of relatorio) por[r.confianca] = (por[r.confianca] ?? 0) + 1;
-  console.error('\n\nConfiança:', por);
-  console.error(`Relatório em ${path.relative(process.cwd(), destino)}`);
-  console.error('\nNada foi baixado. Revise o relatório antes da passagem de download.');
+  const destino = path.join(__dirname, 'icones-encontrados.json');
+  fs.writeFileSync(destino, JSON.stringify(achados, null, 2));
+  const porVia = {};
+  for (const a of achados) porVia[a.via] = (porVia[a.via] ?? 0) + 1;
+  console.error(`\n\n${achados.length} de ${lista.length} habilidades com arte verificada`, porVia);
+  console.error(`Lista em ${path.relative(process.cwd(), destino)} — baixar com instalar-icones.js`);
 }
 
 main();

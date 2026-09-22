@@ -1,0 +1,325 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@700;900&family=Inter+Tight:wght@500;600;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Inter Tight', ui-sans-serif, system-ui, sans-serif; }
+    a { color: #ff6b1a; } a:hover { color: #e55510; }
+    .toque { transition: transform .1s ease, border-color .15s; }
+    .toque.pode:active { transform: scale(.975); }
+    .toque.bloqueada { cursor: not-allowed; }
+  </style>
+</helmet>
+
+<!-- Sem overflow:hidden e sem altura travada: 12 ações em duas colunas passam
+     de 844px, e um celular de verdade ROLA. Travar a altura só cortaria as
+     três últimas (Mugetsu, Rugido, Bloquear) sem avisar. -->
+<div style="width: 390px; min-height: 844px; background: #0a0a0f; color: #f4f4f5; position: relative;">
+  <div style="position: absolute; inset: 0; background: radial-gradient(ellipse 80% 30% at 0% 8%, {{tema.brilhoJogador}}, transparent 68%), radial-gradient(ellipse 80% 30% at 100% 34%, {{tema.brilhoInimigo}}, transparent 68%);"></div>
+
+  <div style="position: relative; padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 14px;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #a1a1aa;">Modo IA · Rodada {{estado.rodada}}</div>
+      <!-- 44px é o mínimo de alvo de toque, e este é o único jeito de sair. -->
+      <div style="display: flex; align-items: center; padding: 0 14px; min-height: 44px; border: 1px solid #2a2a38; border-radius: 2px 8px 2px 8px; font-size: 12px; font-weight: 600; color: #a1a1aa;">Sair</div>
+    </div>
+
+    <!-- Os dois lutadores lado a lado: no celular o retrato grande não cabe
+         junto das ações, e quem decide a jogada precisa das duas barras de
+         vida visíveis no momento do toque. -->
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+      <sc-for list="{{lutadores}}" as="l" hint-placeholder-count="2">
+        <div style="background: #16161f; border: 1px solid #2a2a38; border-top: 3px solid {{l.cor}}; border-radius: 2px 10px 2px 10px; overflow: hidden;">
+          <div style="height: 76px; position: relative; background: linear-gradient(160deg, {{l.cor}} 0%, #16161f 82%);">
+            <div style="position: absolute; inset: 0; background: linear-gradient(to top, #16161f 4%, transparent 58%);"></div>
+            <div style="position: absolute; left: 10px; bottom: 6px; font-family: 'Zen Kaku Gothic New', serif; font-size: 30px; font-weight: 900; color: rgba(10,10,15,.36); line-height: 1;">{{l.kanji}}</div>
+            <div style="position: absolute; right: 7px; top: 7px; padding: 2px 6px; background: rgba(10,10,15,.75); border: 1px solid {{l.cor}}; border-radius: 2px; font-size: 9px; font-weight: 800;">Lv 14</div>
+          </div>
+          <div style="padding: 10px 11px 12px; display: flex; flex-direction: column; gap: 7px;">
+            <div style="font-size: 13px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{l.nome}}</div>
+            <sc-for list="{{l.barras}}" as="b" hint-placeholder-count="3">
+              <div style="display: flex; flex-direction: column; gap: 3px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-size: 9px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #a1a1aa;">{{b.rotulo}}</span>
+                  <span style="font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;">{{b.texto}}</span>
+                </div>
+                <div style="height: 6px; background: #12121a; border: 1px solid #2a2a38; border-radius: 2px; overflow: hidden; position: relative;">
+                  <div style="position: absolute; inset: 0; width: {{b.rastro}}; background: rgba(239,68,68,.28); transition: width .8s ease .35s;"></div>
+                  <div style="position: relative; height: 100%; width: {{b.largura}}; background: {{b.cor}}; transition: width .45s cubic-bezier(.3,.8,.4,1);"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Uma linha só do histórico: o log inteiro empurraria as ações para
+         longe, e o que importa é o que ACABOU de acontecer. -->
+    <div style="background: #16161f; border: 1px solid #2a2a38; border-radius: 2px 10px 2px 10px; padding: 11px 13px; min-height: 46px; display: flex; align-items: center;">
+      <sc-if value="{{estado.vazio}}" hint-placeholder-val="{{ false }}">
+        <div style="font-size: 12px; color: #71717a;">Nenhuma ação ainda. Toque numa habilidade.</div>
+      </sc-if>
+      <sc-if value="{{estado.temLog}}" hint-placeholder-val="{{ true }}">
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="font-size: 12px; font-weight: 700;">{{ultima.titulo}}</div>
+          <div style="font-size: 11px; color: #a1a1aa;">{{ultima.detalhe}}</div>
+        </div>
+      </sc-if>
+    </div>
+
+    <!-- FORMAS: toca para abrir, arrasta para o lado.
+         É o padrão que serve os três casos do catálogo com o mesmo espaço —
+         21 personagens sem forma nenhuma (o painel nem aparece), 37 com uma
+         só, e Goku e Vegeta com seis. -->
+    <sc-if value="{{temFormas}}" hint-placeholder-val="{{ true }}">
+    <div style="background: #16161f; border: 1px solid #2a2a38; border-radius: 2px 10px 2px 10px; padding: 12px 13px; display: flex; flex-direction: column; gap: 11px;">
+      <div onClick="{{alternarFormas}}" style="display: flex; align-items: center; gap: 9px; min-height: 30px; cursor: pointer;">
+        <span style="font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #a1a1aa;">Formas</span>
+        <span style="font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 2px; background: rgba(255,107,26,.12); color: {{tema.corJogador}}; border: 1px solid rgba(255,107,26,.3);">{{qtdFormas}}</span>
+        <span style="flex-grow: 1;"></span>
+        <span style="font-size: 10px; color: #52525b;">{{dicaFormas}}</span>
+        <div style="width: 13px; height: 13px; color: #a1a1aa; transform: {{giroFormas}}; transition: transform .18s ease; display: flex;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+        </div>
+      </div>
+
+      <sc-if value="{{formasAbertas}}" hint-placeholder-val="{{ true }}">
+      <div style="position: relative;">
+        <div style="display: flex; gap: 9px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 4px;">
+          <sc-for list="{{formas}}" as="f" hint-placeholder-count="6">
+            <div class="toque pode" onClick="{{f.ativar}}" style="flex: 0 0 208px; scroll-snap-align: start; display: flex; align-items: center; gap: 10px; padding: 11px; min-height: 56px; background: {{f.fundo}}; border: 1px solid {{f.borda}}; border-radius: 2px 8px 2px 8px; cursor: pointer;">
+              <div style="width: 17px; height: 17px; color: {{f.cor}}; flex-shrink: 0; display: flex;">
+                <sc-if value="{{f.ehEspada}}" hint-placeholder-val="{{ true }}">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"></path><path d="m13 19 6-6M16 16l4 4M19 21l2-2"></path></svg>
+                </sc-if>
+                <sc-if value="{{f.ehMascara}}" hint-placeholder-val="{{ false }}">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v7a7 7 0 0 1-7 7h-2a7 7 0 0 1-7-7z"></path><path d="M8 10h2M14 10h2M9 15h6"></path></svg>
+                </sc-if>
+              </div>
+              <div style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <div style="font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{f.nome}}</div>
+                <div style="font-size: 10px; color: #a1a1aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{f.efeitos}}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="position: absolute; right: 0; top: 0; bottom: 4px; width: 44px; pointer-events: none; background: linear-gradient(to left, #16161f, transparent);"></div>
+      </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- Duas colunas, alvo de toque de 56px. A tooltip de hover não existe
+         aqui: no celular não há hover, então o resumo vai direto no cartão. -->
+    <div style="background: #16161f; border: 1px solid #2a2a38; border-radius: 2px 10px 2px 10px; padding: 13px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: #a1a1aa;">Ações</div>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+        <sc-for list="{{acoes}}" as="a" hint-placeholder-count="12">
+          <div class="toque {{a.classe}}" onClick="{{a.usar}}" style="padding: 9px 10px; min-height: 56px; background: #12121a; border: 1px solid #2a2a38; border-radius: 2px 8px 2px 8px; cursor: {{a.cursor}}; opacity: {{a.opacidade}}; display: flex; flex-direction: column; justify-content: center; gap: 3px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+              <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+                <div style="width: 14px; height: 14px; color: {{a.corIcone}}; flex-shrink: 0; display: flex;">
+                  <sc-if value="{{a.icEspadas}}" hint-placeholder-val="{{ true }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"></path><path d="M13 19l6-6"></path><path d="M9.5 17.5 21 6V3h-3L6.5 14.5"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icEspada}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 17.5 3 6V3h3l11.5 11.5"></path><path d="m13 19 6-6M16 16l4 4M19 21l2-2"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icContra}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icGota}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5S5 13 5 15a7 7 0 0 0 7 7z"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icMascara}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16v7a7 7 0 0 1-7 7h-2a7 7 0 0 1-7-7z"></path><path d="M8 10h2M14 10h2M9 15h6"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icPerfura}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 20 4"></path><path d="M15 4h5v5"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icDesce}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v13"></path><path d="m5 12 7 7 7-7"></path></svg>
+                  </sc-if>
+                  <sc-if value="{{a.icEscudo}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg>
+                  </sc-if>
+                </div>
+                <span style="font-size: 11px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{a.curto}}</span>
+              </div>
+              <span style="font-size: 10px; font-weight: 700; color: {{a.corCusto}}; flex-shrink: 0;">{{a.custo}}</span>
+            </div>
+            <div style="font-size: 10px; color: #71717a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{a.resumo}}</div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{
+  "corJogador": {"editor": "color", "default": "#ff6b1a", "section": "Tema", "options": ["#ff6b1a", "#4dd0e1", "#a855f7", "#22c55e"]},
+  "corInimigo": {"editor": "color", "default": "#4dd0e1", "section": "Tema", "options": ["#4dd0e1", "#ff6b1a", "#a855f7", "#ef4444"]},
+  "elenco": {"editor": "enum", "default": "ichigo", "section": "Formas", "options": ["ichigo", "goku"]},
+  "$preview": {"width": 390, "height": 1010}
+}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      rodada: 1,
+      en: 253, enMax: 253,
+      st: 218, stMax: 218,
+      hp: 353, hpMax: 353, hpAntes: 353,
+      hpIni: 292, hpIniMax: 292, hpIniAntes: 292,
+      enIni: 292, enIniMax: 292,
+      log: [],
+      forma: null,
+      formasAbertas: false,
+    };
+  }
+
+  catalogo() {
+    return [
+      { curto: 'Ataque Básico', custo: '—', en: 0, st: 0, dano: 14, ic: 'espadas', resumo: 'sem custo', tipo: 'en' },
+      { curto: 'Zangetsu Parry', custo: '16 ST', en: 0, st: 16, dano: 0, ic: 'contra', resumo: 'reflete 55%', tipo: 'st' },
+      { curto: 'Getsuga Jūjishō', custo: '18 EN', en: 18, st: 0, dano: 22, ic: 'gota', resumo: 'vampirismo 15%', tipo: 'en' },
+      { curto: 'Corte Ascendente', custo: '12 EN', en: 12, st: 0, dano: 16, ic: 'espada', resumo: 'golpe direto', tipo: 'en' },
+      { curto: 'Investida Feroz', custo: '19 EN', en: 19, st: 0, dano: 24, ic: 'espada', resumo: 'golpe direto', tipo: 'en' },
+      { curto: 'Máscara Hollow', custo: '24 EN', en: 24, st: 0, dano: 22, ic: 'mascara', resumo: 'ATQ +24% · VEL +20%', tipo: 'en' },
+      { curto: 'Getsuga Tenshō', custo: '26 EN', en: 26, st: 0, dano: 30, ic: 'perfura', resumo: '94% · perfura 40%', tipo: 'en' },
+      { curto: 'Getsuga Negro', custo: '33 EN', en: 33, st: 0, dano: 41, ic: 'desce', resumo: '88% · DEF alvo −20%', tipo: 'en' },
+      { curto: 'Final Getsuga', custo: '32 EN', en: 32, st: 0, dano: 34, ic: 'desce', resumo: '94% · sua DEF −15%', tipo: 'en' },
+      { curto: 'Mugetsu', custo: '40 EN', en: 40, st: 0, dano: 52, ic: 'gota', resumo: '88% · 10/rodada', tipo: 'en' },
+      { curto: 'Hollow: Rugido', custo: '20 ST', en: 0, st: 20, dano: 18, ic: 'mascara', resumo: 'ATQ +35% · DEF −10%', tipo: 'st' },
+      { curto: 'Bloquear', custo: '22 ST', en: 0, st: 22, dano: 0, ic: 'escudo', resumo: '−60% de dano', tipo: 'st' },
+    ];
+  }
+
+  /** Os dois casos extremos do catálogo, com os números do banco. */
+  formasDoElenco() {
+    if ((this.props.elenco ?? 'ichigo') === 'goku') {
+      return [
+        { id: 'ss',  nome: 'Super Saiyan',      ic: 'espada',  efeitos: 'Nv 5 · ATQ +15%' },
+        { id: 'ss2', nome: 'Super Saiyan 2',    ic: 'espada',  efeitos: 'Nv 10 · ATQ +25%' },
+        { id: 'ss3', nome: 'Super Saiyan 3',    ic: 'espada',  efeitos: 'Nv 15 · ATQ +35%' },
+        { id: 'ssg', nome: 'Super Saiyan God',  ic: 'mascara', efeitos: 'Nv 23 · ATQ +20%' },
+        { id: 'ssb', nome: 'Super Saiyan Blue', ic: 'mascara', efeitos: 'Nv 28 · ATQ +25%' },
+        { id: 'ui',  nome: 'Ultra Instinct',    ic: 'mascara', efeitos: 'Nv 35 · VEL +30%' },
+      ];
+    }
+    return [
+      { id: 'hollow', nome: 'Máscara Hollow', ic: 'mascara', efeitos: '20 EN · ATQ +20%' },
+      { id: 'bankai', nome: 'Bankai: Tensa Zangetsu', ic: 'espada', efeitos: '34 EN · ATQ +26%' },
+    ];
+  }
+
+  usar(a) {
+    const s = this.state;
+    if (s.en < a.en || s.st < a.st) return;
+
+    // O inimigo revida: sem isso metade das barras nunca se mexe e a tela lê
+    // como quebrada em vez de como maquete.
+    const revide = a.ic === 'escudo' ? 7 : 17;
+    const entradas = [
+      { titulo: 'Hyōrinmaru', detalhe: revide + ' de dano em Ichigo' },
+      { titulo: a.curto, detalhe: a.dano ? (a.dano + ' de dano em Hitsugaya') : a.resumo },
+    ];
+
+    this.setState({
+      rodada: s.rodada + 1,
+      en: s.en - a.en,
+      st: s.st - a.st,
+      hp: Math.max(0, s.hp - revide),
+      hpAntes: s.hp,
+      hpIni: Math.max(0, s.hpIni - a.dano),
+      hpIniAntes: s.hpIni,
+      enIni: Math.max(0, s.enIni - 14),
+      log: entradas.concat(s.log).slice(0, 4),
+    });
+  }
+
+  pct(v, max) {
+    if (!max) return '0%';
+    return Math.min(100, Math.max(0, Math.round((v / max) * 100))) + '%';
+  }
+
+  renderVals() {
+    const s = this.state;
+    const corJ = this.props.corJogador ?? '#ff6b1a';
+    const corI = this.props.corInimigo ?? '#4dd0e1';
+    const hp = 'linear-gradient(90deg,#ef4444,#f97316)';
+    const en = 'linear-gradient(90deg,#4dd0e1,#22d3ee)';
+    const st = 'linear-gradient(90deg,#f59e0b,#fbbf24)';
+
+    const formas = this.formasDoElenco().map((f) => Object.assign({}, f, {
+      ativar: () => this.setState({ forma: this.state.forma === f.id ? null : f.id }),
+      cor: s.forma === f.id ? corJ : '#e4e4e7',
+      fundo: s.forma === f.id ? 'rgba(255,107,26,.1)' : '#12121a',
+      borda: s.forma === f.id ? corJ : '#2a2a38',
+      ehEspada: f.ic === 'espada',
+      ehMascara: f.ic === 'mascara',
+    }));
+
+    return {
+      tema: {
+        corJogador: corJ,
+        brilhoJogador: 'color-mix(in srgb, ' + corJ + ' 18%, transparent)',
+        brilhoInimigo: 'color-mix(in srgb, ' + corI + ' 16%, transparent)',
+      },
+      estado: { rodada: s.rodada, vazio: s.log.length === 0, temLog: s.log.length > 0 },
+      ultima: s.log[0] ?? { titulo: '', detalhe: '' },
+      temFormas: formas.length > 0,
+      formas: formas,
+      qtdFormas: formas.length === 1 ? '1 forma' : formas.length + ' formas',
+      formasAbertas: s.formasAbertas,
+      alternarFormas: () => this.setState({ formasAbertas: !this.state.formasAbertas }),
+      giroFormas: s.formasAbertas ? 'rotate(180deg)' : 'rotate(0deg)',
+      dicaFormas: s.formasAbertas
+        ? (formas.length > 1 ? 'arraste para o lado' : '')
+        : 'toque para abrir',
+      lutadores: [
+        { nome: 'Ichigo', kanji: '護', cor: corJ, barras: [
+          { rotulo: 'Vida', texto: String(s.hp), largura: this.pct(s.hp, s.hpMax), rastro: this.pct(s.hpAntes, s.hpMax), cor: hp },
+          { rotulo: 'EN', texto: String(s.en), largura: this.pct(s.en, s.enMax), rastro: this.pct(s.en, s.enMax), cor: en },
+          { rotulo: 'ST', texto: String(s.st), largura: this.pct(s.st, s.stMax), rastro: this.pct(s.st, s.stMax), cor: st },
+        ] },
+        { nome: 'Hitsugaya', kanji: '氷', cor: corI, barras: [
+          { rotulo: 'Vida', texto: String(s.hpIni), largura: this.pct(s.hpIni, s.hpIniMax), rastro: this.pct(s.hpIniAntes, s.hpIniMax), cor: hp },
+          { rotulo: 'EN', texto: String(s.enIni), largura: this.pct(s.enIni, s.enIniMax), rastro: this.pct(s.enIni, s.enIniMax), cor: en },
+          { rotulo: 'ST', texto: '282', largura: '100%', rastro: '100%', cor: st },
+        ] },
+      ],
+      acoes: this.catalogo().map((a) => {
+        const pode = s.en >= a.en && s.st >= a.st;
+        return Object.assign({}, a, {
+          usar: () => this.usar(a),
+          classe: pode ? 'pode' : 'bloqueada',
+          cursor: pode ? 'pointer' : 'not-allowed',
+          opacidade: pode ? '1' : '.4',
+          corIcone: pode ? (a.tipo === 'st' ? '#fbbf24' : corJ) : '#52525b',
+          corCusto: a.tipo === 'st' ? '#fbbf24' : '#4dd0e1',
+          icEspadas: a.ic === 'espadas',
+          icEspada: a.ic === 'espada',
+          icContra: a.ic === 'contra',
+          icGota: a.ic === 'gota',
+          icMascara: a.ic === 'mascara',
+          icPerfura: a.ic === 'perfura',
+          icDesce: a.ic === 'desce',
+          icEscudo: a.ic === 'escudo',
+        });
+      }),
+    };
+  }
+}
+</script>
+</body>
+</html>

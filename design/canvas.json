@@ -1,0 +1,55 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1440,
+      "h": 1010,
+      "title": "Batalha — desktop",
+      "is_interactive": true
+    },
+    {
+      "file": "Celular.dc.html",
+      "x": 1560,
+      "y": 0,
+      "w": 390,
+      "h": 1060,
+      "title": "Batalha — celular",
+      "is_interactive": true
+    }
+  ],
+  "annotations": [
+    {
+      "id": "tema-por-personagem",
+      "x": 0,
+      "y": -190,
+      "w": 520,
+      "text": "Tema por PERSONAGEM, nao por universo.\nIchigo e Hitsugaya sao os dois de Bleach e tem cores opostas — entao a cor de destaque precisa morar em Character, nao em Anime.\nOs dois seletores de cor no topo mudam o tema inteiro de cada lado."
+    },
+    {
+      "id": "formas-arrasta",
+      "x": 560,
+      "y": -190,
+      "w": 540,
+      "text": "FORMAS: clique para abrir, arraste para o lado.\nA faixa fixa estava errada para quase todo o elenco — 21 personagens nao tem forma nenhuma, 37 tem uma so, e Goku e Vegeta tem SEIS.\nO seletor 'elenco' troca entre Ichigo (2) e Goku (6), os dois com dados reais do banco, para julgar a tira nos dois extremos."
+    },
+    {
+      "id": "tooltip-hover",
+      "x": 1140,
+      "y": -190,
+      "w": 380,
+      "text": "Passe o mouse em qualquer acao para ver a descricao.\nAchado: as habilidades ASSINATURA do Ichigo nao tem description no banco — so os kido genericos tem. As descricoes aqui sao rascunho meu."
+    },
+    {
+      "id": "celular-rola",
+      "x": 1560,
+      "y": -190,
+      "w": 390,
+      "text": "No celular nao existe hover, entao o resumo vai direto no cartao.\nO conteudo passa dos 844px de propósito: um celular rola. Alvo de toque de 56px nas acoes, 44px no Sair."
+    }
+  ],
+  "launch": {
+    "view": "canvas"
+  }
+}
