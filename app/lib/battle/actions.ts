@@ -11,6 +11,7 @@ import {
   applyTraits,
   applyTransformation,
   comHeroi,
+  computeBaseStats,
   computeFighterStats,
   createInitialState,
   heroi,
@@ -23,6 +24,7 @@ import {
   vilao,
 } from './engine'
 import { deveBloquear, pickAiSkill } from './ai'
+import { tierLiberado } from './raid'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
 import { getCharacterTraits, getEquippedSkills, getPlayerTransformations, getTreeBonus, loadEnemyProfile } from './queries'
@@ -360,7 +362,7 @@ export async function startAiBattle(userCharacterId: string): Promise<never> {
   })
 }
 
-export async function startRaidBattle(userCharacterId: string): Promise<never> {
+export async function startRaidBattle(userCharacterId: string, monsterId: string): Promise<never> {
   const user = await requireUser()
   const userId = user.id
 
@@ -373,13 +375,18 @@ export async function startRaidBattle(userCharacterId: string): Promise<never> {
   })
   if (existing) redirect(`/battle/ai/${existing.id}`)
 
-  // Only the tier-1 Hollow exists for now - no selection screen yet.
-  const monster = await prisma.monster.findFirst({ where: { name: 'Hollow' } })
+  const monster = await prisma.monster.findUnique({ where: { id: monsterId } })
   if (!monster) redirect('/battle/raid?error=not_found')
-  // Paliativo, nao desenho final: a raid vai ser refeita como conteudo de
-  // preparacao, com chefe proprio e loot proprio. Ate la ela acompanha o
-  // nivel do jogador pelo mesmo motivo da IA — senao vira passeio.
-  const enemyBase = computeFighterStats(monster, userCharacter.level, SEM_BONUS)
+
+  // O PORTÃO É REVALIDADO AQUI, e não só na tela. A tela desabilita o botão
+  // do tier trancado, mas quem posta o form direto passaria por cima dela —
+  // server action é fronteira de confiança, o botão desabilitado é conforto.
+  if (!tierLiberado(monster.tier, userCharacter.level)) redirect('/battle/raid?error=tier_locked')
+
+  // STATS FIXOS, SEM ESCALA POR NÍVEL — é o que faz o tier ser uma escada em
+  // vez de decoração. Ver app/lib/battle/raid.ts para a medição que mostrou
+  // que escalar o monstro junto com o jogador congela a dificuldade relativa.
+  const enemyBase = computeBaseStats(monster, SEM_BONUS)
 
   return createBattleAndRedirect({
     userId,

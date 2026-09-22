@@ -89,6 +89,7 @@ const BATTLE_ERROR_MESSAGES: Record<string, string> = {
   already_transformed: 'Você já está transformado nessa batalha.',
   conflict: 'Essa rodada já foi resolvida em outra aba — a tela foi atualizada.',
   insufficient_energy: 'Energia insuficiente para liberar essa forma.',
+  tier_locked: 'Seu personagem ainda não tem nível para encarar esse inimigo.',
 }
 
 export function battleErrorMessage(code: string | undefined): string | null {
