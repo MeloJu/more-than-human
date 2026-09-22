@@ -146,6 +146,7 @@ export default async function BattleArenaPage({
             <FighterCard
               name={userCharacter.nickname}
               imageUrl={userCharacter.character.imageUrl}
+              cor={userCharacter.character.corDestaque}
               levelBadge={userCharacter.level}
               transformationName={formaAtivaDoJogador?.name}
               combatant={heroi(state)}
@@ -172,7 +173,7 @@ export default async function BattleArenaPage({
         />
 
         <CartaAnimada impacto={impacto.ENEMY} rodada={ultimaRodada}>
-          <FighterCard name={enemy.name} imageUrl={enemy.imageUrl} combatant={vilao(state)} />
+          <FighterCard name={enemy.name} imageUrl={enemy.imageUrl} cor={enemy.corDestaque} combatant={vilao(state)} />
         </CartaAnimada>
       </div>
 

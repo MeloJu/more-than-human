@@ -108,6 +108,7 @@ export default async function PvpArenaPage({
           <FighterCard
             name={me.userCharacter.nickname}
             imageUrl={me.userCharacter.character.imageUrl}
+            cor={me.userCharacter.character.corDestaque}
             levelBadge={me.userCharacter.level}
             combatant={me.combatant}
           />
@@ -176,6 +177,7 @@ export default async function PvpArenaPage({
           <FighterCard
             name={foe.userCharacter.nickname}
             imageUrl={foe.userCharacter.character.imageUrl}
+            cor={foe.userCharacter.character.corDestaque}
             levelBadge={foe.userCharacter.level}
             combatant={foe.combatant}
           />

@@ -1,0 +1,15 @@
+-- Cor de destaque por personagem.
+--
+-- Escrita a mao, e nao gerada, pelo mesmo motivo das anteriores: prisma
+-- migrate dev quer recriar o banco, e aqui ja existe jogador.
+--
+-- NULAVEL DE PROPOSITO. Sem valor, a tela cai no laranja de reiatsu que o
+-- tema ja usa (--accent), entao nenhuma linha existente muda de aparencia no
+-- instante da migracao. As cores entram depois pelo catalog:sync, que e
+-- idempotente.
+--
+-- POR QUE EM Character E NAO EM Anime: Ichigo e Hitsugaya sao os dois de
+-- Bleach e tem identidade cromatica oposta — laranja de fogo contra azul de
+-- gelo. Tema por universo pintaria os dois iguais, que e exatamente o que a
+-- tela de batalha nao pode fazer.
+ALTER TABLE "Character" ADD COLUMN "corDestaque" TEXT;

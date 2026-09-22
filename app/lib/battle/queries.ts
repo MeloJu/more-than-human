@@ -249,13 +249,14 @@ export async function loadEnemyProfile(
     storyStageId?: string | null
     playerCharacterId?: string | null
   }
-): Promise<{ name: string; imageUrl: string | null; stats: BaseStats; skills: Record<string, SkillDef>; xpMultiplier: number } | null> {
+): Promise<{ name: string; imageUrl: string | null; corDestaque: string | null; stats: BaseStats; skills: Record<string, SkillDef>; xpMultiplier: number } | null> {
   if (battle.enemyCharacterId) {
     const character = await prisma.character.findUnique({ where: { id: battle.enemyCharacterId } })
     if (!character) return null
     return {
       name: character.name,
       imageUrl: character.imageUrl,
+      corDestaque: character.corDestaque,
       stats: computeBaseStats(character, SEM_BONUS),
       skills: await getEnemySkills(character.id, await enemyLevelFor(battle)),
       xpMultiplier: NORMAL_BATTLE_XP_MULTIPLIER,
@@ -267,6 +268,9 @@ export async function loadEnemyProfile(
     return {
       name: monster.name,
       imageUrl: monster.imageUrl,
+      // Monstro nao tem cor propria: cai no --accent do tema. Tier ja e o
+      // eixo de identidade deles, nao a cor.
+      corDestaque: null,
       stats: computeBaseStats(monster, SEM_BONUS),
       skills: await getMonsterSkills(monster.id),
       xpMultiplier: monster.tier,

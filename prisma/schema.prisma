@@ -161,6 +161,13 @@ model Character {
   name          String
   slug          String?        @unique
   imageUrl      String?
+  /// Cor de destaque da batalha, em hex. Deriva da propria arte do
+  /// personagem (ver scripts/cor-por-personagem.js) em vez de ser escolhida
+  /// a mao: assim a cor acompanha o retrato quando ele muda.
+  ///
+  /// Mora aqui, e nao em Anime, porque Ichigo e Hitsugaya sao os dois de
+  /// Bleach e tem identidade cromatica oposta. Nulo cai no --accent do tema.
+  corDestaque   String?
   description   String?
   anime         Anime          @relation(fields: [animeId], references: [id])
   animeId       String

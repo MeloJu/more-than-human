@@ -742,6 +742,29 @@ async function syncCharacterImages() {
 }
 
 /**
+ * Cor de destaque por personagem. Ver prisma/catalog/cores.js.
+ *
+ * SÓ ESCREVE QUANDO MUDA, como o resto do sync — a coluna é nulável e sem
+ * valor a tela cai no --accent do tema, então um personagem que ainda não
+ * tem cor não quebra nada, só não fica personalizado.
+ */
+async function syncCores() {
+  const { coresPorSlug } = require('./catalog/cores');
+  const personagens = await prisma.character.findMany({ select: { id: true, name: true, slug: true, corDestaque: true } });
+
+  for (const c of personagens) {
+    const cor = coresPorSlug[c.slug];
+    if (!cor) continue;
+    if (c.corDestaque === cor) {
+      relatorio.iguais += 1;
+      continue;
+    }
+    registra('cor', `${c.name} -> ${cor}`, diff(c.corDestaque ? { corDestaque: c.corDestaque } : null, { corDestaque: cor }));
+    if (!DRY_RUN) await prisma.character.update({ where: { id: c.id }, data: { corDestaque: cor } });
+  }
+}
+
+/**
  * Transformações. Ver prisma/catalog/transformations.js para os níveis e o
  * porquê do corte pela metade.
  *
@@ -880,6 +903,7 @@ async function main() {
   await syncKits();
   await syncSummoners();
   await syncCharacterImages();
+  await syncCores();
   await syncTransformations();
   await syncTraits();
   await syncSkillLadders();

@@ -1,0 +1,1132 @@
+{
+  "aaroniero-arruruerie": {
+    "cor": "#f8b659",
+    "paleta": [
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 68
+      },
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 14
+      },
+      {
+        "hex": "#79a0d8",
+        "h": 215,
+        "forca": 8
+      }
+    ]
+  },
+  "as-nodt": {
+    "cor": "#3172ce",
+    "paleta": [
+      {
+        "hex": "#3172ce",
+        "h": 215,
+        "forca": 56
+      },
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 19
+      },
+      {
+        "hex": "#c639ba",
+        "h": 305,
+        "forca": 13
+      }
+    ]
+  },
+  "baraggan-luisenbarn": {
+    "cor": "#22aedd",
+    "paleta": [
+      {
+        "hex": "#22aedd",
+        "h": 195,
+        "forca": 92
+      },
+      {
+        "hex": "#c6ba39",
+        "h": 55,
+        "forca": 7
+      },
+      {
+        "hex": "#c6a339",
+        "h": 45,
+        "forca": 1
+      }
+    ]
+  },
+  "batman": {
+    "cor": "#398bc6",
+    "paleta": [
+      {
+        "hex": "#398bc6",
+        "h": 205,
+        "forca": 27
+      },
+      {
+        "hex": "#39a3c6",
+        "h": 195,
+        "forca": 24
+      },
+      {
+        "hex": "#39bac6",
+        "h": 185,
+        "forca": 14
+      }
+    ]
+  },
+  "bazz-b": {
+    "cor": "#398bc6",
+    "paleta": [
+      {
+        "hex": "#398bc6",
+        "h": 205,
+        "forca": 99
+      },
+      {
+        "hex": "#39a3c6",
+        "h": 195,
+        "forca": 1
+      },
+      {
+        "hex": "#3974c6",
+        "h": 215,
+        "forca": 1
+      }
+    ]
+  },
+  "broly": {
+    "cor": "#f69b5b",
+    "paleta": [
+      {
+        "hex": "#f69b5b",
+        "h": 25,
+        "forca": 23
+      },
+      {
+        "hex": "#f7c83c",
+        "h": 45,
+        "forca": 22
+      },
+      {
+        "hex": "#f50a45",
+        "h": 345,
+        "forca": 20
+      }
+    ]
+  },
+  "byakuya-kuchiki": {
+    "cor": "#c6395c",
+    "paleta": [
+      {
+        "hex": "#c6395c",
+        "h": 345,
+        "forca": 50
+      },
+      {
+        "hex": "#3945c6",
+        "h": 235,
+        "forca": 22
+      },
+      {
+        "hex": "#8179d8",
+        "h": 245,
+        "forca": 20
+      }
+    ]
+  },
+  "chad": {
+    "cor": "#f5b55c",
+    "paleta": [
+      {
+        "hex": "#f5b55c",
+        "h": 35,
+        "forca": 50
+      },
+      {
+        "hex": "#d22d56",
+        "h": 345,
+        "forca": 21
+      },
+      {
+        "hex": "#eecb63",
+        "h": 45,
+        "forca": 10
+      }
+    ]
+  },
+  "daredevil": {
+    "cor": "#f89b59",
+    "paleta": [
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 65
+      },
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 13
+      },
+      {
+        "hex": "#d5382a",
+        "h": 5,
+        "forca": 8
+      }
+    ]
+  },
+  "deadpool": {
+    "cor": "#f8eb59",
+    "paleta": [
+      {
+        "hex": "#f8eb59",
+        "h": 55,
+        "forca": 32
+      },
+      {
+        "hex": "#f8d059",
+        "h": 45,
+        "forca": 22
+      },
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 14
+      }
+    ]
+  },
+  "emma-frost": {
+    "cor": "#f8d059",
+    "paleta": [
+      {
+        "hex": "#f8d059",
+        "h": 45,
+        "forca": 20
+      },
+      {
+        "hex": "#7981d8",
+        "h": 235,
+        "forca": 20
+      },
+      {
+        "hex": "#7990d8",
+        "h": 225,
+        "forca": 15
+      }
+    ]
+  },
+  "gin-ichimaru": {
+    "cor": "#79a0d8",
+    "paleta": [
+      {
+        "hex": "#79a0d8",
+        "h": 215,
+        "forca": 79
+      },
+      {
+        "hex": "#79b0d8",
+        "h": 205,
+        "forca": 11
+      },
+      {
+        "hex": "#e3c66d",
+        "h": 45,
+        "forca": 4
+      }
+    ]
+  },
+  "goku": {
+    "cor": "#f87e56",
+    "paleta": [
+      {
+        "hex": "#f87e56",
+        "h": 15,
+        "forca": 43
+      },
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 24
+      },
+      {
+        "hex": "#f51e0a",
+        "h": 5,
+        "forca": 21
+      }
+    ]
+  },
+  "grimmjow-jaegerjaquez": {
+    "cor": "#2d3ad2",
+    "paleta": [
+      {
+        "hex": "#2d3ad2",
+        "h": 235,
+        "forca": 40
+      },
+      {
+        "hex": "#6cc6e4",
+        "h": 195,
+        "forca": 33
+      },
+      {
+        "hex": "#1f4fe0",
+        "h": 225,
+        "forca": 13
+      }
+    ]
+  },
+  "hanami": {
+    "cor": "#da3425",
+    "paleta": [
+      {
+        "hex": "#da3425",
+        "h": 5,
+        "forca": 52
+      },
+      {
+        "hex": "#ed1224",
+        "h": 355,
+        "forca": 47
+      },
+      {
+        "hex": "#f09c60",
+        "h": 25,
+        "forca": 1
+      }
+    ]
+  },
+  "ichigo-kurosaki": {
+    "cor": "#f8b659",
+    "paleta": [
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 74
+      },
+      {
+        "hex": "#ce313e",
+        "h": 355,
+        "forca": 8
+      },
+      {
+        "hex": "#79c0d8",
+        "h": 195,
+        "forca": 8
+      }
+    ]
+  },
+  "izuru-kira": {
+    "cor": "#efb461",
+    "paleta": [
+      {
+        "hex": "#efb461",
+        "h": 35,
+        "forca": 42
+      },
+      {
+        "hex": "#eee362",
+        "h": 55,
+        "forca": 39
+      },
+      {
+        "hex": "#d8c079",
+        "h": 45,
+        "forca": 10
+      }
+    ]
+  },
+  "jean-grey": {
+    "cor": "#f8d059",
+    "paleta": [
+      {
+        "hex": "#f8d059",
+        "h": 45,
+        "forca": 23
+      },
+      {
+        "hex": "#f8eb59",
+        "h": 55,
+        "forca": 15
+      },
+      {
+        "hex": "#8b39c6",
+        "h": 275,
+        "forca": 15
+      }
+    ]
+  },
+  "jogo": {
+    "cor": "#c7d15f",
+    "paleta": [
+      {
+        "hex": "#c7d15f",
+        "h": 65,
+        "forca": 82
+      },
+      {
+        "hex": "#cac04a",
+        "h": 55,
+        "forca": 13
+      },
+      {
+        "hex": "#d8c079",
+        "h": 45,
+        "forca": 5
+      }
+    ]
+  },
+  "kaname-tosen": {
+    "cor": "#f31f0c",
+    "paleta": [
+      {
+        "hex": "#f31f0c",
+        "h": 5,
+        "forca": 31
+      },
+      {
+        "hex": "#f4450b",
+        "h": 15,
+        "forca": 15
+      },
+      {
+        "hex": "#3a2cd3",
+        "h": 245,
+        "forca": 15
+      }
+    ]
+  },
+  "kenpachi-zaraki": {
+    "cor": "#f50a93",
+    "paleta": [
+      {
+        "hex": "#f50a93",
+        "h": 325,
+        "forca": 58
+      },
+      {
+        "hex": "#f51e0a",
+        "h": 5,
+        "forca": 23
+      },
+      {
+        "hex": "#f50a1e",
+        "h": 355,
+        "forca": 12
+      }
+    ]
+  },
+  "kisuke-urahara": {
+    "cor": "#f87d54",
+    "paleta": [
+      {
+        "hex": "#f87d54",
+        "h": 15,
+        "forca": 34
+      },
+      {
+        "hex": "#e52b1a",
+        "h": 5,
+        "forca": 24
+      },
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 17
+      }
+    ]
+  },
+  "mayuri-kurotsuchi": {
+    "cor": "#395cc6",
+    "paleta": [
+      {
+        "hex": "#395cc6",
+        "h": 225,
+        "forca": 43
+      },
+      {
+        "hex": "#9f71e0",
+        "h": 265,
+        "forca": 29
+      },
+      {
+        "hex": "#f1cd60",
+        "h": 45,
+        "forca": 12
+      }
+    ]
+  },
+  "megumi-fushiguro": {
+    "cor": "#5cc639",
+    "paleta": [
+      {
+        "hex": "#5cc639",
+        "h": 105,
+        "forca": 23
+      },
+      {
+        "hex": "#75c63b",
+        "h": 95,
+        "forca": 21
+      },
+      {
+        "hex": "#398bc6",
+        "h": 205,
+        "forca": 17
+      }
+    ]
+  },
+  "momo-hinamori": {
+    "cor": "#278ed8",
+    "paleta": [
+      {
+        "hex": "#278ed8",
+        "h": 205,
+        "forca": 42
+      },
+      {
+        "hex": "#3974c6",
+        "h": 215,
+        "forca": 33
+      },
+      {
+        "hex": "#d64b56",
+        "h": 355,
+        "forca": 13
+      }
+    ]
+  },
+  "naruto-uzumaki": {
+    "cor": "#f89b59",
+    "paleta": [
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 74
+      },
+      {
+        "hex": "#f1210e",
+        "h": 5,
+        "forca": 8
+      },
+      {
+        "hex": "#e0d342",
+        "h": 55,
+        "forca": 7
+      }
+    ]
+  },
+  "nnoitra-gilga": {
+    "cor": "#59b6f8",
+    "paleta": [
+      {
+        "hex": "#59b6f8",
+        "h": 205,
+        "forca": 99
+      },
+      {
+        "hex": "#f89650",
+        "h": 25,
+        "forca": 0
+      },
+      {
+        "hex": "#f34c14",
+        "h": 15,
+        "forca": 0
+      }
+    ]
+  },
+  "nobara-kugisaki": {
+    "cor": "#c64539",
+    "paleta": [
+      {
+        "hex": "#c64539",
+        "h": 5,
+        "forca": 22
+      },
+      {
+        "hex": "#c6398b",
+        "h": 325,
+        "forca": 18
+      },
+      {
+        "hex": "#f59551",
+        "h": 25,
+        "forca": 17
+      }
+    ]
+  },
+  "orihime-inoue": {
+    "cor": "#f8b659",
+    "paleta": [
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 83
+      },
+      {
+        "hex": "#f58d43",
+        "h": 25,
+        "forca": 9
+      },
+      {
+        "hex": "#f88059",
+        "h": 15,
+        "forca": 5
+      }
+    ]
+  },
+  "patolino": {
+    "cor": "#f5bb0f",
+    "paleta": [
+      {
+        "hex": "#f5bb0f",
+        "h": 45,
+        "forca": 100
+      },
+      {
+        "hex": "#f5930a",
+        "h": 35,
+        "forca": 0
+      }
+    ]
+  },
+  "rangiku-matsumoto": {
+    "cor": "#e3786e",
+    "paleta": [
+      {
+        "hex": "#e3786e",
+        "h": 5,
+        "forca": 66
+      },
+      {
+        "hex": "#ef9d62",
+        "h": 25,
+        "forca": 34
+      }
+    ]
+  },
+  "red": {
+    "cor": "#cf5b64",
+    "paleta": [
+      {
+        "hex": "#cf5b64",
+        "h": 355,
+        "forca": 51
+      },
+      {
+        "hex": "#f09c60",
+        "h": 25,
+        "forca": 45
+      },
+      {
+        "hex": "#c64539",
+        "h": 5,
+        "forca": 4
+      }
+    ]
+  },
+  "renji-abarai": {
+    "cor": "#e51a2b",
+    "paleta": [
+      {
+        "hex": "#e51a2b",
+        "h": 355,
+        "forca": 58
+      },
+      {
+        "hex": "#e92816",
+        "h": 5,
+        "forca": 37
+      },
+      {
+        "hex": "#3a2cd3",
+        "h": 245,
+        "forca": 2
+      }
+    ]
+  },
+  "retsu-unohana": {
+    "cor": "#5c39c6",
+    "paleta": [
+      {
+        "hex": "#5c39c6",
+        "h": 255,
+        "forca": 55
+      },
+      {
+        "hex": "#4539c6",
+        "h": 245,
+        "forca": 23
+      },
+      {
+        "hex": "#f88059",
+        "h": 15,
+        "forca": 18
+      }
+    ]
+  },
+  "rukia-kuchiki": {
+    "cor": "#69b3e7",
+    "paleta": [
+      {
+        "hex": "#69b3e7",
+        "h": 205,
+        "forca": 52
+      },
+      {
+        "hex": "#427ccc",
+        "h": 215,
+        "forca": 22
+      },
+      {
+        "hex": "#59d0f8",
+        "h": 195,
+        "forca": 17
+      }
+    ]
+  },
+  "ryomen-sukuna": {
+    "cor": "#c6483c",
+    "paleta": [
+      {
+        "hex": "#c6483c",
+        "h": 5,
+        "forca": 51
+      },
+      {
+        "hex": "#f78159",
+        "h": 15,
+        "forca": 31
+      },
+      {
+        "hex": "#c63945",
+        "h": 355,
+        "forca": 9
+      }
+    ]
+  },
+  "ryuken-ishida": {
+    "cor": "#f89b59",
+    "paleta": [
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 51
+      },
+      {
+        "hex": "#79a0d8",
+        "h": 215,
+        "forca": 14
+      },
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 14
+      }
+    ]
+  },
+  "sajin-komamura": {
+    "cor": "#dc23cd",
+    "paleta": [
+      {
+        "hex": "#dc23cd",
+        "h": 305,
+        "forca": 29
+      },
+      {
+        "hex": "#d1b560",
+        "h": 45,
+        "forca": 28
+      },
+      {
+        "hex": "#de7b73",
+        "h": 5,
+        "forca": 26
+      }
+    ]
+  },
+  "sasuke-uchiha": {
+    "cor": "#d88179",
+    "paleta": [
+      {
+        "hex": "#d88179",
+        "h": 5,
+        "forca": 88
+      },
+      {
+        "hex": "#dc757d",
+        "h": 355,
+        "forca": 8
+      },
+      {
+        "hex": "#c93673",
+        "h": 335,
+        "forca": 2
+      }
+    ]
+  },
+  "satoru-gojo": {
+    "cor": "#f8b659",
+    "paleta": [
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 52
+      },
+      {
+        "hex": "#519ed5",
+        "h": 205,
+        "forca": 15
+      },
+      {
+        "hex": "#10b7ef",
+        "h": 195,
+        "forca": 12
+      }
+    ]
+  },
+  "shunsui-kyoraku": {
+    "cor": "#b36ae6",
+    "paleta": [
+      {
+        "hex": "#b36ae6",
+        "h": 275,
+        "forca": 50
+      },
+      {
+        "hex": "#e26f8b",
+        "h": 345,
+        "forca": 8
+      },
+      {
+        "hex": "#d66493",
+        "h": 335,
+        "forca": 7
+      }
+    ]
+  },
+  "sosuke-aizen": {
+    "cor": "#4a85d7",
+    "paleta": [
+      {
+        "hex": "#4a85d7",
+        "h": 215,
+        "forca": 87
+      },
+      {
+        "hex": "#5573ce",
+        "h": 225,
+        "forca": 12
+      },
+      {
+        "hex": "#d88179",
+        "h": 5,
+        "forca": 1
+      }
+    ]
+  },
+  "suguru-geto": {
+    "cor": "#c7a338",
+    "paleta": [
+      {
+        "hex": "#c7a338",
+        "h": 45,
+        "forca": 31
+      },
+      {
+        "hex": "#ee9d62",
+        "h": 25,
+        "forca": 15
+      },
+      {
+        "hex": "#c6ba39",
+        "h": 55,
+        "forca": 14
+      }
+    ]
+  },
+  "sung-jin-woo": {
+    "cor": "#59b6f8",
+    "paleta": [
+      {
+        "hex": "#59b6f8",
+        "h": 205,
+        "forca": 45
+      },
+      {
+        "hex": "#59d0f8",
+        "h": 195,
+        "forca": 34
+      },
+      {
+        "hex": "#3573ca",
+        "h": 215,
+        "forca": 18
+      }
+    ]
+  },
+  "superman": {
+    "cor": "#c74438",
+    "paleta": [
+      {
+        "hex": "#c74438",
+        "h": 5,
+        "forca": 94
+      },
+      {
+        "hex": "#dcc275",
+        "h": 45,
+        "forca": 5
+      },
+      {
+        "hex": "#c63945",
+        "h": 355,
+        "forca": 1
+      }
+    ]
+  },
+  "sui-feng": {
+    "cor": "#f84c5a",
+    "paleta": [
+      {
+        "hex": "#f84c5a",
+        "h": 355,
+        "forca": 41
+      },
+      {
+        "hex": "#2f72d0",
+        "h": 215,
+        "forca": 33
+      },
+      {
+        "hex": "#ed1249",
+        "h": 345,
+        "forca": 15
+      }
+    ]
+  },
+  "szayelaporro-granz": {
+    "cor": "#f8599b",
+    "paleta": [
+      {
+        "hex": "#f8599b",
+        "h": 335,
+        "forca": 40
+      },
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 23
+      },
+      {
+        "hex": "#5c39c6",
+        "h": 255,
+        "forca": 8
+      }
+    ]
+  },
+  "tia-harribel": {
+    "cor": "#f8d059",
+    "paleta": [
+      {
+        "hex": "#f8d059",
+        "h": 45,
+        "forca": 59
+      },
+      {
+        "hex": "#f5940d",
+        "h": 35,
+        "forca": 23
+      },
+      {
+        "hex": "#f56c0a",
+        "h": 25,
+        "forca": 17
+      }
+    ]
+  },
+  "toshiro-hitsugaya": {
+    "cor": "#f8b659",
+    "paleta": [
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 44
+      },
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 17
+      },
+      {
+        "hex": "#f8d059",
+        "h": 45,
+        "forca": 7
+      }
+    ]
+  },
+  "uryu-ishida": {
+    "cor": "#59ebf8",
+    "paleta": [
+      {
+        "hex": "#59ebf8",
+        "h": 185,
+        "forca": 69
+      },
+      {
+        "hex": "#4aaacb",
+        "h": 195,
+        "forca": 11
+      },
+      {
+        "hex": "#4539c6",
+        "h": 245,
+        "forca": 5
+      }
+    ]
+  },
+  "vegeta": {
+    "cor": "#1e4fe1",
+    "paleta": [
+      {
+        "hex": "#1e4fe1",
+        "h": 225,
+        "forca": 56
+      },
+      {
+        "hex": "#f8d059",
+        "h": 45,
+        "forca": 15
+      },
+      {
+        "hex": "#2837d7",
+        "h": 235,
+        "forca": 15
+      }
+    ]
+  },
+  "wonder-woman": {
+    "cor": "#1691e9",
+    "paleta": [
+      {
+        "hex": "#1691e9",
+        "h": 205,
+        "forca": 24
+      },
+      {
+        "hex": "#f69b5b",
+        "h": 25,
+        "forca": 19
+      },
+      {
+        "hex": "#d4392b",
+        "h": 5,
+        "forca": 18
+      }
+    ]
+  },
+  "yamamoto-genryusai": {
+    "cor": "#f8b659",
+    "paleta": [
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 42
+      },
+      {
+        "hex": "#f89b59",
+        "h": 25,
+        "forca": 34
+      },
+      {
+        "hex": "#f88059",
+        "h": 15,
+        "forca": 18
+      }
+    ]
+  },
+  "yammy-llargo": {
+    "cor": "#f0e461",
+    "paleta": [
+      {
+        "hex": "#f0e461",
+        "h": 55,
+        "forca": 80
+      },
+      {
+        "hex": "#e3ef62",
+        "h": 65,
+        "forca": 5
+      },
+      {
+        "hex": "#ef9d62",
+        "h": 25,
+        "forca": 5
+      }
+    ]
+  },
+  "yoruichi-shihoin": {
+    "cor": "#f78636",
+    "paleta": [
+      {
+        "hex": "#f78636",
+        "h": 25,
+        "forca": 35
+      },
+      {
+        "hex": "#f5450a",
+        "h": 15,
+        "forca": 34
+      },
+      {
+        "hex": "#f51e0a",
+        "h": 5,
+        "forca": 9
+      }
+    ]
+  },
+  "yuji-itadori": {
+    "cor": "#f50a45",
+    "paleta": [
+      {
+        "hex": "#f50a45",
+        "h": 345,
+        "forca": 43
+      },
+      {
+        "hex": "#c95146",
+        "h": 5,
+        "forca": 27
+      },
+      {
+        "hex": "#f8b659",
+        "h": 35,
+        "forca": 23
+      }
+    ]
+  },
+  "zommari-rureaux": {
+    "cor": "#2f8dd0",
+    "paleta": [
+      {
+        "hex": "#2f8dd0",
+        "h": 205,
+        "forca": 61
+      },
+      {
+        "hex": "#39a5c8",
+        "h": 195,
+        "forca": 23
+      },
+      {
+        "hex": "#79d0d8",
+        "h": 185,
+        "forca": 5
+      }
+    ]
+  }
+}
