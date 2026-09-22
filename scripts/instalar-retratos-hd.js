@@ -21,8 +21,39 @@ const fs = require('fs');
 const path = require('path');
 
 const UA = 'animebattler-educational/1.0 (projeto de estudo; creditos em /creditos)';
-const escolhasDir = path.join(__dirname, 'escolhas-retratos', 'escolhas');
+/**
+ * Uma pasta por folha de contato. A revisao foi em duas paginas (443
+ * miniaturas nao cabiam numa so), entao as escolhas vivem em dois bancos —
+ * e as pastas mais recentes vem DEPOIS, para uma escolha nova sobrescrever
+ * uma antiga sobre o mesmo personagem.
+ */
+const PASTAS = ['escolhas-retratos', 'escolhas-retratos-2', 'escolhas-retratos-3']
+  .map((d) => path.join(__dirname, d, 'escolhas'))
+  .filter((d) => fs.existsSync(d));
 const charsDir = path.join(__dirname, '..', 'public', 'images', 'characters');
+
+/**
+ * Registro do que ja foi instalado, por slug -> nome do arquivo de origem.
+ *
+ * IDEMPOTENCIA IMPORTA AQUI pelo mesmo motivo do instalador de icones: o CDN
+ * da Fandom responde 403 quando leva muitas requisicoes seguidas, entao uma
+ * execucao unica sempre perde alguns. Sem registro, reexecutar rebaixaria os
+ * 36 que deram certo e provocaria MAIS 403 — na pratica trocando uma falha
+ * por outra. Com registro, a segunda passagem so tenta o que faltou.
+ */
+const REGISTRO = path.join(__dirname, 'retratos-instalados.json');
+
+/**
+ * Pausa sincrona entre downloads.
+ *
+ * O CDN da Fandom responde 403 a rajada. Sem espaco entre as requisicoes,
+ * cada passagem perdia de 7 a 11 arquivos e REEXECUTAR PIORAVA — mais
+ * pressao, mais 403. Um segundo e meio custa uns minutos no total e e a
+ * diferenca entre convergir e ficar batendo na parede.
+ */
+function pausa(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
 
 function formatoReal(b) {
   if (b[0] === 0x89 && b.toString('ascii', 1, 4) === 'PNG') return 'png';
@@ -33,19 +64,26 @@ function formatoReal(b) {
 }
 
 function main() {
-  const arquivos = fs.readdirSync(escolhasDir).filter((f) => f.endsWith('.json'));
+  // Por SLUG, nao por arquivo: o mesmo personagem aparece em mais de uma
+  // folha, e a ultima palavra e a que vale.
+  const porSlug = new Map();
+  for (const dir of PASTAS) {
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+      const doc = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      porSlug.set(f.replace(/\.json$/, ''), doc.data ?? doc);
+    }
+  }
+
   const escolhidos = [];
   const mantidos = [];
-
-  for (const f of arquivos) {
-    const doc = JSON.parse(fs.readFileSync(path.join(escolhasDir, f), 'utf8'));
-    const d = doc.data ?? doc;
+  for (const d of porSlug.values()) {
     if (!d.url || d.arquivo === '__nenhuma__') { mantidos.push(d.nome); continue; }
     escolhidos.push(d);
   }
 
   console.error(`${escolhidos.length} para instalar, ${mantidos.length} mantidos como estão\n`);
 
+  const jaFeito = fs.existsSync(REGISTRO) ? JSON.parse(fs.readFileSync(REGISTRO, 'utf8')) : {};
   let ok = 0;
   const falhas = [];
   let i = 0;
@@ -78,6 +116,8 @@ function main() {
       if (/_default\./.test(antigo)) fs.unlinkSync(path.join(pasta, antigo));
     }
     fs.writeFileSync(path.join(pasta, `${e.slug}_default.${fmt}`), buf);
+    jaFeito[e.slug] = e.arquivo;
+    fs.writeFileSync(REGISTRO, JSON.stringify(jaFeito, null, 2));
     ok++;
   }
 

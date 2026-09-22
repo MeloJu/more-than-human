@@ -32,10 +32,10 @@ const UA = 'animebattler-educational/1.0 (projeto de estudo; creditos em /credit
 const LARGURA_MINIATURA = 220;
 
 /** Abaixo disto o retrato atual é considerado fraco e entra na revisão. */
-const LARGURA_FRACA = 600;
+const LARGURA_FRACA = 99999;
 
 /** Candidatos oferecidos por personagem. Mais que isto vira cansaço, não escolha. */
-const MAX_CANDIDATOS = 4;
+const MAX_CANDIDATOS = 8;
 
 function curlJson(url) {
   try {
@@ -106,6 +106,73 @@ function urlEscalada(urlOriginal, largura) {
  * as imagens da pagina de redirect, que sao nenhuma, e o personagem sai como
  * "sem candidato" quando na verdade tem galeria inteira.
  */
+/**
+ * Qualificadores que trazem ARTE em vez de cena.
+ *
+ * Buscar so o nome do personagem no namespace de arquivo devolve as cenas em
+ * que ele aparece. Buscar "<nome> render" ou "<nome> fullbody" devolve o
+ * material de ficha. Medido em 4 personagens: Aizen passou a achar
+ * "Aizen Anime Fullbody" (1050x1500) e "RoS Aizen" (1347x1847), Gojo achou
+ * "Satoru Gojo (Volume 4)" (1400x1924) — nenhum deles aparecia varrendo so
+ * a galeria.
+ */
+const QUALIFICADORES = ['render', 'fullbody', 'profile', 'artwork', 'wallpaper', 'visual'];
+
+function porQualificador(wiki, nome) {
+  const achados = [];
+  for (const q of QUALIFICADORES) {
+    const r = curlJson(
+      `https://${wiki}.fandom.com/api.php?action=query&list=search` +
+        `&srsearch=${encodeURIComponent(nome + ' ' + q)}&srnamespace=6&srlimit=5&format=json`
+    );
+    for (const x of r?.query?.search ?? []) {
+      if (/\.(png|jpe?g)$/i.test(x.title)) achados.push(x.title);
+    }
+  }
+  return achados;
+}
+
+/**
+ * DeviantArt, pelo RSS publico — sem login, sem chave, sem navegador.
+ *
+ * POR QUE ELE E OUTRA CATEGORIA, e nao so "mais uma fonte": o que vem daqui
+ * e FAN ART. Tem um autor individual, com nome, que detem o direito da obra
+ * dele — diferente de screenshot de anime, que e da produtora e entra no
+ * credito por franquia que app/lib/creditos.ts ja faz.
+ *
+ * Por isso cada candidato guarda `autor` e `pagina`: se alguma dessas artes
+ * for para o jogo, o credito tem de ser por ARTISTA, nao por obra, e isso e
+ * mudanca no modelo de credito — decisao do dono do projeto, nao minha.
+ *
+ * (Pinterest nao entra: devolve so parede de login, testado. E mesmo com
+ * conta, precisaria de navegador dirigido com credencial de terceiro.)
+ */
+function porDeviantArt(nome) {
+  const achados = [];
+  for (const q of ['render', 'fanart']) {
+    let xml = '';
+    try {
+      xml = execFileSync('curl', ['-s', '--max-time', '30', '-A', UA,
+        `https://backend.deviantart.com/rss.xml?q=${encodeURIComponent(nome + ' ' + q)}&type=deviation`,
+      ], { maxBuffer: 20e6 }).toString();
+    } catch { continue; }
+
+    for (const item of xml.split('<item>').slice(1, 12)) {
+      const titulo = (item.match(/<title>([^<]*)<\/title>/) || [])[1] || '';
+      const mc = item.match(/<media:content\s+url="([^"]+)"[^>]*?width="(\d+)"[^>]*?height="(\d+)"/);
+      if (!mc) continue;
+      const [, url, w, h] = mc;
+      const autor = (item.match(/<media:credit role="author"[^>]*>([^<h][^<]*)<\/media:credit>/) || [])[1] || '';
+      const pagina = (item.match(/<link>([^<]*)<\/link>/) || [])[1] || '';
+      achados.push({
+        titulo: titulo, w: Number(w), h: Number(h), url: url,
+        fonte: 'deviantart', autor: autor, pagina: pagina,
+      });
+    }
+  }
+  return achados;
+}
+
 function imagensDaPagina(wiki, titulo) {
   const r = curlJson(
     `https://${wiki}.fandom.com/api.php?action=query&titles=${encodeURIComponent(titulo)}` +
@@ -137,6 +204,51 @@ function tituloReal(wiki, titulo) {
       `&srsearch=${encodeURIComponent(titulo)}&srnamespace=0&srlimit=1&format=json`
   );
   return b?.query?.search?.[0]?.title ?? titulo;
+}
+
+/**
+ * O ARQUIVO PRECISA CARREGAR O NOME DO PERSONAGEM. Sem isto, nada presta.
+ *
+ * A busca por qualificador ("<nome> render") casa com qualquer arquivo cuja
+ * PAGINA mencione aquelas palavras, nao com arquivos nomeados a partir do
+ * personagem. Medido: a busca por Baraggan devolveu "Yukio Anime
+ * Fullbody.png" e a de As Nodt devolveu "Sui-Feng Hell Artwork.png" — arte
+ * boa, personagem errado. E exatamente o erro que ja tinha derrubado a busca
+ * de icone por artigo.
+ *
+ * A regra: algum token do nome com 4+ letras precisa aparecer no nome do
+ * arquivo. Quatro e o piso porque "As" (de As Nodt) casaria com meio
+ * catalogo. O preco e perder um candidato bom aqui e ali — "As Anime
+ * Fullbody.png" e do As Nodt e sera rejeitado — e vale pagar: candidato
+ * perdido a galeria ainda cobre, candidato ERRADO vai pro jogo sem ninguem
+ * notar.
+ */
+/** Sem acento, minusculo, so letras/numeros e espaco. */
+function normalizar(s) {
+  return String(s)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/** Igual, porem sem espaco nenhum: para o teste de "contem". */
+function colado(s) {
+  return normalizar(s).replace(/ /g, '');
+}
+
+function pareceSerDele(nomeArquivo, nomePersonagem) {
+  const arq = colado(nomeArquivo);
+  const tokens = normalizar(nomePersonagem)
+    .split(' ')
+    .filter((t) => t.length >= 4);
+  if (tokens.length === 0) {
+    // Nome inteiro curto (raro): exige o nome colado.
+    return arq.includes(colado(nomePersonagem));
+  }
+  return tokens.some((t) => arq.includes(t));
 }
 
 /** Consulta tamanho e url em lote — 40 títulos por chamada é o limite prático. */
@@ -171,20 +283,50 @@ function detalhes(wiki, titulos) {
  * NAO e — capa de capitulo costuma ter varios personagens, e foi o que fez
  * Baraggan e Zommari caírem no mesmo arquivo na primeira sondagem.
  */
-const NOMES_DE_RETRATO = /fullbody|full body|profile|kubo|render|artwork|concept/i;
-const NOMES_DE_GRUPO = /cover|volume|arrive|gather|group|vs\.|versus/i;
+/**
+ * O QUE SEPARA ARTE DE PERSONAGEM DE CENA DE MANGA.
+ *
+ * A primeira versao varria so a galeria da pagina, e galeria de wiki de manga
+ * e quase toda CENA: "117Ichigo catches.png", "261Nnoitra confronts.png" —
+ * numero de capitulo seguido de um verbo. Sao imagens legitimas e em boa
+ * resolucao, mas mostram acao, nao o personagem.
+ *
+ * Os nomes abaixo saem de amostragem real nas wikis:
+ *
+ *   ANIME FULLBODY   arte oficial de corpo inteiro, o alvo ideal
+ *   RoS / BBS        renders dos jogos (Rebirth of Souls, Brave Souls):
+ *                    personagem limpo, sem fundo de cena
+ *   CURSED CLASH     mesmo caso, do lado de Jujutsu Kaisen
+ *   KUBO             ilustracao do proprio autor
+ *   CHARAPIC         "character picture" — retrato de ficha do anime
+ *   INFOBOX          o retrato que a propria wiki elegeu como canonico
+ *   VOLUME N         capa de volume em JJK costuma ser o personagem sozinho
+ *
+ * E o que costuma ser cena ou gente demais: verbo de acao, "vs", "Cover",
+ * "Battle". Cover leva penalidade forte porque foi ele que fez Baraggan e
+ * Zommari cairem no mesmo arquivo na primeira sondagem.
+ */
+const MUITO_BOM = /anime fullbody|RoS |BBS |cursed clash|KUBO|charapic|infobox|character art|key visual|render/i;
+const BOM = /profile|artwork|concept|fullbody|volume \d|full|portrait|visual/i;
+const CENA = /vs\.?|cover|volume \d+ cover|battle|arrives?|appears?|confronts?|catches|meets?|learns?|attacks?|defeats?|gather|destroyed|wields|removes|fires|uses/i;
 
-function ranquear(cands) {
+function ranquear(cands, nomeAlvo) {
   return cands
     .filter((c) => c.w >= 500 && c.h > c.w * 1.05)
     .map((c) => {
       const nome = c.titulo.replace(/^File:/, '');
       const prop = c.h / c.w;
       let nota = 0;
-      if (NOMES_DE_RETRATO.test(nome)) nota += 100;
-      if (NOMES_DE_GRUPO.test(nome)) nota -= 40;
-      if (prop >= 1.2 && prop <= 1.9) nota += 20;
-      nota += Math.min(20, c.w / 100);
+      if (MUITO_BOM.test(nome)) nota += 160;
+      else if (BOM.test(nome)) nota += 90;
+      if (CENA.test(nome)) nota -= 70;
+      // O nome do arquivo carregar o nome do personagem vale mais que
+      // qualquer outro sinal: e o que separa "Aizen Anime Fullbody" de
+      // "Yukio Anime Fullbody" numa busca por Aizen.
+      if (nomeAlvo && !pareceSerDele(nome, nomeAlvo)) nota -= 200;
+      // Proporcao de retrato de corpo: entre 1.2 e 1.9 e o que o card usa.
+      if (prop >= 1.2 && prop <= 1.9) nota += 30;
+      nota += Math.min(25, c.w / 80);
       return Object.assign({}, c, { nota });
     })
     .sort((a, b) => b.nota - a.nota);
@@ -219,18 +361,31 @@ function main() {
     // A galeria primeiro: é onde mora a arte grande. A página do personagem
     // entra junto porque nem toda wiki tem galeria separada.
     const titulo = tituloReal(alvo.wiki, alvo.titulo);
+    // Qualificador PRIMEIRO: e de onde vem a arte de ficha. A galeria entra
+    // depois, como rede — ela tem volume, mas e majoritariamente cena.
     const titulos = [
+      ...porQualificador(alvo.wiki, alvo.nome),
       ...imagensDaPagina(alvo.wiki, titulo + '/Image Gallery'),
       ...imagensDaPagina(alvo.wiki, titulo),
     ];
+    // ORDENA, NAO DESCARTA. O nome do arquivo carregar o nome do personagem e
+    // sinal forte, nao prova: "As Anime Fullbody.png" E do As Nodt e nao
+    // contem "nodt". Descartar por isso tirou As Nodt e Baraggan da folha
+    // inteira. Como a escolha final e humana, o que serve e trazer o provavel
+    // PRIMEIRO e deixar o resto disponivel embaixo.
     const unicos = Array.from(new Set(titulos));
     if (unicos.length === 0) { folha.push({ ...alvo, candidatos: [] }); continue; }
 
-    const ranqueados = ranquear(detalhes(alvo.wiki, unicos)).slice(0, MAX_CANDIDATOS);
+    // Wiki e DeviantArt entram na MESMA lista e disputam pelo mesmo criterio.
+    // O da wiki tende a ganhar por ser arte oficial; o do DeviantArt cobre
+    // justamente quem a wiki so tem em cena.
+    const daWiki = detalhes(alvo.wiki, unicos).map((c) => Object.assign({}, c, { fonte: 'wiki' }));
+    const daDA = porDeviantArt(alvo.nome);
+    const ranqueados = ranquear(daWiki.concat(daDA), alvo.nome).slice(0, MAX_CANDIDATOS);
 
     const candidatos = [];
     for (const c of ranqueados) {
-      const b = curlBuffer(urlEscalada(c.url, LARGURA_MINIATURA));
+      const b = curlBuffer(c.fonte === 'deviantart' ? c.url : urlEscalada(c.url, LARGURA_MINIATURA));
       if (!b) continue;
       const m = mime(b);
       if (!m) continue;
@@ -240,7 +395,10 @@ function main() {
         h: c.h,
         // A miniatura vai embutida: a folha precisa abrir sem depender da CDN.
         thumb: `data:${m};base64,` + b.toString('base64'),
-        urlCheia: urlEscalada(c.url, 1280),
+        fonte: c.fonte ?? 'wiki',
+        autor: c.autor ?? null,
+        pagina: c.pagina ?? null,
+        urlCheia: c.fonte === 'deviantart' ? c.url : urlEscalada(c.url, 1280),
       });
     }
     folha.push({ slug: alvo.slug, nome: alvo.nome, wiki: alvo.wiki, atual: alvo.atual, candidatos });

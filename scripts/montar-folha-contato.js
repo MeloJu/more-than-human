@@ -40,7 +40,14 @@ function escapar(s) {
 }
 
 function main() {
-  const folha = require('./retratos-candidatos.json');
+  const todos = require('./retratos-candidatos.json');
+  // DUAS FOLHAS, e nao uma. 443 miniaturas dao 11 MB so de base64, perto do
+  // teto de 16 MB da pagina publicada — e 62 personagens numa tela so e
+  // revisao cansativa. `node montar-folha-contato.js 1` monta a primeira
+  // metade, `2` a segunda.
+  const parte = Number(process.argv[2] || 1);
+  const metade = Math.ceil(todos.length / 2);
+  const folha = parte === 2 ? todos.slice(metade) : todos.slice(0, metade);
   const comCandidato = folha.filter((f) => f.candidatos.length > 0);
 
   const dados = comCandidato.map((f) => ({
@@ -54,6 +61,8 @@ function main() {
       h: c.h,
       thumb: c.thumb,
       urlCheia: c.urlCheia,
+      fonte: c.fonte || 'wiki',
+      autor: c.autor || null,
     })),
   }));
 
@@ -215,7 +224,9 @@ function montar() {
       d.textContent = c.w + '×' + c.h;
       const a = document.createElement('div');
       a.className = 'arq';
-      a.textContent = c.arquivo;
+      // Fan art mostra o AUTOR: se for escolhida, o credito tem de ser por
+      // artista, nao pela franquia.
+      a.textContent = c.autor ? ('@' + c.autor) : c.arquivo;
       a.title = c.arquivo;
       b.append(im, d, a);
       b.addEventListener('click', () => marcar(c.arquivo));
@@ -279,7 +290,7 @@ montar();
 </body>
 </html>`;
 
-  const destino = path.join(__dirname, '..', 'design', 'retratos-em-alta.html');
+  const destino = path.join(__dirname, '..', 'design', `retratos-em-alta-${parte}.html`);
   fs.writeFileSync(destino, html);
   const mb = (Buffer.byteLength(html) / 1024 / 1024).toFixed(1);
   console.log(`${dados.length} personagens com candidato, ${dados.reduce((s, d) => s + d.candidatos.length, 0)} imagens`);
