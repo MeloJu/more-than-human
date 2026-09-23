@@ -76,4 +76,23 @@ const coresPorSlug = {
   'zommari-rureaux': '#2f8dd0',
 };
 
-module.exports = { coresPorSlug };
+/**
+ * CORREÇÕES MANUAIS, que vencem a derivação.
+ *
+ * Ficam num bloco à parte de propósito: o bloco de cima é SAÍDA de
+ * scripts/cor-por-personagem.js e pode ser regerado inteiro; este aqui é
+ * decisão humana e não pode sumir numa regeneração.
+ *
+ * A regra combinada é corrigir POR PERSONAGEM, conforme cada um for sendo
+ * revisado — não numa folha em massa.
+ */
+const correcoes = {
+  // A arte atual dele é dominada por tons quentes: as três matizes mais
+  // fortes da derivação são TODAS laranja (#f8b659 com 44%), então não havia
+  // alternativa para escolher — ele saía com a mesma cor do Ichigo, que é
+  // justamente o par que motivou a cor por personagem. O azul-gelo segue o
+  // mockup de referência do dono do projeto, que pinta o Hitsugaya assim.
+  'toshiro-hitsugaya': '#4fb3f5',
+};
+
+module.exports = { coresPorSlug: { ...coresPorSlug, ...correcoes } };

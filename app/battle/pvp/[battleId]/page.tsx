@@ -4,9 +4,12 @@ import { requireUser } from '@/app/lib/session'
 import { getPvpBattleView } from '@/app/lib/pvp/queries'
 import { submitPvpAction, forfeitPvpBattle } from '@/app/lib/pvp/actions'
 import { getEquippedSkills } from '@/app/lib/battle/queries'
-import { isLegalMove } from '@/app/lib/battle/engine'
-import { battleErrorMessage, descreverEfeitosDaHabilidade } from '@/app/lib/battle/presentation'
+import { battleErrorMessage } from '@/app/lib/battle/presentation'
 import { FighterCard } from '@/app/components/battle/FighterCard'
+import { BotaoDeAtaqueBasico, BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
+import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
+import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
+import { Swords } from 'lucide-react'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
 import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
 import { LiveBattleSync } from '@/app/components/pvp/LiveBattleSync'
@@ -63,126 +66,126 @@ export default async function PvpArenaPage({
         ? 'PLAYER_WIN'
         : state.outcome
 
+  // Os dois lados são jogadores: cada um com a cor do próprio personagem.
+  // Sem cor própria, "eu" cai no laranja do tema e o adversário no ciano.
+  const minhaCor = me.userCharacter.character.corDestaque
+  const corDoOutro = foe.userCharacter.character.corDestaque ?? 'var(--spirit)'
+
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="heading text-2xl">
-            {me.userCharacter.nickname} <span className="text-muted font-normal">vs</span> {foe.userCharacter.nickname}
-          </h1>
-          <div className="text-sm text-muted flex items-center gap-3 mt-1">
+    <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <CabecalhoDeBatalha
+        nomeJogador={me.userCharacter.nickname}
+        nomeInimigo={foe.userCharacter.nickname}
+        corJogador={minhaCor}
+        corInimigo={corDoOutro}
+        subtitulo={
+          <span className="flex items-center gap-3 flex-wrap">
             <span>PvP · @{foe.username}</span>
             {isActive && <span>Rodada {battle.turnNumber}</span>}
             {isActive && <LiveBattleSync battleId={battleId} />}
-          </div>
-        </div>
-        {isActive ? (
-          <form action={forfeitPvpBattle.bind(null, battleId)}>
-            <button type="submit" className="btn-ghost px-3 py-1.5 text-xs">Desistir</button>
-          </form>
-        ) : (
-          <Link href="/battle/pvp" className="btn-ghost px-3 py-1.5 text-xs">Voltar ao lobby</Link>
-        )}
-      </div>
+          </span>
+        }
+        direita={
+          isActive ? (
+            <form action={forfeitPvpBattle.bind(null, battleId)}>
+              <button type="submit" className="btn-ghost px-4 py-1.5 text-sm">Desistir</button>
+            </form>
+          ) : (
+            <Link href="/battle/pvp" className="btn-ghost px-4 py-1.5 text-sm">Voltar ao lobby</Link>
+          )
+        }
+      />
 
       {errorMessage && (
-        <div className="card p-3 text-sm border-danger/40 text-danger">{errorMessage}</div>
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
 
       {!isActive && (
-        <div className="card card-accent p-6 pl-7 space-y-3">
-          <div className="heading text-xl">
-            {myOutcome === 'PLAYER_WIN' && 'Vitória!'}
-            {myOutcome === 'ENEMY_WIN' && 'Derrota.'}
-            {myOutcome === 'DRAW' && 'Empate.'}
+        <PainelChanfrado cor={minhaCor} brilho>
+          <div className="p-6 space-y-3">
+            <div className="font-pincel text-3xl">
+              {myOutcome === 'PLAYER_WIN' && 'Vitória!'}
+              {myOutcome === 'ENEMY_WIN' && 'Derrota.'}
+              {myOutcome === 'DRAW' && 'Empate.'}
+            </div>
+            <div className="flex gap-2">
+              <Link href="/battle/pvp" className="btn-primary px-4 py-2 text-sm">Nova partida</Link>
+              <Link href="/dashboard" className="btn-ghost px-4 py-2 text-sm">Dashboard</Link>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Link href="/battle/pvp" className="btn-primary px-4 py-2 text-sm">Nova partida</Link>
-            <Link href="/dashboard" className="btn-ghost px-4 py-2 text-sm">Dashboard</Link>
-          </div>
-        </div>
+        </PainelChanfrado>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
         <CartaAnimada impacto={meuImpacto} rodada={ultimaRodada}>
           <FighterCard
             name={me.userCharacter.nickname}
             imageUrl={me.userCharacter.character.imageUrl}
-            cor={me.userCharacter.character.corDestaque}
+            cor={minhaCor}
             levelBadge={me.userCharacter.level}
             combatant={me.combatant}
           />
         </CartaAnimada>
 
-        <div className="space-y-4">
-          {isActive && (
-            <div className="card p-4">
-              {me.submitted ? (
-                <div className="text-sm">
-                  <div className="font-bold text-spirit">Ação enviada ✓</div>
-                  <div className="text-muted mt-1">
-                    {foe.submitted
-                      ? 'Resolvendo a rodada…'
-                      : `Esperando ${foe.username} escolher. A rodada resolve sozinha quando ele jogar.`}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm">
-                  <div className="font-bold">Sua vez</div>
-                  <div className="text-muted mt-1">
-                    {foe.submitted ? `${foe.username} já escolheu — ele não vê a sua jogada.` : 'Os dois escolhem ao mesmo tempo.'}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* O log é gravado na perspectiva do motor (host = player); os nomes
-              são passados na mesma ordem pra bater. */}
-          <HistoricoDeBatalha
-            turns={turns.map((t) => ({ id: t.id, round: t.round, result: t.result as unknown as TurnResult }))}
-            playerName={view.isHost ? me.userCharacter.nickname : foe.userCharacter.nickname}
-            enemyName={view.isHost ? foe.userCharacter.nickname : me.userCharacter.nickname}
-            skillDescriptions={skillDescriptions}
-          />
-
-          {isActive && !me.submitted && (
-            <div className="card p-4 space-y-3">
-              <h2 className="heading text-sm">Ações</h2>
-              <div className="flex flex-wrap gap-2">
-                <form action={submitPvpAction.bind(null, battleId, null)}>
-                  <button type="submit" className="btn-ghost px-3 py-2 text-sm">Ataque Básico</button>
-                </form>
-                {Object.values(mySkills).map((skill) => {
-                  const legal = isLegalMove(me.combatant, skill)
-                  return (
-                    <form key={skill.id} action={submitPvpAction.bind(null, battleId, skill.id)}>
-                      <button type="submit" disabled={!legal} className="btn-ghost px-3 py-2 text-sm text-left">
-                        <div>
-                          {skill.name} <span className="text-muted">({skill.energyCost} EN)</span>
-                        </div>
-                        {skill.effects.length > 0 && (
-                          <div className="text-xs text-muted">{descreverEfeitosDaHabilidade(skill).join(' · ')}</div>
-                        )}
-                      </button>
-                    </form>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* O log é gravado na perspectiva do motor (host = player); os nomes e
+            as cores são passados na mesma ordem pra bater. */}
+        <HistoricoDeBatalha
+          turns={turns.map((t) => ({ id: t.id, round: t.round, result: t.result as unknown as TurnResult }))}
+          playerName={view.isHost ? me.userCharacter.nickname : foe.userCharacter.nickname}
+          enemyName={view.isHost ? foe.userCharacter.nickname : me.userCharacter.nickname}
+          skillDescriptions={skillDescriptions}
+          corJogador={view.isHost ? minhaCor : corDoOutro}
+          corInimigo={view.isHost ? corDoOutro : minhaCor}
+        />
 
         <CartaAnimada impacto={impactoDoOutro} rodada={ultimaRodada}>
           <FighterCard
             name={foe.userCharacter.nickname}
             imageUrl={foe.userCharacter.character.imageUrl}
-            cor={foe.userCharacter.character.corDestaque}
+            cor={corDoOutro}
             levelBadge={foe.userCharacter.level}
             combatant={foe.combatant}
           />
         </CartaAnimada>
       </div>
+
+      {isActive && (
+        <PainelChanfrado corte={18}>
+          <div className="p-4 sm:p-5 space-y-4">
+            <TituloDeSecao
+              icone={<Swords className="h-5 w-5" />}
+              direita={
+                <span className="text-xs text-muted">
+                  {me.submitted
+                    ? foe.submitted
+                      ? 'Resolvendo a rodada…'
+                      : `Ação enviada ✓ — esperando ${foe.username}`
+                    : foe.submitted
+                      ? `${foe.username} já escolheu — ele não vê a sua jogada`
+                      : 'Os dois escolhem ao mesmo tempo'}
+                </span>
+              }
+            >
+              Ações
+            </TituloDeSecao>
+
+            {/* Depois de enviar, a grade some: a jogada está trancada, e
+                botões clicáveis ali sugeririam que dá para trocar. */}
+            {!me.submitted && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+                <form action={submitPvpAction.bind(null, battleId, null)} className="h-full">
+                  <BotaoDeAtaqueBasico />
+                </form>
+                {Object.values(mySkills).map((skill) => (
+                  <form key={skill.id} action={submitPvpAction.bind(null, battleId, skill.id)} className="h-full">
+                    <BotaoDeHabilidade skill={skill} combatente={me.combatant} />
+                  </form>
+                ))}
+              </div>
+            )}
+          </div>
+        </PainelChanfrado>
+      )}
     </main>
   )
 }

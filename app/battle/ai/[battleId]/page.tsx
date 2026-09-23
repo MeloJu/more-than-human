@@ -12,6 +12,11 @@ import { BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
 import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
 import { BotaoDeBloqueio } from '@/app/components/battle/BotaoDeBloqueio'
+import { BotaoDeAtaqueBasico } from '@/app/components/battle/BotaoDeHabilidade'
+import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
+import { FaixaDeFormas } from '@/app/components/battle/FaixaDeFormas'
+import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
+import { Swords } from 'lucide-react'
 import { custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
 import { impactoDaRodada } from '@/app/lib/battle/rodada'
 import type { BattleStateGravado, TurnResult } from '@/app/lib/battle/types'
@@ -91,125 +96,128 @@ export default async function BattleArenaPage({
   const formaAtivaDoJogador = idDaFormaAtiva ? playerTransformations[idDaFormaAtiva] : undefined
 
 
+  // A cor de cada lado vem do personagem. Sem cor própria, o jogador cai no
+  // laranja do tema e o inimigo no ciano — os dois lados nunca nascem iguais,
+  // que era o problema de um tema único para a tela inteira.
+  const corJogador = userCharacter.character.corDestaque
+  const corInimigo = enemy.corDestaque ?? 'var(--spirit)'
+
   return (
-    <main className="mx-auto max-w-6xl p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{userCharacter.nickname} vs {enemy.name}</h1>
-          <div className="text-sm opacity-60">
+    <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <CabecalhoDeBatalha
+        nomeJogador={userCharacter.nickname}
+        nomeInimigo={enemy.name}
+        corJogador={corJogador}
+        corInimigo={corInimigo}
+        subtitulo={
+          <>
             {modeLabel}
             {isActive && ` · Rodada ${battle.turnNumber}`}
-          </div>
-        </div>
-        <Link href={backHref} className="text-sm underline">Sair</Link>
-      </div>
+          </>
+        }
+        direita={
+          <Link href={backHref} className="btn-ghost px-4 py-1.5 text-sm">
+            Sair
+          </Link>
+        }
+      />
 
       {errorMessage && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
 
       {!isActive && (
-        <div className="card p-6 space-y-3">
-          <div className="text-lg font-semibold">
-            {state.outcome === 'PLAYER_WIN' && 'Vitória!'}
-            {state.outcome === 'ENEMY_WIN' && 'Derrota.'}
-            {state.outcome === 'DRAW' && 'Empate.'}
-          </div>
-          {desfecho.length > 0 ? (
-            <CenaDeDialogo falas={desfecho} retratos={retratosDesfecho} autoAbrir>
-              <Link href={backHref} className="btn-primary rounded-md px-4 py-2 text-sm">
-                {backLabel}
-              </Link>
-            </CenaDeDialogo>
-          ) : (
-            <div className="flex gap-2">
-              <Link href="/dashboard" className="btn-primary rounded-md px-4 py-2 text-sm">Dashboard</Link>
-              <Link href={backHref} className="rounded-md px-4 py-2 text-sm border border-border">
-                {backLabel}
-              </Link>
+        <PainelChanfrado cor={corJogador} brilho>
+          <div className="p-6 space-y-3">
+            <div className="font-pincel text-3xl">
+              {state.outcome === 'PLAYER_WIN' && 'Vitória!'}
+              {state.outcome === 'ENEMY_WIN' && 'Derrota.'}
+              {state.outcome === 'DRAW' && 'Empate.'}
             </div>
-          )}
-        </div>
+            {desfecho.length > 0 ? (
+              <CenaDeDialogo falas={desfecho} retratos={retratosDesfecho} autoAbrir>
+                <Link href={backHref} className="btn-primary px-4 py-2 text-sm">
+                  {backLabel}
+                </Link>
+              </CenaDeDialogo>
+            ) : (
+              <div className="flex gap-2">
+                <Link href="/dashboard" className="btn-primary px-4 py-2 text-sm">Dashboard</Link>
+                <Link href={backHref} className="btn-ghost px-4 py-2 text-sm">
+                  {backLabel}
+                </Link>
+              </div>
+            )}
+          </div>
+        </PainelChanfrado>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        {/* A coluna do jogador: o card dele e as formas dele.
-            
-            As formas ficavam no fim do painel de Ações, depois do histórico e
-            de todas as habilidades — ou seja, fora da tela, e quem não rolasse
-            a página nunca saberia que existiam. O lugar delas é aqui por dois
-            motivos: a coluna é curta e cabe sem rolagem, e transformação é um
-            ESTADO DE QUEM VOCÊ É, não um golpe no adversário. Agrupada com o
-            próprio retrato, ela se lê como parte do personagem. */}
-        <div className="space-y-4">
-          <CartaAnimada impacto={impacto.PLAYER} rodada={ultimaRodada}>
-            <FighterCard
-              name={userCharacter.nickname}
-              imageUrl={userCharacter.character.imageUrl}
-              cor={userCharacter.character.corDestaque}
-              levelBadge={userCharacter.level}
-              transformationName={formaAtivaDoJogador?.name}
-              combatant={heroi(state)}
-            />
-          </CartaAnimada>
-
-          {isActive && availableTransformations.length > 0 && (
-            <div className="card p-4 space-y-2">
-              <h2 className="text-xs uppercase tracking-wide opacity-45">Formas</h2>
-              {availableTransformations.map((t) => (
-                <form key={t.id} action={activateTransformation.bind(null, battleId, t.id)}>
-                  <BotaoDeForma forma={t} energiaAtual={heroi(state).currentEnergy} />
-                </form>
-              ))}
-            </div>
-          )}
-        </div>
+      {/* Os três painéis na mesma linha e na mesma altura: jogador, o que
+          aconteceu, adversário. A decisão da rodada se toma olhando as duas
+          barras de vida, então elas ficam lado a lado e acima das ações. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
+        <CartaAnimada impacto={impacto.PLAYER} rodada={ultimaRodada}>
+          <FighterCard
+            name={userCharacter.nickname}
+            imageUrl={userCharacter.character.imageUrl}
+            cor={corJogador}
+            levelBadge={userCharacter.level}
+            transformationName={formaAtivaDoJogador?.name}
+            combatant={heroi(state)}
+          />
+        </CartaAnimada>
 
         <HistoricoDeBatalha
           turns={turns.map((t) => ({ id: t.id, round: t.round, result: t.result as unknown as TurnResult }))}
           playerName={userCharacter.nickname}
           enemyName={enemy.name}
           skillDescriptions={skillDescriptions}
+          corJogador={corJogador}
+          corInimigo={corInimigo}
         />
 
         <CartaAnimada impacto={impacto.ENEMY} rodada={ultimaRodada}>
-          <FighterCard name={enemy.name} imageUrl={enemy.imageUrl} cor={enemy.corDestaque} combatant={vilao(state)} />
+          <FighterCard name={enemy.name} imageUrl={enemy.imageUrl} cor={corInimigo} combatant={vilao(state)} />
         </CartaAnimada>
       </div>
 
-      {/* AS AÇÕES OCUPAM A LARGURA INTEIRA, e não a coluna do meio.
-          
-          Na coluna elas tinham um terço da página: oito habilidades, cada uma
-          com nome, custo, efeitos e precisão, empilhavam numa torre que só
-          cabia rolando — e rolar para escolher a jogada é rolar TODA rodada.
-          Em largura total a mesma lista vira duas ou três fileiras curtas.
-          
-          Ficam DEPOIS dos três cards de propósito: a decisão da rodada se toma
-          olhando as duas barras de vida, então elas precisam estar acima e
-          visíveis no momento do clique. */}
+      {/* FORMAS EM FAIXA PRÓPRIA, abaixo dos cards. Antes moravam na coluna
+          do jogador; com a tira que rola para o lado elas cabem para qualquer
+          personagem — de nenhuma forma (a faixa nem aparece) até as seis do
+          Goku. */}
+      {isActive && availableTransformations.length > 0 && (
+        <FaixaDeFormas quantidade={availableTransformations.length} cor={corJogador}>
+          {availableTransformations.map((t) => (
+            <form key={t.id} action={activateTransformation.bind(null, battleId, t.id)} className="snap-start shrink-0">
+              <BotaoDeForma forma={t} energiaAtual={heroi(state).currentEnergy} cor={corJogador} />
+            </form>
+          ))}
+        </FaixaDeFormas>
+      )}
+
+      {/* AS AÇÕES OCUPAM A LARGURA INTEIRA. Numa coluna de um terço, oito
+          habilidades com nome, custo, efeitos e precisão viravam uma torre que
+          só cabia rolando — e rolar para escolher a jogada é rolar TODA rodada.
+          Em largura total a mesma lista vira três fileiras curtas. */}
       {isActive && (
-        <div className="card p-4 space-y-3">
-          <h2 className="font-semibold">Ações</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 items-stretch">
-            <form action={takeTurn.bind(null, battleId, null)}>
-              <button
-                type="submit"
-                className="w-full h-full rounded-md px-3 py-2 text-sm border border-border text-left hover:bg-surface-raised hover:border-accent/50 transition-all"
-              >
-                <span className="font-medium">Ataque Básico</span>
-                <span className="block text-xs opacity-60 mt-0.5">sem custo</span>
-              </button>
-            </form>
-            {Object.values(playerSkills).map((skill) => (
-              <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
-                <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
+        <PainelChanfrado corte={18}>
+          <div className="p-4 sm:p-5 space-y-4">
+            <TituloDeSecao icone={<Swords className="h-5 w-5" />}>Ações</TituloDeSecao>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
+              <form action={takeTurn.bind(null, battleId, null)} className="h-full">
+                <BotaoDeAtaqueBasico />
               </form>
-            ))}
-            <form action={blockTurn.bind(null, battleId)} className="h-full">
-              <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
-            </form>
+              {Object.values(playerSkills).map((skill) => (
+                <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
+                  <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
+                </form>
+              ))}
+              <form action={blockTurn.bind(null, battleId)} className="h-full">
+                <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
+              </form>
+            </div>
           </div>
-        </div>
+        </PainelChanfrado>
       )}
     </main>
   )

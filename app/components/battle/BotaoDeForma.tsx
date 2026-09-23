@@ -1,6 +1,8 @@
 'use client'
 
 import { useFormStatus } from 'react-dom'
+import { Flame } from 'lucide-react'
+import { TagDeCusto } from './Moldura'
 import type { TransformationDef } from '@/app/lib/battle/types'
 
 function pct(v: number): string | null {
@@ -20,7 +22,16 @@ function pct(v: number): string | null {
  * Sem energia, o botão diz por quê em vez de só apagar: um controle
  * desabilitado sem motivo obriga o jogador a adivinhar.
  */
-export function BotaoDeForma({ forma, energiaAtual }: { forma: TransformationDef; energiaAtual: number }) {
+export function BotaoDeForma({
+  forma,
+  energiaAtual,
+  cor,
+}: {
+  forma: TransformationDef
+  energiaAtual: number
+  /** Cor do personagem: a forma é dele, então herda a identidade do card. */
+  cor?: string | null
+}) {
   const custo = forma.activationCost ?? 0
   const gastaRodada = forma.consumesTurn !== false
   const falta = custo - energiaAtual
@@ -35,6 +46,7 @@ export function BotaoDeForma({ forma, energiaAtual }: { forma: TransformationDef
   return (
     <Interior
       forma={forma}
+      cor={cor ?? 'var(--accent)'}
       custo={custo}
       gastaRodada={gastaRodada}
       podeLiberar={podeLiberar}
@@ -46,6 +58,7 @@ export function BotaoDeForma({ forma, energiaAtual }: { forma: TransformationDef
 
 function Interior({
   forma,
+  cor,
   custo,
   gastaRodada,
   podeLiberar,
@@ -53,6 +66,7 @@ function Interior({
   ganhos,
 }: {
   forma: TransformationDef
+  cor: string
   custo: number
   gastaRodada: boolean
   podeLiberar: boolean
@@ -67,32 +81,50 @@ function Interior({
     <button
       type="submit"
       disabled={!podeLiberar || pending}
-      className={`w-full text-left rounded-md border px-3 py-2 transition-all ${
-        podeLiberar
-          ? 'border-accent/50 hover:border-accent hover:bg-accent/10'
-          : 'border-border opacity-50 cursor-not-allowed'
+      className={`w-[20rem] max-w-[82vw] h-full text-left border px-3.5 py-3 transition-all ${
+        podeLiberar ? 'hover:brightness-125' : 'opacity-50 cursor-not-allowed'
       } ${pending ? 'scale-[0.98] opacity-70' : ''}`}
+      style={{
+        borderColor: `color-mix(in srgb, ${cor} ${podeLiberar ? 70 : 30}%, var(--border))`,
+        background: `linear-gradient(100deg, color-mix(in srgb, ${cor} 12%, var(--background)), var(--background) 70%)`,
+        boxShadow: podeLiberar ? `0 0 18px color-mix(in srgb, ${cor} 18%, transparent)` : undefined,
+        borderRadius: '2px 12px 2px 12px',
+      }}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-medium text-accent">{pending ? 'Liberando…' : forma.name}</span>
-        <span className="text-xs shrink-0 tabular-nums text-spirit">{custo} EN</span>
-      </div>
+      <div className="flex gap-3 items-center">
+        <span
+          className="shrink-0 grid place-items-center w-12 h-12"
+          style={{
+            color: cor,
+            border: `1px solid color-mix(in srgb, ${cor} 55%, transparent)`,
+            background: `color-mix(in srgb, ${cor} 10%, transparent)`,
+            clipPath: 'polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%)',
+          }}
+        >
+          <Flame className="h-6 w-6" />
+        </span>
 
-      <div className="flex flex-wrap gap-x-2.5 gap-y-0.5 text-xs mt-1 tabular-nums">
-        {ganhos.map(([rotulo, valor]) => (
-          <span key={rotulo}>
-            <span className="opacity-55">{rotulo} </span>
-            <span className={valor.startsWith('-') ? 'text-red-500' : 'text-green-600 dark:text-green-400'}>
-              {valor}
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className="font-bold leading-snug">{pending ? 'Liberando…' : forma.name}</span>
+            <TagDeCusto>{custo} EN</TagDeCusto>
+          </span>
+
+          <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs mt-1 tabular-nums">
+            {ganhos.map(([rotulo, valor]) => (
+              <span key={rotulo}>
+                <span className="text-muted">{rotulo} </span>
+                <span className={valor.startsWith('-') ? 'text-red-400' : 'text-green-400'}>{valor}</span>
+              </span>
+            ))}
+            <span className={gastaRodada ? 'text-muted' : 'text-green-400'}>
+              {gastaRodada ? 'gasta a rodada' : 'não gasta a rodada'}
             </span>
           </span>
-        ))}
-        <span className={gastaRodada ? 'opacity-55' : 'text-green-600 dark:text-green-400'}>
-          {gastaRodada ? 'gasta a rodada' : 'não gasta a rodada'}
+
+          {!podeLiberar && <span className="block text-xs mt-1 text-red-400/90">Faltam {falta} de energia.</span>}
         </span>
       </div>
-
-      {!podeLiberar && <div className="text-xs mt-1 opacity-70">Faltam {falta} de energia.</div>}
     </button>
   )
 }

@@ -1,3 +1,5 @@
+import { ScrollText } from 'lucide-react'
+import { PainelChanfrado, TituloDeSecao } from './Moldura'
 import { TurnLogEntry } from './TurnLogEntry'
 import type { TurnResult } from '@/app/lib/battle/types'
 
@@ -30,62 +32,70 @@ export function HistoricoDeBatalha({
   playerName,
   enemyName,
   skillDescriptions,
+  corJogador,
+  corInimigo,
 }: {
   turns: TurnoGravado[]
   playerName: string
   enemyName: string
   /** Fala da skill ao usar — ver o comentário em TurnLogEntry. */
   skillDescriptions?: Record<string, string>
+  /** A barra lateral de cada linha usa a cor de quem agiu, igual aos cards. */
+  corJogador?: string | null
+  corInimigo?: string | null
 }) {
   const rodadas = agruparPorRodada(turns)
+  const cJ = corJogador ?? 'var(--accent)'
+  const cI = corInimigo ?? 'var(--spirit)'
 
   return (
-    <div className="card p-4">
-      <h2 className="font-semibold mb-2">Histórico</h2>
+    <PainelChanfrado className="h-full">
+      <div className="p-4 space-y-3">
+        <TituloDeSecao icone={<ScrollText className="h-5 w-5" />}>Histórico</TituloDeSecao>
 
-      {/* h-80 e não max-h-80: ver o comentário do componente. O espaço fica
-          reservado mesmo com o log vazio, para a barra de ações nascer no
-          lugar definitivo dela. */}
-      <div className="h-80 overflow-y-auto pr-1">
-        {turns.length === 0 ? (
-          <p className="text-sm opacity-60">Nenhuma ação ainda.</p>
-        ) : (
-          <ol className="space-y-3">
-            {rodadas.map((rodada) => (
-              <li key={rodada.chave}>
-                {rodada.numero > 0 && (
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[0.65rem] uppercase tracking-widest opacity-40 shrink-0">
-                      Rodada {rodada.numero}
-                    </span>
-                    <span className="h-px flex-1 bg-border" />
-                  </div>
-                )}
+        {/* h-80 e não max-h-80: ver o comentário do componente. O espaço fica
+            reservado mesmo com o log vazio, para a barra de ações nascer no
+            lugar definitivo dela. */}
+        <div className="h-80 overflow-y-auto pr-1">
+          {turns.length === 0 ? (
+            <p className="text-sm text-muted">Nenhuma ação ainda.</p>
+          ) : (
+            <ol className="space-y-3">
+              {rodadas.map((rodada) => (
+                <li key={rodada.chave}>
+                  {rodada.numero > 0 && (
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-titulo italic text-[0.75rem] uppercase tracking-widest text-muted shrink-0">
+                        Rodada {rodada.numero}
+                      </span>
+                      <span className="h-px flex-1 bg-border" />
+                    </div>
+                  )}
 
-                <ul className="space-y-1 text-sm">
-                  {rodada.acoes.map((t) => (
-                    <li
-                      key={t.id}
-                      /* A barra colorida na lateral diz de quem foi a ação sem
-                         gastar uma palavra. Num muro de texto, saber "isto fui
-                         eu" antes de ler a frase é o que torna o log
-                         consultável em vez de só legível. */
-                      className={`border-l-2 pl-2 ${
-                        t.result.side === 'PLAYER'
-                          ? 'border-accent/50 opacity-90'
-                          : 'border-red-500/40 opacity-75'
-                      }`}
-                    >
-                      <TurnLogEntry turn={t.result} playerName={playerName} enemyName={enemyName} skillDescriptions={skillDescriptions} />
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ol>
-        )}
+                  <ul className="space-y-1 text-sm">
+                    {rodada.acoes.map((t) => (
+                      <li
+                        key={t.id}
+                        /* A barra colorida na lateral diz de quem foi a ação
+                           sem gastar uma palavra — na MESMA cor do card de
+                           quem agiu, então o log e os cards falam a mesma
+                           língua. */
+                        className={`border-l-2 pl-2 ${t.result.side === 'PLAYER' ? 'opacity-90' : 'opacity-75'}`}
+                        style={{
+                          borderColor: `color-mix(in srgb, ${t.result.side === 'PLAYER' ? cJ : cI} 60%, transparent)`,
+                        }}
+                      >
+                        <TurnLogEntry turn={t.result} playerName={playerName} enemyName={enemyName} skillDescriptions={skillDescriptions} />
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
       </div>
-    </div>
+    </PainelChanfrado>
   )
 }
 

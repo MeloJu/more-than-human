@@ -79,8 +79,12 @@ export function CartaAnimada({
   const forte = golpe ? golpe.deslocamento >= DESLOCAMENTO.pesado : false
 
   return (
-    <div className="relative">
+    // h-full nos dois níveis: os três painéis da linha (carta, histórico,
+    // carta) têm a mesma altura, e sem isto a carta encolhia para o próprio
+    // conteúdo e a linha ficava dentada.
+    <div className="relative h-full">
       <motion.div
+        className="h-full"
         animate={baque ? { x: [0, -d, d, -d * 0.6, d * 0.4, 0] } : { x: 0 }}
         transition={{ duration: 0.4, ease: 'easeOut' }}
       >

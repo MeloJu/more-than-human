@@ -3,6 +3,7 @@ import { Swords } from "lucide-react";
 import { getCurrentUser } from "@/app/lib/session";
 import { logoutAction } from "@/app/lib/auth-actions";
 import { getCoins } from "@/app/lib/equipment/queries";
+import { NavLink } from "./NavLink";
 
 export default async function AppNav() {
   const user = await getCurrentUser();
@@ -37,14 +38,17 @@ export default async function AppNav() {
           >
             <Swords className="h-5 w-5" />
           </span>
-          <span className="heading text-base hidden sm:block">Anime Battler</span>
+          {/* Marca em traço de pincel, a mesma fonte do título do confronto. */}
+          <span className="font-pincel text-2xl leading-none hidden sm:block drop-shadow-[0_2px_8px_rgba(255,107,26,.25)]">
+            Anime Battler
+          </span>
         </Link>
 
         <div className="flex items-center gap-4 overflow-x-auto">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className="nav-link whitespace-nowrap">
+            <NavLink key={l.href} href={l.href}>
               {l.label}
-            </Link>
+            </NavLink>
           ))}
         </div>
 

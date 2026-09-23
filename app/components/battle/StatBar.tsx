@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 
 /**
@@ -29,11 +29,14 @@ export function StatBar({
   current,
   max,
   colorClass,
+  icone,
 }: {
   label: string
   current: number
   max: number
   colorClass: string
+  /** Ícone antes do rótulo — lê-se a barra pela forma antes de ler a palavra. */
+  icone?: ReactNode
 }) {
   const semMovimento = useReducedMotion()
   const valor = Math.max(0, current)
@@ -56,9 +59,12 @@ export function StatBar({
 
   return (
     <div>
-      <div className="relative flex justify-between text-xs mb-1">
-        <span>{label}</span>
-        <span className="tabular-nums">
+      <div className="relative flex justify-between items-center text-sm mb-1.5">
+        <span className="flex items-center gap-1.5 font-medium">
+          {icone}
+          {label}
+        </span>
+        <span className="tabular-nums font-semibold">
           {valor} / {max}
         </span>
 
@@ -81,7 +87,7 @@ export function StatBar({
         </AnimatePresence>
       </div>
 
-      <div className="relative h-2 w-full rounded-full bg-background-alt overflow-hidden">
+      <div className="relative h-1.5 w-full rounded-full bg-background-alt overflow-hidden ring-1 ring-white/5">
         {/* O RASTRO fica ATRÁS e mais largo: o pedaço visível entre a barra
             cheia e ele é exatamente o que se perdeu. Espera um instante antes
             de recolher — sem a pausa, ele alcança rápido demais para o olho

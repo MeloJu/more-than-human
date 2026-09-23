@@ -1,7 +1,9 @@
 'use client'
 
 import { useFormStatus } from 'react-dom'
+import { Shield } from 'lucide-react'
 import { BLOQUEIO_REDUCAO } from '@/app/lib/battle/constants'
+import { TagDeCusto } from './Moldura'
 import type { CombatantState } from '@/app/lib/battle/types'
 
 /**
@@ -43,32 +45,44 @@ function Interior({
     <button
       type="submit"
       disabled={semGuarda || pending}
-      className={`w-full h-full rounded-md px-3 py-2 text-sm border text-left transition-all ${
-        semGuarda
-          ? 'border-border opacity-40 cursor-not-allowed'
-          : 'border-amber-500/50 hover:bg-amber-500/10 hover:border-amber-500'
+      className={`w-full h-full min-h-[68px] px-3 py-2.5 text-sm border text-left bg-background/60 transition-all ${
+        semGuarda ? 'opacity-45 cursor-not-allowed' : 'hover:bg-amber-500/10'
       } ${pending ? 'scale-[0.97] bg-amber-500/10' : ''}`}
+      style={{
+        borderRadius: '2px 10px 2px 10px',
+        borderColor: semGuarda ? 'var(--border)' : 'color-mix(in srgb, #fbbf24 70%, transparent)',
+        boxShadow: semGuarda ? undefined : '0 0 16px color-mix(in srgb, #fbbf24 12%, transparent)',
+      }}
     >
-      <div className="flex items-baseline gap-2">
-        <span className="font-medium">🛡️ Bloquear</span>
-        <span className="text-xs shrink-0 tabular-nums text-amber-600 dark:text-amber-400">
-          {custo} ST
+      <div className="flex gap-3 items-center">
+        <span
+          className="shrink-0 grid place-items-center w-11 h-11 bg-background text-amber-400"
+          style={{ border: '1px solid color-mix(in srgb, #fbbf24 40%, transparent)', borderRadius: 3 }}
+        >
+          <Shield className="h-6 w-6" />
+        </span>
+
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className="font-semibold leading-snug">Bloquear</span>
+            <TagDeCusto tipo="st">{custo} ST</TagDeCusto>
+          </span>
+
+          <span className="block text-xs text-muted mt-0.5">
+            Gasta a rodada · −{Math.round(BLOQUEIO_REDUCAO * 100)}% de dano
+          </span>
+
+          {semGuarda ? (
+            <span className="block text-xs text-red-400/90 mt-0.5">sem stamina para erguer a guarda</span>
+          ) : (
+            <span className={`block text-xs mt-0.5 tabular-nums ${arriscado ? 'text-amber-400' : 'text-muted'}`}>
+              {reserva}/{maximo} de guarda{arriscado && ' — arrisca quebrar'}
+            </span>
+          )}
+
+          {pending && <span className="block text-xs text-accent mt-0.5">resolvendo…</span>}
         </span>
       </div>
-
-      <div className="text-xs opacity-60 mt-0.5">
-        Gasta a rodada · −{Math.round(BLOQUEIO_REDUCAO * 100)}% de dano
-      </div>
-
-      {semGuarda ? (
-        <div className="text-xs opacity-70 mt-0.5">sem stamina para erguer a guarda</div>
-      ) : (
-        <div className={`text-xs mt-0.5 tabular-nums ${arriscado ? 'text-amber-600 dark:text-amber-400' : 'opacity-55'}`}>
-          {reserva}/{maximo} de guarda{arriscado && ' — arrisca quebrar'}
-        </div>
-      )}
-
-      {pending && <div className="text-xs text-accent mt-0.5">resolvendo…</div>}
     </button>
   )
 }

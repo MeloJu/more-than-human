@@ -166,6 +166,7 @@ export function IconeDeHabilidade({
   tags = [],
   categoria,
   size = 20,
+  tamanhoArte,
   className,
 }: {
   nome?: string
@@ -173,6 +174,13 @@ export function IconeDeHabilidade({
   tags?: string[]
   categoria?: string
   size?: number
+  /**
+   * Tamanho quando há ARTE. Separado de `size` porque os dois pedem medidas
+   * diferentes na mesma moldura: um símbolo de traço fica bem a ~22px no
+   * meio de uma caixa de 44, mas uma ilustração de anime a 22px vira mancha
+   * — ela precisa preencher a caixa inteira. Ausente, vale `size`.
+   */
+  tamanhoArte?: number
   className?: string
 }) {
   const arte = nome ? (ARTE_DE_HABILIDADE as Record<string, string>)[nome] : undefined
@@ -184,7 +192,7 @@ export function IconeDeHabilidade({
       // pequeno demais para o otimizador render algo.
       <span
         className={`inline-block overflow-hidden rounded ring-1 ring-border/60 shrink-0 ${className ?? ''}`}
-        style={{ width: size, height: size }}
+        style={{ width: tamanhoArte ?? size, height: tamanhoArte ?? size }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={arte} alt="" aria-hidden="true" className="w-full h-full object-cover" loading="lazy" />
