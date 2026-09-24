@@ -50,7 +50,7 @@ const kanji = Yuji_Syuku({
 });
 
 export const metadata: Metadata = {
-  title: "Anime Battler",
+  title: "More Than Human",
   description: "Jogo de batalha por turnos com personagens de anime e quadrinhos.",
 };
 

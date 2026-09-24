@@ -22,7 +22,7 @@ export default function LandingFooter() {
               <Swords className="h-5 w-5" />
             </span>
             <div>
-              <div className="heading text-sm">Anime Battler</div>
+              <div className="heading text-sm">More Than Human</div>
               <div className="text-xs text-muted">Projeto pessoal · Next.js, Prisma, Postgres</div>
             </div>
           </div>
@@ -42,7 +42,7 @@ export default function LandingFooter() {
         </div>
 
         <div className="mt-8 border-t border-border pt-5 text-xs text-muted">
-          © {year} Anime Battler. Personagens e universos pertencem aos seus respectivos autores;
+          © {year} More Than Human. Personagens e universos pertencem aos seus respectivos autores;
           este é um projeto de estudo sem fins comerciais.
         </div>
       </div>

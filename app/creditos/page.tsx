@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { prisma } from '@/app/lib/prisma'
 import { CREDITOS, AVISO_CURTO } from '@/app/lib/creditos'
 
-export const metadata = { title: 'Créditos e direitos · Anime Battler' }
+export const metadata = { title: 'Créditos e direitos · More Than Human' }
 
 /**
  * A lista completa de a quem pertence o quê.

@@ -40,7 +40,7 @@ export default async function AppNav() {
           </span>
           {/* Marca em traço de pincel, a mesma fonte do título do confronto. */}
           <span className="font-pincel text-2xl leading-none hidden sm:block drop-shadow-[0_2px_8px_rgba(255,107,26,.25)]">
-            Anime Battler
+            More Than Human
           </span>
         </Link>
 
