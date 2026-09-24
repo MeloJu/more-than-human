@@ -749,18 +749,24 @@ async function syncCharacterImages() {
  * tem cor não quebra nada, só não fica personalizado.
  */
 async function syncCores() {
-  const { coresPorSlug } = require('./catalog/cores');
-  const personagens = await prisma.character.findMany({ select: { id: true, name: true, slug: true, corDestaque: true } });
+  const { coresPorSlug, secundariasPorSlug } = require('./catalog/cores');
+  const personagens = await prisma.character.findMany({
+    select: { id: true, name: true, slug: true, corDestaque: true, corSecundaria: true },
+  });
 
   for (const c of personagens) {
-    const cor = coresPorSlug[c.slug];
-    if (!cor) continue;
-    if (c.corDestaque === cor) {
+    const desejado = {};
+    if (coresPorSlug[c.slug]) desejado.corDestaque = coresPorSlug[c.slug];
+    if (secundariasPorSlug[c.slug]) desejado.corSecundaria = secundariasPorSlug[c.slug];
+    if (Object.keys(desejado).length === 0) continue;
+
+    const d = diff({ corDestaque: c.corDestaque, corSecundaria: c.corSecundaria }, desejado);
+    if (d.acao === 'igual') {
       relatorio.iguais += 1;
       continue;
     }
-    registra('cor', `${c.name} -> ${cor}`, diff(c.corDestaque ? { corDestaque: c.corDestaque } : null, { corDestaque: cor }));
-    if (!DRY_RUN) await prisma.character.update({ where: { id: c.id }, data: { corDestaque: cor } });
+    registra('cor', `${c.name} -> ${desejado.corDestaque ?? '-'} / ${desejado.corSecundaria ?? '-'}`, d);
+    if (!DRY_RUN) await prisma.character.update({ where: { id: c.id }, data: desejado });
   }
 }
 

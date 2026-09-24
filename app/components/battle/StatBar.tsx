@@ -59,7 +59,10 @@ export function StatBar({
 
   return (
     <div>
-      <div className="relative flex justify-between items-center text-sm mb-1.5">
+      {/* Sombra forte no texto porque a barra agora fica POR CIMA da arte:
+          sem ela, número branco sobre céu claro some. É o que deixa a faixa
+          translúcida e ainda assim legível. */}
+      <div className="relative flex justify-between items-center text-sm mb-1.5 [text-shadow:0_1px_3px_rgba(0,0,0,.95),0_0_8px_rgba(0,0,0,.7)]">
         <span className="flex items-center gap-1.5 font-medium">
           {icone}
           {label}
@@ -87,7 +90,7 @@ export function StatBar({
         </AnimatePresence>
       </div>
 
-      <div className="relative h-1.5 w-full rounded-full bg-background-alt overflow-hidden ring-1 ring-white/5">
+      <div className="relative h-1.5 w-full rounded-full bg-black/45 overflow-hidden ring-1 ring-white/10 backdrop-blur-sm">
         {/* O RASTRO fica ATRÁS e mais largo: o pedaço visível entre a barra
             cheia e ele é exatamente o que se perdeu. Espera um instante antes
             de recolher — sem a pausa, ele alcança rápido demais para o olho

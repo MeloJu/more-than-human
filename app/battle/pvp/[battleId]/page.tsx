@@ -9,6 +9,8 @@ import { FighterCard } from '@/app/components/battle/FighterCard'
 import { BotaoDeAtaqueBasico, BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
 import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
 import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
+import { FundoDoConfronto } from '@/app/components/battle/FundoDoConfronto'
+import { coresDoConfronto } from '@/app/lib/battle/cores'
 import { Swords } from 'lucide-react'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
 import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
@@ -66,13 +68,17 @@ export default async function PvpArenaPage({
         ? 'PLAYER_WIN'
         : state.outcome
 
-  // Os dois lados são jogadores: cada um com a cor do próprio personagem.
-  // Sem cor própria, "eu" cai no laranja do tema e o adversário no ciano.
-  const minhaCor = me.userCharacter.character.corDestaque
-  const corDoOutro = foe.userCharacter.character.corDestaque ?? 'var(--spirit)'
+  // Os dois lados são jogadores. Cada um vê a SI MESMO como o jogador da
+  // guarda de contraste: quem está olhando fica com a própria cor, e é o
+  // outro que troca se colidir. Ver app/lib/battle/cores.ts.
+  const { jogador: minhaCor, inimigo: corDoOutro } = coresDoConfronto(
+    { primaria: me.userCharacter.character.corDestaque, secundaria: me.userCharacter.character.corSecundaria },
+    { primaria: foe.userCharacter.character.corDestaque, secundaria: foe.userCharacter.character.corSecundaria }
+  )
 
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <FundoDoConfronto corJogador={minhaCor} corInimigo={corDoOutro} />
       <CabecalhoDeBatalha
         nomeJogador={me.userCharacter.nickname}
         nomeInimigo={foe.userCharacter.nickname}
@@ -150,10 +156,10 @@ export default async function PvpArenaPage({
       </div>
 
       {isActive && (
-        <PainelChanfrado corte={18}>
+        <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${minhaCor} 45%, var(--border))`} tinta>
           <div className="p-4 sm:p-5 space-y-4">
             <TituloDeSecao
-              icone={<Swords className="h-5 w-5" />}
+              icone={<Swords className="h-5 w-5" style={{ color: minhaCor }} />}
               direita={
                 <span className="text-xs text-muted">
                   {me.submitted

@@ -77,6 +77,48 @@ const coresPorSlug = {
 };
 
 /**
+ * COR SECUNDÁRIA: a matiz mais forte da arte que esteja a 60° ou mais da
+ * primária. Também é saída do script, e também pode ser regerada inteira.
+ *
+ * Serve para o CONFRONTO, não para o card isolado: quando os dois lados têm
+ * primárias quase iguais, o adversário troca para a secundária dele — ver
+ * app/lib/battle/cores.ts. Metade do elenco tem uma; quem não tem cai numa
+ * cor de contraste do tema.
+ */
+const secundariasPorSlug = {
+  'aaroniero-arruruerie': '#79a0d8',
+  'as-nodt': '#f89b59',
+  'baraggan-luisenbarn': '#c6ba39',
+  'batman': '#c0d879',
+  'broly': '#2d8dd2',
+  'byakuya-kuchiki': '#3945c6',
+  'chad': '#dd2270',
+  'deadpool': '#39a3c6',
+  'emma-frost': '#7981d8',
+  'gin-ichimaru': '#e3c66d',
+  'goku': '#0a45f5',
+  'ichigo-kurosaki': '#79c0d8',
+  'jean-grey': '#8b39c6',
+  'kaname-tosen': '#3a2cd3',
+  'mayuri-kurotsuchi': '#f1cd60',
+  'megumi-fushiguro': '#398bc6',
+  'momo-hinamori': '#d64b56',
+  'retsu-unohana': '#f88059',
+  'ryuken-ishida': '#79a0d8',
+  'sajin-komamura': '#d1b560',
+  'satoru-gojo': '#519ed5',
+  'shunsui-kyoraku': '#e26f8b',
+  'sui-feng': '#2f72d0',
+  'szayelaporro-granz': '#f8b659',
+  'toshiro-hitsugaya': '#75d3db',
+  'uryu-ishida': '#4539c6',
+  'vegeta': '#f8d059',
+  'wonder-woman': '#f69b5b',
+  'yoruichi-shihoin': '#1ed1e1',
+  'zommari-rureaux': '#c6395c',
+};
+
+/**
  * CORREÇÕES MANUAIS, que vencem a derivação.
  *
  * Ficam num bloco à parte de propósito: o bloco de cima é SAÍDA de
@@ -95,4 +137,7 @@ const correcoes = {
   'toshiro-hitsugaya': '#4fb3f5',
 };
 
-module.exports = { coresPorSlug: { ...coresPorSlug, ...correcoes } };
+module.exports = {
+  coresPorSlug: { ...coresPorSlug, ...correcoes },
+  secundariasPorSlug,
+};

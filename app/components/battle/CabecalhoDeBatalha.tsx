@@ -33,10 +33,16 @@ export function CabecalhoDeBatalha({
   return (
     <header className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] items-center gap-4">
       <div className="min-w-0">
-        <h1 className="font-pincel text-3xl sm:text-4xl leading-tight drop-shadow-[0_2px_10px_rgba(0,0,0,.6)]">
-          <span>{nomeJogador}</span>
+        {/* Cada nome na cor do seu lado, com halo: o título já diz quem é
+            quem, na mesma cor dos cards logo abaixo. */}
+        <h1 className="font-pincel text-3xl sm:text-4xl leading-tight">
+          <span style={{ color: cJ, textShadow: `0 0 18px color-mix(in srgb, ${cJ} 55%, transparent), 0 2px 6px rgba(0,0,0,.8)` }}>
+            {nomeJogador}
+          </span>
           <span className="mx-3 text-2xl text-muted">vs</span>
-          <span>{nomeInimigo}</span>
+          <span style={{ color: cI, textShadow: `0 0 18px color-mix(in srgb, ${cI} 55%, transparent), 0 2px 6px rgba(0,0,0,.8)` }}>
+            {nomeInimigo}
+          </span>
         </h1>
         {subtitulo && <div className="mt-1 text-sm text-muted">{subtitulo}</div>}
       </div>
@@ -71,7 +77,11 @@ function Seta({ cor, sentido }: { cor: string; sentido: 'direita' | 'esquerda' }
           não resolve var(--accent), e sem cor própria o personagem cai
           justamente nessa variável. */}
       <defs>
-        <linearGradient id={`seta-${sentido}`} x1="0" x2="1" y1="0" y2="0">
+        {/* userSpaceOnUse, e não o padrão objectBoundingBox: o traço é uma
+            linha reta, com altura ZERO, e gradiente relativo a uma caixa de
+            altura zero não renderiza — a linha sumia e só a ponta da seta
+            aparecia, virando um ">" solto. */}
+        <linearGradient id={`seta-${sentido}`} gradientUnits="userSpaceOnUse" x1="0" y1="7" x2="108" y2="7">
           <stop offset="0" style={{ stopColor: cor, stopOpacity: 0 }} />
           <stop offset="1" style={{ stopColor: cor, stopOpacity: 1 }} />
         </linearGradient>

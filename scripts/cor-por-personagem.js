@@ -122,6 +122,35 @@ async function corDaArte(arquivo) {
   });
 
   const melhor = ordem[0].i;
+
+  // A COR SECUNDARIA: a matiz mais forte que esteja a 60 graus ou mais da
+  // primaria. NAO e a segunda do ranking — essa costuma ser a vizinha da
+  // primeira (Deadpool: amarelo, amarelo, amarelo), e uma segunda cor igual
+  // a primeira nao serve para nada.
+  //
+  // Ela existe para o confronto: quando os dois lados tem primarias quase
+  // iguais (Ichigo e Jean Grey, laranja e amarelo a 10 graus), o adversario
+  // troca para a secundaria DELE, tirada da propria arte — a Jean Grey vira
+  // o roxo do cosmos da Fenix, em vez de um ciano generico sem relacao
+  // nenhuma com ela.
+  const totalPeso = baldes.reduce((a, b) => a + b, 0);
+  const distancia = (a, b) => {
+    const d = Math.abs(a - b) % 36;
+    return Math.min(d, 36 - d) * 10;
+  };
+  let secundaria = null;
+  for (let i = 0; i < 36; i++) {
+    if (baldes[i] < totalPeso * 0.04) continue;
+    if (distancia(i, melhor) < 60) continue;
+    if (secundaria === null || baldes[i] > baldes[secundaria]) secundaria = i;
+  }
+  let secHex = null;
+  if (secundaria !== null) {
+    const ss = somaS[secundaria] / baldes[secundaria];
+    const ll = somaL[secundaria] / baldes[secundaria];
+    secHex = hslParaHex(secundaria * 10 + 5, Math.min(0.92, Math.max(0.55, ss * 1.25)), Math.min(0.66, Math.max(0.5, ll * 1.15)));
+  }
+
   const h = melhor * 10 + 5;
   const s = somaS[melhor] / baldes[melhor];
   const l = somaL[melhor] / baldes[melhor];
@@ -132,7 +161,7 @@ async function corDaArte(arquivo) {
   // diferentes conviverem na mesma tela sem uma sumir e outra gritar.
   const sFinal = Math.min(0.92, Math.max(0.55, s * 1.25));
   const lFinal = Math.min(0.66, Math.max(0.5, l * 1.15));
-  return { hex: hslParaHex(h, sFinal, lFinal), h: Math.round(h), paleta: paleta };
+  return { hex: hslParaHex(h, sFinal, lFinal), h: Math.round(h), paleta: paleta, secundaria: secHex };
 }
 
 async function main() {
@@ -149,8 +178,8 @@ async function main() {
     try {
       const cor = await corDaArte(path.join(dir, arq));
       if (!cor) { linhas.push([alvo.nome, '(sem cor confiavel)', '']); continue; }
-      saida[alvo.slug] = { cor: cor.hex, paleta: cor.paleta };
-      linhas.push([alvo.nome, cor.hex, cor.paleta.map((p) => p.hex + ' ' + p.forca + '%').join('  ')]);
+      saida[alvo.slug] = { cor: cor.hex, secundaria: cor.secundaria, paleta: cor.paleta };
+      linhas.push([alvo.nome, cor.hex, 'secundaria ' + (cor.secundaria || '(nenhuma)')]);
     } catch (e) {
       linhas.push([alvo.nome, '(erro)', String(e.message).slice(0, 40)]);
     }

@@ -1,6 +1,7 @@
 {
   "aaroniero-arruruerie": {
     "cor": "#f8b659",
+    "secundaria": "#79a0d8",
     "paleta": [
       {
         "hex": "#f8b659",
@@ -21,6 +22,7 @@
   },
   "as-nodt": {
     "cor": "#3172ce",
+    "secundaria": "#f89b59",
     "paleta": [
       {
         "hex": "#3172ce",
@@ -41,6 +43,7 @@
   },
   "baraggan-luisenbarn": {
     "cor": "#22aedd",
+    "secundaria": "#c6ba39",
     "paleta": [
       {
         "hex": "#22aedd",
@@ -61,6 +64,7 @@
   },
   "batman": {
     "cor": "#398bc6",
+    "secundaria": "#c0d879",
     "paleta": [
       {
         "hex": "#398bc6",
@@ -81,6 +85,7 @@
   },
   "bazz-b": {
     "cor": "#398bc6",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#398bc6",
@@ -101,6 +106,7 @@
   },
   "broly": {
     "cor": "#f69b5b",
+    "secundaria": "#2d8dd2",
     "paleta": [
       {
         "hex": "#f69b5b",
@@ -121,6 +127,7 @@
   },
   "byakuya-kuchiki": {
     "cor": "#c6395c",
+    "secundaria": "#3945c6",
     "paleta": [
       {
         "hex": "#c6395c",
@@ -141,6 +148,7 @@
   },
   "chad": {
     "cor": "#f5b55c",
+    "secundaria": "#dd2270",
     "paleta": [
       {
         "hex": "#f5b55c",
@@ -161,6 +169,7 @@
   },
   "daredevil": {
     "cor": "#f89b59",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f89b59",
@@ -181,6 +190,7 @@
   },
   "deadpool": {
     "cor": "#f8eb59",
+    "secundaria": "#39a3c6",
     "paleta": [
       {
         "hex": "#f8eb59",
@@ -201,6 +211,7 @@
   },
   "emma-frost": {
     "cor": "#f8d059",
+    "secundaria": "#7981d8",
     "paleta": [
       {
         "hex": "#f8d059",
@@ -221,6 +232,7 @@
   },
   "gin-ichimaru": {
     "cor": "#79a0d8",
+    "secundaria": "#e3c66d",
     "paleta": [
       {
         "hex": "#79a0d8",
@@ -241,6 +253,7 @@
   },
   "goku": {
     "cor": "#f87e56",
+    "secundaria": "#0a45f5",
     "paleta": [
       {
         "hex": "#f87e56",
@@ -261,6 +274,7 @@
   },
   "grimmjow-jaegerjaquez": {
     "cor": "#2d3ad2",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#2d3ad2",
@@ -281,6 +295,7 @@
   },
   "hanami": {
     "cor": "#da3425",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#da3425",
@@ -301,6 +316,7 @@
   },
   "ichigo-kurosaki": {
     "cor": "#f8b659",
+    "secundaria": "#79c0d8",
     "paleta": [
       {
         "hex": "#f8b659",
@@ -321,6 +337,7 @@
   },
   "izuru-kira": {
     "cor": "#efb461",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#efb461",
@@ -341,6 +358,7 @@
   },
   "jean-grey": {
     "cor": "#f8d059",
+    "secundaria": "#8b39c6",
     "paleta": [
       {
         "hex": "#f8d059",
@@ -361,6 +379,7 @@
   },
   "jogo": {
     "cor": "#c7d15f",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#c7d15f",
@@ -381,6 +400,7 @@
   },
   "kaname-tosen": {
     "cor": "#f31f0c",
+    "secundaria": "#3a2cd3",
     "paleta": [
       {
         "hex": "#f31f0c",
@@ -401,6 +421,7 @@
   },
   "kenpachi-zaraki": {
     "cor": "#f50a93",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f50a93",
@@ -421,6 +442,7 @@
   },
   "kisuke-urahara": {
     "cor": "#f87d54",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f87d54",
@@ -441,6 +463,7 @@
   },
   "mayuri-kurotsuchi": {
     "cor": "#395cc6",
+    "secundaria": "#f1cd60",
     "paleta": [
       {
         "hex": "#395cc6",
@@ -461,6 +484,7 @@
   },
   "megumi-fushiguro": {
     "cor": "#5cc639",
+    "secundaria": "#398bc6",
     "paleta": [
       {
         "hex": "#5cc639",
@@ -481,6 +505,7 @@
   },
   "momo-hinamori": {
     "cor": "#278ed8",
+    "secundaria": "#d64b56",
     "paleta": [
       {
         "hex": "#278ed8",
@@ -501,6 +526,7 @@
   },
   "naruto-uzumaki": {
     "cor": "#f89b59",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f89b59",
@@ -521,6 +547,7 @@
   },
   "nnoitra-gilga": {
     "cor": "#59b6f8",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#59b6f8",
@@ -541,6 +568,7 @@
   },
   "nobara-kugisaki": {
     "cor": "#c64539",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#c64539",
@@ -561,6 +589,7 @@
   },
   "orihime-inoue": {
     "cor": "#f8b659",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f8b659",
@@ -581,6 +610,7 @@
   },
   "patolino": {
     "cor": "#f5bb0f",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f5bb0f",
@@ -596,6 +626,7 @@
   },
   "rangiku-matsumoto": {
     "cor": "#e3786e",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#e3786e",
@@ -611,6 +642,7 @@
   },
   "red": {
     "cor": "#cf5b64",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#cf5b64",
@@ -631,6 +663,7 @@
   },
   "renji-abarai": {
     "cor": "#e51a2b",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#e51a2b",
@@ -651,6 +684,7 @@
   },
   "retsu-unohana": {
     "cor": "#5c39c6",
+    "secundaria": "#f88059",
     "paleta": [
       {
         "hex": "#5c39c6",
@@ -671,6 +705,7 @@
   },
   "rukia-kuchiki": {
     "cor": "#69b3e7",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#69b3e7",
@@ -691,6 +726,7 @@
   },
   "ryomen-sukuna": {
     "cor": "#c6483c",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#c6483c",
@@ -711,6 +747,7 @@
   },
   "ryuken-ishida": {
     "cor": "#f89b59",
+    "secundaria": "#79a0d8",
     "paleta": [
       {
         "hex": "#f89b59",
@@ -731,6 +768,7 @@
   },
   "sajin-komamura": {
     "cor": "#dc23cd",
+    "secundaria": "#d1b560",
     "paleta": [
       {
         "hex": "#dc23cd",
@@ -751,6 +789,7 @@
   },
   "sasuke-uchiha": {
     "cor": "#d88179",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#d88179",
@@ -771,6 +810,7 @@
   },
   "satoru-gojo": {
     "cor": "#f8b659",
+    "secundaria": "#519ed5",
     "paleta": [
       {
         "hex": "#f8b659",
@@ -791,6 +831,7 @@
   },
   "shunsui-kyoraku": {
     "cor": "#b36ae6",
+    "secundaria": "#e26f8b",
     "paleta": [
       {
         "hex": "#b36ae6",
@@ -811,6 +852,7 @@
   },
   "sosuke-aizen": {
     "cor": "#4a85d7",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#4a85d7",
@@ -831,6 +873,7 @@
   },
   "suguru-geto": {
     "cor": "#c7a338",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#c7a338",
@@ -851,6 +894,7 @@
   },
   "sung-jin-woo": {
     "cor": "#59b6f8",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#59b6f8",
@@ -871,6 +915,7 @@
   },
   "superman": {
     "cor": "#c74438",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#c74438",
@@ -891,6 +936,7 @@
   },
   "sui-feng": {
     "cor": "#f84c5a",
+    "secundaria": "#2f72d0",
     "paleta": [
       {
         "hex": "#f84c5a",
@@ -911,6 +957,7 @@
   },
   "szayelaporro-granz": {
     "cor": "#f8599b",
+    "secundaria": "#f8b659",
     "paleta": [
       {
         "hex": "#f8599b",
@@ -931,6 +978,7 @@
   },
   "tia-harribel": {
     "cor": "#f8d059",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f8d059",
@@ -951,6 +999,7 @@
   },
   "toshiro-hitsugaya": {
     "cor": "#f8b659",
+    "secundaria": "#75d3db",
     "paleta": [
       {
         "hex": "#f8b659",
@@ -971,6 +1020,7 @@
   },
   "uryu-ishida": {
     "cor": "#59ebf8",
+    "secundaria": "#4539c6",
     "paleta": [
       {
         "hex": "#59ebf8",
@@ -991,6 +1041,7 @@
   },
   "vegeta": {
     "cor": "#1e4fe1",
+    "secundaria": "#f8d059",
     "paleta": [
       {
         "hex": "#1e4fe1",
@@ -1011,6 +1062,7 @@
   },
   "wonder-woman": {
     "cor": "#1691e9",
+    "secundaria": "#f69b5b",
     "paleta": [
       {
         "hex": "#1691e9",
@@ -1031,6 +1083,7 @@
   },
   "yamamoto-genryusai": {
     "cor": "#f8b659",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f8b659",
@@ -1051,6 +1104,7 @@
   },
   "yammy-llargo": {
     "cor": "#f0e461",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f0e461",
@@ -1071,6 +1125,7 @@
   },
   "yoruichi-shihoin": {
     "cor": "#f78636",
+    "secundaria": "#1ed1e1",
     "paleta": [
       {
         "hex": "#f78636",
@@ -1091,6 +1146,7 @@
   },
   "yuji-itadori": {
     "cor": "#f50a45",
+    "secundaria": null,
     "paleta": [
       {
         "hex": "#f50a45",
@@ -1111,6 +1167,7 @@
   },
   "zommari-rureaux": {
     "cor": "#2f8dd0",
+    "secundaria": "#c6395c",
     "paleta": [
       {
         "hex": "#2f8dd0",

@@ -10,7 +10,7 @@ import type { ReactNode } from 'react'
  */
 
 /** Recorte a 45° no canto superior esquerdo e no inferior direito. */
-function chanfro(c: number): string {
+export function chanfro(c: number): string {
   return `polygon(${c}px 0, 100% 0, 100% calc(100% - ${c}px), calc(100% - ${c}px) 100%, 0 100%, 0 ${c}px)`
 }
 
@@ -34,17 +34,31 @@ function chanfro(c: number): string {
 export function PainelChanfrado({
   cor,
   brilho = false,
+  tinta = false,
+  espessura = 1.5,
   corte = 14,
   className = '',
   children,
 }: {
   cor?: string | null
   brilho?: boolean
+  /**
+   * Tinge o interior do painel com a cor, do canto de cima para baixo. É o
+   * que faz a cor do personagem ocupar ÁREA e não só a linha da borda — com
+   * só o contorno colorido, dois cards de cores diferentes ainda liam quase
+   * iguais de longe.
+   */
+  tinta?: boolean
+  espessura?: number
   corte?: number
   className?: string
   children: ReactNode
 }) {
   const borda = cor ?? 'var(--border)'
+  const fundo =
+    tinta && cor
+      ? `linear-gradient(160deg, color-mix(in srgb, ${cor} 20%, var(--surface)) 0%, var(--surface) 55%)`
+      : 'var(--surface)'
   return (
     <div className={`relative ${className}`}>
       <div
@@ -52,7 +66,7 @@ export function PainelChanfrado({
         className="absolute inset-0 pointer-events-none"
         style={
           brilho && cor
-            ? { filter: `drop-shadow(0 0 10px color-mix(in srgb, ${cor} 45%, transparent))` }
+            ? { filter: `drop-shadow(0 0 14px color-mix(in srgb, ${cor} 60%, transparent))` }
             : undefined
         }
       >
@@ -61,9 +75,9 @@ export function PainelChanfrado({
       <div
         aria-hidden
         className="absolute pointer-events-none"
-        style={{ inset: 1.5, clipPath: chanfro(corte - 1), background: 'var(--surface)' }}
+        style={{ inset: espessura, clipPath: chanfro(corte - espessura / 2), background: fundo }}
       />
-      <div className="relative">{children}</div>
+      <div className="relative h-full">{children}</div>
     </div>
   )
 }

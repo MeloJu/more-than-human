@@ -16,6 +16,8 @@ import { BotaoDeAtaqueBasico } from '@/app/components/battle/BotaoDeHabilidade'
 import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
 import { FaixaDeFormas } from '@/app/components/battle/FaixaDeFormas'
 import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
+import { FundoDoConfronto } from '@/app/components/battle/FundoDoConfronto'
+import { coresDoConfronto } from '@/app/lib/battle/cores'
 import { Swords } from 'lucide-react'
 import { custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
 import { impactoDaRodada } from '@/app/lib/battle/rodada'
@@ -96,14 +98,18 @@ export default async function BattleArenaPage({
   const formaAtivaDoJogador = idDaFormaAtiva ? playerTransformations[idDaFormaAtiva] : undefined
 
 
-  // A cor de cada lado vem do personagem. Sem cor própria, o jogador cai no
-  // laranja do tema e o inimigo no ciano — os dois lados nunca nascem iguais,
-  // que era o problema de um tema único para a tela inteira.
-  const corJogador = userCharacter.character.corDestaque
-  const corInimigo = enemy.corDestaque ?? 'var(--spirit)'
+  // A cor de cada lado vem da arte do personagem, e a guarda de contraste
+  // garante que os dois lados nunca saiam iguais: se colidirem (Ichigo e Jean
+  // Grey, laranja e amarelo), o adversário troca para a cor secundária dele.
+  // Ver app/lib/battle/cores.ts.
+  const { jogador: corJogador, inimigo: corInimigo } = coresDoConfronto(
+    { primaria: userCharacter.character.corDestaque, secundaria: userCharacter.character.corSecundaria },
+    { primaria: enemy.corDestaque, secundaria: enemy.corSecundaria }
+  )
 
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
+      <FundoDoConfronto corJogador={corJogador} corInimigo={corInimigo} />
       <CabecalhoDeBatalha
         nomeJogador={userCharacter.nickname}
         nomeInimigo={enemy.name}
@@ -199,10 +205,12 @@ export default async function BattleArenaPage({
           habilidades com nome, custo, efeitos e precisão viravam uma torre que
           só cabia rolando — e rolar para escolher a jogada é rolar TODA rodada.
           Em largura total a mesma lista vira três fileiras curtas. */}
+      {/* Tingido na cor do jogador: são as jogadas DELE, e o painel pertence
+          ao lado esquerdo da cena. */}
       {isActive && (
-        <PainelChanfrado corte={18}>
+        <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${corJogador} 45%, var(--border))`} tinta>
           <div className="p-4 sm:p-5 space-y-4">
-            <TituloDeSecao icone={<Swords className="h-5 w-5" />}>Ações</TituloDeSecao>
+            <TituloDeSecao icone={<Swords className="h-5 w-5" style={{ color: corJogador }} />}>Ações</TituloDeSecao>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
               <form action={takeTurn.bind(null, battleId, null)} className="h-full">
                 <BotaoDeAtaqueBasico />

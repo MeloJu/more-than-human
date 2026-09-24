@@ -168,6 +168,10 @@ model Character {
   /// Mora aqui, e nao em Anime, porque Ichigo e Hitsugaya sao os dois de
   /// Bleach e tem identidade cromatica oposta. Nulo cai no --accent do tema.
   corDestaque   String?
+  /// Segunda cor da arte, a 60 graus ou mais da primeira. Usada quando os
+  /// dois lados de um confronto teriam a mesma cor — ver
+  /// app/lib/battle/cores.ts.
+  corSecundaria String?
   description   String?
   anime         Anime          @relation(fields: [animeId], references: [id])
   animeId       String
