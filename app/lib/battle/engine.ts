@@ -16,6 +16,7 @@ import {
   SEVERIDADE,
   DOMAIN_DAMAGE_BONUS,
   EXECUCAO_LIMIAR_HP,
+  BONUS_DE_ACURACIA_MAXIMO,
   EVASAO_MAXIMA,
   EVASAO_POR_PONTO,
   SCALING_BASE,
@@ -496,32 +497,46 @@ function scaledBonus(c: CombatantState, stat: ScalingStat): number {
 }
 
 /**
- * Quanto o alvo desvia deste atacante, de 0 ao teto.
+ * Quanto a disputa entre acurácia e agilidade mexe na chance de acerto, com
+ * sinal: negativo quando o alvo esquiva, positivo quando o atacante mira bem.
  *
- * Só a DIFERENÇA conta, não o valor absoluto: dois personagens com agilidade
- * 18 e acurácia 18 se acertam sempre, do mesmo jeito que dois com 8 e 8. Isso
- * é o que impede a inflação — subir os dois números do elenco inteiro não
- * muda nada, e é também por isso que nenhum dos dois escala por nível.
+ * Só a DIFERENÇA conta, não o valor absoluto: dois personagens com 18 e 18 se
+ * acertam do mesmo jeito que dois com 8 e 8. Isso impede a inflação — subir
+ * os dois números do elenco inteiro não muda nada, e é por isso que nenhum
+ * dos dois escala por nível.
+ *
+ * POR QUE A ACURÁCIA PASSOU A SOMAR. Antes ela só cancelava a esquiva do alvo,
+ * e como todo mundo nasce com 11 nos dois, a esquiva normal já era zero: um
+ * ponto de acurácia não mudava nada em quase nenhuma luta. Medido no
+ * simulador, +5 pontos treinados em acurácia davam 0,0 ponto percentual de
+ * vitória. Agora ela compensa a imprecisão do próprio golpe — é o que dá
+ * sentido a treinar para acertar o golpe grande.
  */
+export function ajusteDeAcerto(atacante: CombatantState, alvo: CombatantState): number {
+  const diferenca = (atacante.accuracy ?? ATRIBUTO_NEUTRO) - (alvo.agility ?? ATRIBUTO_NEUTRO)
+  return clamp(diferenca * EVASAO_POR_PONTO, -EVASAO_MAXIMA, BONUS_DE_ACURACIA_MAXIMO)
+}
+
+/** Só a parte que favorece o alvo: quanto ele esquiva deste atacante, de 0 ao teto. */
 export function evasaoContra(atacante: CombatantState, alvo: CombatantState): number {
-  const vantagem = (alvo.agility ?? ATRIBUTO_NEUTRO) - (atacante.accuracy ?? ATRIBUTO_NEUTRO)
-  return clamp(vantagem * EVASAO_POR_PONTO, 0, EVASAO_MAXIMA)
+  return Math.max(0, -ajusteDeAcerto(atacante, alvo))
 }
 
 /**
  * Se o golpe acerta.
  *
- * Duas coisas independentes se multiplicam, e a separação é o ponto:
+ * Duas coisas independentes se SOMAM:
  *
  * - PRECISÃO é da habilidade. Não depende de quem lança nem de quem recebe —
  *   é o golpe ser largo e difícil de encaixar. É o que permite existir uma
  *   habilidade que bate muito e erra às vezes, quebrando a regra de que a de
  *   maior número é sempre a melhor escolha.
- * - EVASÃO é do alvo, contra a acurácia de quem ataca. É build, e responde a
- *   investimento dos dois lados.
+ * - A DISPUTA acurácia × agilidade é build, e responde a investimento dos dois
+ *   lados: tira até 15% para quem esquiva, soma até 15% para quem mira.
  *
- * O produto tem piso (ACERTO_MINIMO) porque as duas empilhadas poderiam
- * mandar a chance para bem abaixo do que qualquer uma prometia sozinha.
+ * Soma e não produto porque a acurácia agora precisa conseguir SUBIR a
+ * chance, e produto só sabe descer. O piso (ACERTO_MINIMO) segura o caso em
+ * que golpe impreciso e alvo esquivo se empilham.
  *
  * Só vale para golpe com poder. Habilidade de suporte não erra: escudo, cura
  * e buff são lançados em si mesmo, e um escudo que falha é frustração pura —
@@ -533,7 +548,7 @@ export function resolverAcerto(
   precisao: number,
   rand: () => number
 ): { acertou: boolean; chance: number } {
-  const chance = clamp((precisao / 100) * (1 - evasaoContra(atacante, alvo)), ACERTO_MINIMO, 1)
+  const chance = clamp(precisao / 100 + ajusteDeAcerto(atacante, alvo), ACERTO_MINIMO, 1)
 
   // NÃO CONSOME ALEATORIEDADE quando o acerto é certo, e isso não é
   // microotimização: rand() é a mesma sequência que decide crítico e choque,

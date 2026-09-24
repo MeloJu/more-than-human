@@ -30,7 +30,7 @@ describe('atributos alocáveis', () => {
   it('converte pontos em bônus pelo valor de cada atributo', () => {
     expect(bonusDeAtributos({ ...zerado, allocHp: 3, allocAttack: 2 })).toEqual({
       hp: 30,
-      attack: 4,
+      attack: 2,
       defense: 0,
       speed: 0,
       energy: 0,
@@ -41,11 +41,22 @@ describe('atributos alocáveis', () => {
     })
   })
 
-  it('velocidade rende METADE de ataque e defesa, e isso é deliberado', () => {
-    // Ela decide iniciativa E alimenta o crítico: pagar o mesmo preço faria
-    // "sobe velocidade" ser a resposta certa para todo personagem.
-    expect(ATRIBUTO_POR_PONTO.speed * 2).toBe(ATRIBUTO_POR_PONTO.attack)
-    expect(ATRIBUTO_POR_PONTO.speed * 2).toBe(ATRIBUTO_POR_PONTO.defense)
+  it('velocidade nunca rende mais por ponto que ataque — ela conta em duas dimensões', () => {
+    // Ela decide iniciativa E alimenta o crítico. No simulador, mesmo a 1 por
+    // ponto ela já é o segundo melhor treino de Goku e Byakuya; a mais que o
+    // ataque viraria "a resposta certa para todo personagem".
+    expect(ATRIBUTO_POR_PONTO.speed).toBeLessThanOrEqual(ATRIBUTO_POR_PONTO.attack)
+  })
+
+  it('defesa rende mais pontos que ataque, porque a curva dela é plana', () => {
+    // Mitigação é 100/(100+defesa): com defesa ~20, dez pontos tiram só ~7% do
+    // dano. Com a mesma quantidade de ataque, defesa rendia +3 pp de vitória
+    // contra +52 pp do ataque. O número maior é o que a iguala.
+    expect(ATRIBUTO_POR_PONTO.defense).toBeGreaterThan(ATRIBUTO_POR_PONTO.attack)
+  })
+
+  it('acurácia e agilidade valem o mesmo — são os dois lados da mesma disputa', () => {
+    expect(ATRIBUTO_POR_PONTO.accuracy).toBe(ATRIBUTO_POR_PONTO.agility)
   })
 
   it('as duas reservas rendem igual entre si', () => {

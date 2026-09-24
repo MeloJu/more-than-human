@@ -15,15 +15,29 @@
 // médio confiável passa a ter um caso a favor dele. É a primeira vez que duas
 // habilidades ofensivas do mesmo kit competem por algo que não seja o custo.
 //
-// Os números são contidos de propósito. 88% é aproximadamente um erro a cada
-// oito usos: o suficiente para a escolha existir, longe do suficiente para a
-// luta virar sorteio. E como a IA passou a escolher por dano ESPERADO
-// (poder × precisão), ela também deixa de pegar cegamente o maior número.
+// E como a IA escolhe por dano ESPERADO (poder × precisão), ela também deixa
+// de pegar cegamente o maior número.
+//
+// AS FAIXAS FORAM APERTADAS, e a razão é medida. Na primeira versão só dois
+// degraus erravam (88% e 94%), e 508 das 620 habilidades acertavam sempre.
+// Com quase tudo certeiro, treinar acurácia não mudava nada: +5 pontos
+// rendiam 0,0 ponto percentual de vitória no simulador. O dono do projeto
+// escolheu "golpe forte erra mais": fortes entre 80% e 85%, médios entre 90%
+// e 94%, e só os fracos e o suporte continuam certeiros. É o que dá à
+// acurácia treinada algo para compensar — ver ajusteDeAcerto, que agora SOMA
+// à precisão em vez de só cancelar esquiva.
+//
+// Os cortes saem da distribuição real do poder no catálogo (mediana 21, p75
+// 29, p90 35), não de número redondo.
 
 const FAIXAS = [
-  // Os nove golpes de 50+ e os vinte de 40-49: o topo absoluto do catálogo.
-  { minimoDePoder: 40, precisao: 88 },
-  { minimoDePoder: 30, precisao: 94 },
+  // O topo absoluto: os golpes de 40+ (~29 no catálogo). Sem treino, erram
+  // um em cada cinco.
+  { minimoDePoder: 40, precisao: 80 },
+  { minimoDePoder: 30, precisao: 85 },
+  // O miolo do kit.
+  { minimoDePoder: 20, precisao: 90 },
+  { minimoDePoder: 15, precisao: 94 },
 ];
 
 /**

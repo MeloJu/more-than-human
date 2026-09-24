@@ -46,8 +46,23 @@ export const ATRIBUTO_NEUTRO = 11
  */
 export const EVASAO_MAXIMA = 0.15
 
-/** Quanto cada ponto de vantagem em agilidade sobre a acurácia do outro vira de evasão. */
+/**
+ * Quanto cada ponto de diferença entre acurácia e agilidade mexe na chance de
+ * acertar — para os dois lados. Agilidade acima da acurácia de quem ataca
+ * tira; acurácia acima da agilidade do alvo SOMA. Ver ajusteDeAcerto.
+ */
 export const EVASAO_POR_PONTO = 0.01
+
+/**
+ * Teto do que a acurácia pode SOMAR à precisão de um golpe.
+ *
+ * Existe porque a acurácia passou a compensar a imprecisão da própria
+ * habilidade, e sem teto um investimento grande tornaria todo golpe certeiro —
+ * a aposta do golpe grande deixaria de existir. Com 15, um golpe de 80% chega
+ * a 95% e nunca a 100%: treinar reduz o risco, não o apaga. Simétrico ao teto
+ * da evasão de propósito — os dois atributos valem o mesmo tanto.
+ */
+export const BONUS_DE_ACURACIA_MAXIMO = 0.15
 
 /**
  * Piso da chance de acertar.

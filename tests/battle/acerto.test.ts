@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
+  ajusteDeAcerto,
   applyBossOverrides,
   applyTraits,
   comHeroi,
@@ -10,7 +11,7 @@ import {
   resolverAcerto,
   vilao,
 } from '@/app/lib/battle/engine'
-import { ACERTO_MINIMO, ATRIBUTO_NEUTRO, EVASAO_MAXIMA } from '@/app/lib/battle/constants'
+import { ACERTO_MINIMO, ATRIBUTO_NEUTRO, BONUS_DE_ACURACIA_MAXIMO, EVASAO_MAXIMA } from '@/app/lib/battle/constants'
 import { custoDoTreino, descontoDeInteligencia, treinosQueCabem } from '@/app/lib/progression/treino'
 import type { BaseStats, CombatantState, SkillDef } from '@/app/lib/battle/types'
 
@@ -73,8 +74,13 @@ describe('evasão', () => {
     expect(a).toBe(b)
   })
 
-  it('nunca é negativa: acurácia acima da agilidade não gera acerto extra', () => {
+  it('evasão nunca é negativa — o que sobra de acurácia vira AJUSTE positivo, não evasão', () => {
     expect(evasaoContra(lutador({ accuracy: 50 }), lutador({ agility: 10 }))).toBe(0)
+    expect(ajusteDeAcerto(lutador({ accuracy: 21 }), lutador({ agility: 11 }))).toBeCloseTo(0.1, 5)
+  })
+
+  it('o ajuste da acurácia também tem teto', () => {
+    expect(ajusteDeAcerto(lutador({ accuracy: 999 }), lutador({ agility: 1 }))).toBe(BONUS_DE_ACURACIA_MAXIMO)
   })
 
   it('respeita o teto, por maior que seja a vantagem', () => {
@@ -107,10 +113,29 @@ describe('resolução do acerto', () => {
     expect(resolverAcerto(lutador(), lutador(), 70, () => 0.5).acertou).toBe(true)
   })
 
-  it('precisão e evasão se multiplicam', () => {
+  it('precisão e esquiva se somam', () => {
     const esquivo = lutador({ agility: ATRIBUTO_NEUTRO + 10 })
     const { chance } = resolverAcerto(lutador(), esquivo, 80, () => 0.5)
-    expect(chance).toBeCloseTo(0.8 * 0.9, 5)
+    expect(chance).toBeCloseTo(0.7, 5)
+  })
+
+  it('acurácia treinada SOBE a chance de um golpe impreciso — é o que faz treinar valer', () => {
+    // A regra que motivou a mudança: antes, acurácia acima da agilidade do
+    // alvo não fazia nada, e +5 pontos treinados rendiam 0,0 pp de vitória.
+    const mira = lutador({ accuracy: ATRIBUTO_NEUTRO + 10 })
+    expect(resolverAcerto(mira, lutador(), 80, () => 0.5).chance).toBeCloseTo(0.9, 5)
+  })
+
+  it('mas não torna o golpe grande certeiro: 80% para no teto, abaixo de 100%', () => {
+    const mira = lutador({ accuracy: 999 })
+    const { chance } = resolverAcerto(mira, lutador(), 80, () => 0.5)
+    expect(chance).toBeCloseTo(0.8 + BONUS_DE_ACURACIA_MAXIMO, 5)
+    expect(chance).toBeLessThan(1)
+  })
+
+  it('e nunca passa de 100%', () => {
+    const mira = lutador({ accuracy: 999 })
+    expect(resolverAcerto(mira, lutador(), 94, () => 0.5).chance).toBe(1)
   })
 
   it('respeita o piso: nem a pior combinação vira um chute', () => {

@@ -16,17 +16,38 @@ export type Atributo = (typeof ATRIBUTOS)[number]
 /**
  * Quanto UM ponto de nível dá em cada atributo.
  *
- * Os valores saem do mesmo orçamento que balanceia o elenco
- * (hp + 5*ataque + 5*defesa + 4*velocidade + 0.3*energia), calibrados para
- * que gastar um ponto valha aproximadamente o mesmo em qualquer lugar — 10 de
- * orçamento. Sem isso existiria uma escolha certa e cinco erradas, que é o
- * oposto de ter atributo alocável.
+ * CALIBRADO POR SIMULAÇÃO, não por fórmula. A primeira versão saía de um
+ * orçamento (hp + 5*atq + 5*def + 4*vel + 0,3*energia) que prometia "um ponto
+ * vale o mesmo em qualquer lugar" — e o simulador mostrou que não valia.
+ * Medido com um treino (5 pontos) partindo de uma luta perdida contra o mesmo
+ * personagem um nível acima:
  *
- * VELOCIDADE É A EXCEÇÃO, e de propósito: ela vale metade. Velocidade decide
- * a iniciativa da rodada E alimenta a chance de crítico, então um ponto nela
- * rende em duas dimensões enquanto os outros rendem em uma. Pagá-la pelo
- * mesmo preço faria "sobe velocidade" ser a resposta certa para todo
- * personagem, e a tela de atributos viraria decoração.
+ *                 antes (Ichigo / Byakuya / Goku)   agora
+ *   ataque        +52 /   0 / +32 pp                +28 /   0 / +20
+ *   defesa         +3 /  +7 /  +6                   +14 / +19 / +18
+ *   acurácia       +3 /  +5 /  +3                    +6 / +11 /  +7
+ *
+ * Ataque esmagava tudo nos kits que escalam dele, e defesa e acurácia
+ * rendiam quase nada para qualquer um — era "uma escolha certa e cinco
+ * erradas". Agora cada personagem tem três ou quatro treinos que valem a
+ * pena, e o atributo de ESCALA do kit dele continua sendo o melhor sem
+ * esmagar os outros. Isso é desejado: o Ichigo treina ataque, o Byakuya
+ * treina energia, e é o kit que diz qual.
+ *
+ * POR QUE A DEFESA PRECISOU DE 5. O dano é mitigado por 100/(100+defesa), e
+ * com defesa na casa dos 20 a curva é quase plana: 10 pontos tiram só ~7% do
+ * dano recebido. A mesma curva faz a defesa render cada vez menos quanto mais
+ * se tem — é o limitador natural dela, e por isso ela aguenta um número maior.
+ *
+ * VELOCIDADE CONTINUA VALENDO METADE: decide a iniciativa E alimenta o
+ * crítico, rende em duas dimensões. E mesmo a 1 por ponto ela já é o
+ * segundo melhor treino do Goku e do Byakuya.
+ *
+ * O QUE CONTINUA SEM VALER: stamina rende zero para os três, e energia só
+ * rende para quem escala dela. Não é o número daqui — a reserva nunca acaba:
+ * em 100 lutas o Ichigo nunca desceu de 61% de energia, porque quem limita o
+ * uso é a recarga das habilidades. Consertar isso é mexer na economia da
+ * luta (regeneração), não nesta tabela.
  *
  * Guardamos os PONTOS gastos no banco, não o bônus final. Mudar um número
  * aqui reajusta todo mundo na próxima batalha, em vez de deixar personagens
@@ -34,31 +55,26 @@ export type Atributo = (typeof ATRIBUTOS)[number]
  */
 export const ATRIBUTO_POR_PONTO: Record<Atributo, number> = {
   hp: 10,
-  attack: 2,
-  defense: 2,
+  attack: 1,
+  defense: 5,
   speed: 1,
   energy: 12,
   stamina: 12,
   /**
-   * OS TRÊS NOVOS NÃO SEGUEM O ORÇAMENTO, e não é descuido.
+   * Acurácia e agilidade mudam a FREQUÊNCIA com que o resto acontece, e as
+   * duas têm teto de 15 pontos de vantagem (ver ajusteDeAcerto): passou
+   * disso, o ponto vale zero. A 2 por ponto, oito treinos esgotam o teto — um
+   * investimento de verdade, que a mecânica se recusa a pagar além disso.
    *
-   * O orçamento (hp + 5*atq + 5*def + 4*vel + 0,3*energia) precifica o quanto
-   * um atributo contribui para bater e aguentar. Acurácia e agilidade não
-   * fazem nem uma coisa nem outra: mudam a FREQUÊNCIA com que o resto
-   * acontece, e a agilidade tem teto de 15% de evasão. Um ponto vale muito no
-   * começo da curva e literalmente zero depois do teto, então qualquer preço
-   * único estaria errado em uma das duas pontas.
+   * A acurácia só passou a valer alguma coisa quando começou a SOMAR à
+   * precisão do golpe; antes ela só cancelava esquiva, e esquiva normal é zero.
    *
-   * +1 por ponto os deixa na mesma escala de velocidade, que é o número com
-   * que eles disputam de fato. Quinze pontos de vantagem esgotam a evasão; é
-   * um investimento grande e a mecânica se recusa a pagar mais que isso.
-   *
-   * Inteligência é o caso mais claro: ela não entra em NENHUMA conta de
-   * combate. Vale +2 por ponto porque desconto de treino é dinheiro, não
-   * poder, e não há motivo para encarecê-la contra quem quer poder.
+   * Inteligência não entra em NENHUMA conta de combate. Vale +2 por ponto
+   * porque desconto de treino é dinheiro, não poder, e não há motivo para
+   * encarecê-la contra quem quer poder.
    */
-  accuracy: 1,
-  agility: 1,
+  accuracy: 2,
+  agility: 2,
   intelligence: 2,
 }
 
