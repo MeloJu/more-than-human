@@ -41,10 +41,10 @@ export default async function PvpArenaPage({
   ])
   // Os dois lados são jogador de verdade em PvP — diferente da IA, dá pra
   // mostrar a fala dos dois. Ver TurnLogEntry para onde isto é lido.
-  const skillDescriptions = Object.fromEntries(
+  const falas = Object.fromEntries(
     [...Object.values(mySkills), ...Object.values(foeSkills)]
-      .filter((s): s is typeof s & { description: string } => Boolean(s.description))
-      .map((s) => [s.name, s.description])
+      .filter((s): s is typeof s & { fala: string } => Boolean(s.fala))
+      .map((s) => [s.name, s.fala])
   )
 
   // O log é gravado na perspectiva do MOTOR (host = PLAYER), então o lado de
@@ -139,7 +139,7 @@ export default async function PvpArenaPage({
           turns={turns.map((t) => ({ id: t.id, round: t.round, result: t.result as unknown as TurnResult }))}
           playerName={view.isHost ? me.userCharacter.nickname : foe.userCharacter.nickname}
           enemyName={view.isHost ? foe.userCharacter.nickname : me.userCharacter.nickname}
-          skillDescriptions={skillDescriptions}
+          falas={falas}
           corJogador={view.isHost ? minhaCor : corDoOutro}
           corInimigo={view.isHost ? corDoOutro : minhaCor}
         />

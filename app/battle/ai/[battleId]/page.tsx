@@ -64,10 +64,10 @@ export default async function BattleArenaPage({
   // Só do lado do jogador por agora — o inimigo de IA não carrega skill pra
   // esta tela (só nome/retrato), então a fala dele ficaria maior escopo do
   // que vale hoje. Ver TurnLogEntry para onde isto é lido.
-  const skillDescriptions = Object.fromEntries(
+  const falas = Object.fromEntries(
     Object.values(playerSkills)
-      .filter((s): s is typeof s & { description: string } => Boolean(s.description))
-      .map((s) => [s.name, s.description])
+      .filter((s): s is typeof s & { fala: string } => Boolean(s.fala))
+      .map((s) => [s.name, s.fala])
   )
 
   // O que cada lutador SOFREU na rodada mais recente, para a tela poder
@@ -177,7 +177,7 @@ export default async function BattleArenaPage({
           turns={turns.map((t) => ({ id: t.id, round: t.round, result: t.result as unknown as TurnResult }))}
           playerName={userCharacter.nickname}
           enemyName={enemy.name}
-          skillDescriptions={skillDescriptions}
+          falas={falas}
           corJogador={corJogador}
           corInimigo={corInimigo}
         />

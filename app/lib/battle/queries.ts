@@ -31,6 +31,7 @@ export function toSkillDef(skill: {
   cooldown: number
   precision?: number
   description?: string | null
+  fala?: string | null
   effects: unknown
   tags: unknown
   category?: string
@@ -44,6 +45,7 @@ export function toSkillDef(skill: {
     precision: skill.precision,
     cooldown: skill.cooldown,
     description: skill.description ?? undefined,
+    fala: skill.fala ?? undefined,
     effects: parseEffects(skill.effects),
     category: skill.category,
     // Json sem garantia de forma: só entram as strings.

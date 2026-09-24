@@ -471,7 +471,7 @@ const deadpool = {
       cooldown: 1,
       tags: ['espada'],
       effects: [],
-      description: 'Duas espadas, um problema: você.',
+      fala: 'Duas espadas, um problema: você.',
       level: 1,
     },
     {
@@ -482,7 +482,7 @@ const deadpool = {
       cooldown: 3,
       tags: ['heal'],
       effects: [{ type: 'HEAL', target: 'SELF', magnitude: 28 }],
-      description: 'Já morri um monte de vezes essa semana. Essa nem doeu.',
+      fala: 'Já morri um monte de vezes essa semana. Essa nem doeu.',
       level: 1,
     },
     {
@@ -493,7 +493,7 @@ const deadpool = {
       cooldown: 2,
       tags: ['fire'],
       effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 9, duration: 2 }],
-      description: 'Desperdício de chimichanga, eu sei. Valeu a pena ver sua cara.',
+      fala: 'Desperdício de chimichanga, eu sei. Valeu a pena ver sua cara.',
       level: 2,
     },
     {
@@ -504,7 +504,7 @@ const deadpool = {
       cooldown: 3,
       tags: ['debuff'],
       effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'defense', magnitude: 24, duration: 2 }],
-      description: 'Ei, você aí jogando — viu como ele parou de prestar atenção?',
+      fala: 'Ei, você aí jogando — viu como ele parou de prestar atenção?',
       level: 2,
     },
     {
@@ -515,7 +515,7 @@ const deadpool = {
       cooldown: 3,
       tags: ['espada'],
       effects: [{ type: 'LIFESTEAL', target: 'SELF', magnitude: 22 }],
-      description: 'Quanto mais eu corto, mais eu... ah, esquece, já curou de novo.',
+      fala: 'Quanto mais eu corto, mais eu... ah, esquece, já curou de novo.',
       level: 5,
     },
     {
@@ -526,7 +526,7 @@ const deadpool = {
       cooldown: 5,
       tags: ['ultimate'],
       effects: [{ type: 'PIERCE', target: 'SELF', magnitude: 40 }],
-      description: 'Guarda-costas, escudo, armadura — nada disso importa quando é PESSOAL.',
+      fala: 'Guarda-costas, escudo, armadura — nada disso importa quando é PESSOAL.',
       level: 9,
     },
   ],
@@ -551,7 +551,7 @@ const patolino = {
       cooldown: 3,
       tags: ['counter'],
       effects: [{ type: 'COUNTER', target: 'SELF', magnitude: 62, duration: 2 }],
-      description: 'Temporada de pato! Não, espera — temporada de VOCÊ.',
+      fala: 'Temporada de pato! Não, espera — temporada de VOCÊ.',
       level: 1,
     },
     {
@@ -562,7 +562,7 @@ const patolino = {
       cooldown: 2,
       tags: ['fire'],
       effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 9, duration: 2 }],
-      description: 'Aceita um charuto? Ah, relaxa, é só... ih.',
+      fala: 'Aceita um charuto? Ah, relaxa, é só... ih.',
       level: 1,
     },
     {
@@ -573,7 +573,7 @@ const patolino = {
       cooldown: 2,
       tags: [],
       effects: [{ type: 'LIFESTEAL', target: 'SELF', magnitude: 24 }],
-      description: 'É meu! Tudo meu! Inclusive isso que agora é meu!',
+      fala: 'É meu! Tudo meu! Inclusive isso que agora é meu!',
       level: 2,
     },
     {
@@ -584,7 +584,7 @@ const patolino = {
       cooldown: 3,
       tags: ['shield'],
       effects: [{ type: 'SHIELD', target: 'SELF', magnitude: 28, duration: 2 }],
-      description: 'Yoicks, e fuga! Covarde, mas um covarde ESPERTO.',
+      fala: 'Yoicks, e fuga! Covarde, mas um covarde ESPERTO.',
       level: 2,
     },
     {
@@ -595,7 +595,7 @@ const patolino = {
       cooldown: 5,
       tags: ['ultimate', 'magia'],
       effects: [{ type: 'EXECUTE', target: 'SELF', magnitude: 54 }],
-      description: 'Abracadabra, seu azarado — o Mago não erra duas vezes!',
+      fala: 'Abracadabra, seu azarado — o Mago não erra duas vezes!',
       level: 9,
     },
   ],

@@ -44,6 +44,7 @@ const jujutsuCatalog = require('./catalog/jujutsu');
 const supportCatalog = require('./catalog/supports');
 const transformationCatalog = require('./catalog/transformations');
 const traitCatalog = require('./catalog/traits');
+const descricoesCatalog = require('./catalog/descricoes');
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -771,6 +772,35 @@ async function syncCores() {
 }
 
 /**
+ * Descrição de cada habilidade — a explicação do tooltip das ações. Ver
+ * prisma/catalog/descricoes.js.
+ *
+ * Roda POR ÚLTIMO: syncSummoners faz upsert do literal inteiro das
+ * assinaturas, e se ele rodasse depois poderia reescrever o que foi posto
+ * aqui. Hoje nenhum literal traz `description` (as frases viraram `fala`),
+ * mas a ordem é a garantia e não uma coincidência.
+ */
+async function syncDescricoes() {
+  for (const [nome, categoria, descricao] of descricoesCatalog.descricoes) {
+    const sk = await prisma.skill.findUnique({
+      where: { name_category: { name: nome, category: categoria } },
+      select: { id: true, description: true },
+    });
+    if (!sk) {
+      console.log(`  (aviso) descrição para habilidade que não existe neste banco: ${nome} [${categoria}]`);
+      continue;
+    }
+    const d = diff({ description: sk.description }, { description: descricao });
+    if (d.acao === 'igual') {
+      relatorio.iguais += 1;
+      continue;
+    }
+    registra('descrição', nome, d);
+    if (!DRY_RUN) await prisma.skill.update({ where: { id: sk.id }, data: { description: descricao } });
+  }
+}
+
+/**
  * Transformações. Ver prisma/catalog/transformations.js para os níveis e o
  * porquê do corte pela metade.
  *
@@ -918,6 +948,9 @@ async function main() {
   // Por ultimo: depende de toda habilidade ja existir com o poder final.
   await syncPrecisao();
   await syncMecanicasDeDano();
+  // Por último: depende das renomeações e das habilidades que as assinaturas
+  // criam — ver syncDescricoes.
+  await syncDescricoes();
 
   console.log(`sem alteração: ${relatorio.iguais}`);
   if (relatorio.criados.length) {

@@ -42,22 +42,24 @@ const VERBO_CRITICO: Record<NonNullable<TurnResult['severidade']>, string> = {
 }
 
 /**
- * Fala de personagem ao usar a skill — Skill.description existia no banco
- * (198 delas já preenchidas, lore de kidō) sem NENHUM lugar que exibisse.
- * Existe agora porque Deadpool e Patolino pedem isso: a graça do kit deles
- * está na frase, não só no efeito. Opcional e silencioso pra quem não tem —
- * a lore de kidō aparece de brinde, sem trabalho extra.
+ * Fala de personagem ao usar a skill — lida de Skill.fala. Existe porque
+ * Deadpool e Patolino pedem isso: a graça do kit deles está na frase, não só
+ * no efeito. Opcional e silencioso pra quem não tem.
+ *
+ * Vinha de Skill.description até a descrição virar a EXPLICAÇÃO do tooltip
+ * das ações; os dois papéis não cabem no mesmo texto, e a fala ganhou coluna
+ * própria. Ver a migração 20260924120000_fala_da_habilidade.
  */
 export function TurnLogEntry({
   turn,
   playerName,
   enemyName,
-  skillDescriptions,
+  falas,
 }: {
   turn: TurnResult
   playerName: string
   enemyName: string
-  skillDescriptions?: Record<string, string>
+  falas?: Record<string, string>
 }) {
   const actorName = turn.side === 'PLAYER' ? playerName : enemyName
   const alvoName = turn.side === 'PLAYER' ? enemyName : playerName
@@ -164,7 +166,7 @@ export function TurnLogEntry({
   // ATTACK ou SUPPORT.
   const acertou = typeof turn.damage === 'number' && turn.damage > 0 && !turn.countered
   const verbo = turn.severidade ? (turn.isCrit ? VERBO_CRITICO : VERBO)[turn.severidade] : 'acertou'
-  const fala = skillDescriptions?.[turn.skillName]
+  const fala = falas?.[turn.skillName]
 
   return (
     <>

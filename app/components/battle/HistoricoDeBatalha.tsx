@@ -31,7 +31,7 @@ export function HistoricoDeBatalha({
   turns,
   playerName,
   enemyName,
-  skillDescriptions,
+  falas,
   corJogador,
   corInimigo,
 }: {
@@ -39,7 +39,7 @@ export function HistoricoDeBatalha({
   playerName: string
   enemyName: string
   /** Fala da skill ao usar — ver o comentário em TurnLogEntry. */
-  skillDescriptions?: Record<string, string>
+  falas?: Record<string, string>
   /** A barra lateral de cada linha usa a cor de quem agiu, igual aos cards. */
   corJogador?: string | null
   corInimigo?: string | null
@@ -85,7 +85,7 @@ export function HistoricoDeBatalha({
                           borderColor: `color-mix(in srgb, ${t.result.side === 'PLAYER' ? cJ : cI} 60%, transparent)`,
                         }}
                       >
-                        <TurnLogEntry turn={t.result} playerName={playerName} enemyName={enemyName} skillDescriptions={skillDescriptions} />
+                        <TurnLogEntry turn={t.result} playerName={playerName} enemyName={enemyName} falas={falas} />
                       </li>
                     ))}
                   </ul>

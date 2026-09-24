@@ -315,6 +315,12 @@ export type SkillDef = {
    * junto porque SkillDef é o que atravessa a fronteira banco->batalha.
    */
   description?: string
+  /**
+   * O que o personagem DIZ ao usar o golpe, mostrado no histórico. Separado
+   * de `description` (a explicação do tooltip) porque os dois não cabem no
+   * mesmo texto: as frases do Deadpool e do Patolino são fala, não explicação.
+   */
+  fala?: string
 }
 
 /** Traço passivo já resolvido para uso no motor. Ver model Trait. */

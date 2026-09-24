@@ -1,0 +1,14 @@
+-- Fala da habilidade, separada da descrição.
+--
+-- Escrita à mão pelo mesmo motivo das anteriores: prisma migrate dev quer
+-- recriar o banco, e aqui existe jogador.
+--
+-- `description` fazia dois papéis ao mesmo tempo: era a FALA que o histórico
+-- mostra quando o golpe é usado (as frases do Deadpool e do Patolino moram
+-- lá) e passou a ser a EXPLICAÇÃO do tooltip das ações. Os dois não cabem no
+-- mesmo texto — o tooltip de "Mine! Mine! Mine!" dizia só "É meu! Tudo meu!",
+-- sem explicar nada. Agora cada um tem a sua coluna.
+--
+-- As frases passam para `fala` pelo catalog:sync (prisma/catalog/signatures.js),
+-- não por UPDATE aqui: o catálogo é a fonte, e a migração só abre o espaço.
+ALTER TABLE "Skill" ADD COLUMN "fala" TEXT;

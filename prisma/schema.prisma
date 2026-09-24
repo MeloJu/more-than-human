@@ -272,6 +272,10 @@ model Skill {
   id          String        @id @default(cuid())
   name        String
   description String?
+  /// O que o personagem DIZ ao usar o golpe, mostrado no histórico da batalha.
+  /// Separado de `description`, que é a explicação do tooltip: as frases do
+  /// Deadpool e do Patolino são fala, não explicação.
+  fala          String?
   category    SkillCategory
   power       Int           @default(10) // base multiplier or flat power
   energyCost  Int           @default(10)
