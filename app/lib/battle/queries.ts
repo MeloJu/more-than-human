@@ -4,7 +4,7 @@ import { getEquipmentGrantedSkills } from '@/app/lib/equipment/queries'
 import { NORMAL_BATTLE_XP_MULTIPLIER } from './constants'
 import { escolherLoadoutPadrao } from './ai'
 import { getLoadoutSlotCount } from '@/app/lib/progression/constants'
-import type { BaseStats, ScalingStat, SkillDef, SkillEffect, StatBonus, TraitDef, TransformationDef } from './types'
+import type { BaseStats, ScalingStat, SkillDef, SkillEffect, StatBonus, TraitDef, TransformationDef, Alcance } from './types'
 import type { ScalingStat as PrismaScalingStat } from '@prisma/client'
 
 function parseEffects(json: unknown): SkillEffect[] {
@@ -32,6 +32,8 @@ export function toSkillDef(skill: {
   precision?: number
   description?: string | null
   fala?: string | null
+  /** Revisado no catálogo; nulo cai na dedução de alcanceDe. */
+  alcance?: Alcance | null
   effects: unknown
   tags: unknown
   category?: string
@@ -46,6 +48,7 @@ export function toSkillDef(skill: {
     cooldown: skill.cooldown,
     description: skill.description ?? undefined,
     fala: skill.fala ?? undefined,
+    alcance: skill.alcance ?? undefined,
     effects: parseEffects(skill.effects),
     category: skill.category,
     // Json sem garantia de forma: só entram as strings.

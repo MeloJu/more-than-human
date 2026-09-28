@@ -286,10 +286,21 @@ enum ScalingStat {
   ENERGY
 }
 
+/// De onde o golpe vem. Ver prisma/catalog/alcance.js.
+enum Alcance {
+  CORPO
+  DISTANCIA
+  AREA
+}
+
 model Skill {
   id          String        @id @default(cuid())
   name        String
   description String?
+  /// De onde o golpe vem — decide o que aparar e esquivar defendem. Nulo usa
+  /// a dedução por categoria, tags e nome (app/lib/battle/alcance.ts); o
+  /// catálogo (prisma/catalog/alcance.js) grava o que foi revisado.
+  alcance     Alcance?
   /// O que o personagem DIZ ao usar o golpe, mostrado no histórico da batalha.
   /// Separado de `description`, que é a explicação do tooltip: as frases do
   /// Deadpool e do Patolino são fala, não explicação.

@@ -46,6 +46,7 @@ const transformationCatalog = require('./catalog/transformations');
 const traitCatalog = require('./catalog/traits');
 const descricoesCatalog = require('./catalog/descricoes');
 const aposentadasCatalog = require('./catalog/aposentadas');
+const alcanceCatalog = require('./catalog/alcance');
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -903,6 +904,30 @@ async function syncTransformations() {
 }
 
 /**
+ * Alcance revisado de cada golpe — ver prisma/catalog/alcance.js. Golpe fora
+ * da lista fica com o campo nulo, e a batalha usa a dedução por regra.
+ */
+async function syncAlcance() {
+  for (const [nome, categoria, alcance] of alcanceCatalog.alcances) {
+    const sk = await prisma.skill.findUnique({
+      where: { name_category: { name: nome, category: categoria } },
+      select: { id: true, alcance: true },
+    });
+    if (!sk) {
+      console.log(`  (aviso) alcance para habilidade que não existe neste banco: ${nome} [${categoria}]`);
+      continue;
+    }
+    const d = diff({ alcance: sk.alcance }, { alcance });
+    if (d.acao === 'igual') {
+      relatorio.iguais += 1;
+      continue;
+    }
+    registra('alcance', nome, d);
+    if (!DRY_RUN) await prisma.skill.update({ where: { id: sk.id }, data: { alcance } });
+  }
+}
+
+/**
  * Tira do kit o que o catálogo aposentou — ver prisma/catalog/aposentadas.js.
  * A única remoção que o sync faz, e só de vínculo de catálogo
  * (CharacterSkill), nunca de dado de jogador.
@@ -1025,6 +1050,7 @@ async function main() {
   await syncPrecisao();
   await syncMecanicasDeDano();
   await syncAposentadas();
+  await syncAlcance();
   // Por último: depende das renomeações e das habilidades que as assinaturas
   // criam — ver syncDescricoes.
   await syncDescricoes();
