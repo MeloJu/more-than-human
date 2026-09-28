@@ -841,6 +841,8 @@ async function syncTransformations() {
       drainHpPerTurn: def.drainHpPerTurn ?? 0,
       consumesTurn: def.consumesTurn ?? true,
       activationCost: def.activationCost ?? 0,
+      activationStaminaCost: def.activationStaminaCost ?? 0,
+      drainStaminaPerTurn: def.drainStaminaPerTurn ?? 0,
       triggerType: def.triggerType ?? 'MANUAL',
       triggerPayload: def.triggerPayload ?? null,
       unlocksSkillId,

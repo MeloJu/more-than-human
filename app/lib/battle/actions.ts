@@ -9,11 +9,12 @@ import { requireUser } from '@/app/lib/session'
 import {
   SEM_BONUS,
   applyTraits,
-  applyTransformation,
+  ativarForma,
   comHeroi,
   computeBaseStats,
   computeFighterStats,
   createInitialState,
+  faltaParaAtivar,
   heroi,
   isLegalMove,
   migrarEstado,
@@ -447,23 +448,18 @@ export async function activateTransformation(battleId: string, transformationId:
 
   const forma = ctx.playerTransformations[transformationId]
 
+  // Toda forma cobra energia e stamina na ativação — a que gasta a rodada
+  // também. Conferido aqui, antes de resolver qualquer coisa, para o jogador
+  // saber qual das duas faltou em vez de ver a rodada passar sem efeito.
+  const falta = faltaParaAtivar(heroi(ctx.state), forma)
+  if (falta.energia > 0) redirect(`/battle/ai/${battleId}?error=insufficient_energy`)
+  if (falta.stamina > 0) redirect(`/battle/ai/${battleId}?error=insufficient_stamina`)
+
   // FORMA QUE NÃO GASTA A RODADA: aplica e pronto, sem resolver turno nenhum.
   // O inimigo não ganha um golpe de graça, e o jogador segue podendo agir na
   // mesma rodada — que é o ponto do Bankai, liberado no meio da troca.
-  //
-  // O preço é energia, cobrada aqui, uma vez. Sem ele a forma seria ativação
-  // obrigatória na rodada 1 e deixaria de ser decisão.
   if (forma.consumesTurn === false) {
-    const custo = forma.activationCost ?? 0
-    if (heroi(ctx.state).currentEnergy < custo) {
-      redirect(`/battle/ai/${battleId}?error=insufficient_energy`)
-    }
-
-    const transformado = applyTransformation(heroi(ctx.state), forma)
-    const novoEstado: BattleState = comHeroi(ctx.state, {
-      ...transformado,
-      currentEnergy: transformado.currentEnergy - custo,
-    })
+    const novoEstado: BattleState = comHeroi(ctx.state, ativarForma(heroi(ctx.state), forma))
 
     // O turno NÃO avança, então a trava otimista compara o mesmo número: se
     // outra aba resolveu uma rodada nesse meio tempo, esta gravação não passa.

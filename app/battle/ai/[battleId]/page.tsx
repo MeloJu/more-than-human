@@ -195,7 +195,12 @@ export default async function BattleArenaPage({
         <FaixaDeFormas quantidade={availableTransformations.length} cor={corJogador}>
           {availableTransformations.map((t) => (
             <form key={t.id} action={activateTransformation.bind(null, battleId, t.id)} className="snap-start shrink-0">
-              <BotaoDeForma forma={t} energiaAtual={heroi(state).currentEnergy} cor={corJogador} />
+              <BotaoDeForma
+                forma={t}
+                energiaAtual={heroi(state).currentEnergy}
+                staminaAtual={heroi(state).currentStamina ?? 0}
+                cor={corJogador}
+              />
             </form>
           ))}
         </FaixaDeFormas>

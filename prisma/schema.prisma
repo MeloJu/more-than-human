@@ -94,7 +94,18 @@ model Transformation {
   /// um clique extra. Com custo, a pergunta passa a ser QUANDO liberar: agora,
   /// e ficar sem energia para o resto da luta, ou depois.
   activationCost   Int                   @default(0)
-  unlocksSkill     Skill?                @relation("TransformationUnlockSkill", fields: [unlocksSkillId], references: [id])
+
+  /// Stamina cobrada na ativação, e energia e stamina cobradas POR RODADA
+  /// para manter a forma (drainPerTurn e drainStaminaPerTurn). Ficar sem
+  /// qualquer uma das duas derruba a forma.
+  ///
+  /// Toda forma passou a cobrar as quatro. Antes só dez de cinquenta e cinco
+  /// tinham manutenção, e a reserva nunca acabava numa luta: treinar energia
+  /// e stamina não valia nada. Os valores saem de uma regra única no catálogo
+  /// (ver precoDaForma em prisma/catalog/transformations.js).
+  activationStaminaCost Int              @default(0)
+  drainStaminaPerTurn   Int              @default(0)
+  unlocksSkill    Skill?                @relation("TransformationUnlockSkill", fields: [unlocksSkillId], references: [id])
   unlocksSkillId   String?
   triggerType      TransformationTrigger @default(MANUAL)
   triggerPayload   Json?
@@ -453,6 +464,11 @@ model UserCharacter {
   /// O preço crescente é o que substitui um teto diário — em vez de proibir,
   /// encarece, e o jogador decide quando parou de valer a pena.
   treinos                Int             @default(0)
+
+  /// Quantas vezes os pontos de atributo já foram redistribuídos. A primeira
+  /// é de graça (ver redistribuirAtributos); guardar a contagem é o que
+  /// permite cobrar as seguintes.
+  redistribuicoes        Int             @default(0)
   nickname               String          @default("Hero")
   pvpWins                Int             @default(0)
   npcWins                Int             @default(0)

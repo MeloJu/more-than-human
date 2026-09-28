@@ -1069,8 +1069,9 @@ describe('forma que não gasta a rodada', () => {
     expect(applyTransformation(c, gasta).attack).toBe(applyTransformation(c, naoGasta).attack)
   })
 
-  it('o custo de ativação não é cobrado pelo motor — é a action que cobra', () => {
-    // Registrado como teste porque é fácil supor o contrário e cobrar duas vezes.
+  it('applyTransformation só aplica: quem cobra a ativação é ativarForma', () => {
+    // Registrado como teste porque é fácil supor o contrário e cobrar duas
+    // vezes. Ver tests/battle/preco-da-forma.test.ts para a cobrança.
     const c = combatant({ currentEnergy: 100 })
     const forma = transformacao({ attackModifier: 0.2, consumesTurn: false, activationCost: 40 })
     expect(applyTransformation(c, forma).currentEnergy).toBe(100)

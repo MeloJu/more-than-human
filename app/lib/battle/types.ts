@@ -356,6 +356,10 @@ export type TransformationDef = {
   consumesTurn?: boolean
   /** Energia cobrada uma vez, na ativação. */
   activationCost?: number
+  /** Stamina cobrada uma vez, na ativação. Ver ativarForma. */
+  activationStaminaCost?: number
+  /** Stamina por rodada para manter a forma. Ver applyDrain. */
+  drainStaminaPerTurn?: number
   triggerType: TransformationTrigger
   triggerPayload: unknown
 }

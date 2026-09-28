@@ -19,23 +19,38 @@ function pct(v: number): string | null {
  * de 34 a 44 de energia — nem se GASTA A RODADA, que é a regra que separa
  * Bankai de Super Saiyan e a que mais muda como se joga o momento.
  *
- * Sem energia, o botão diz por quê em vez de só apagar: um controle
- * desabilitado sem motivo obriga o jogador a adivinhar.
+ * Sem energia ou stamina, o botão diz QUAL falta em vez de só apagar: um
+ * controle desabilitado sem motivo obriga o jogador a adivinhar.
+ *
+ * Mostra também a MANUTENÇÃO por rodada. Desde que toda forma passou a
+ * cobrar para se manter, liberar é decidir quantas rodadas ela vai durar — e
+ * isso só se decide sabendo quanto ela come por rodada.
  */
 export function BotaoDeForma({
   forma,
   energiaAtual,
+  staminaAtual,
   cor,
 }: {
   forma: TransformationDef
   energiaAtual: number
+  staminaAtual: number
   /** Cor do personagem: a forma é dele, então herda a identidade do card. */
   cor?: string | null
 }) {
   const custo = forma.activationCost ?? 0
+  const custoSt = forma.activationStaminaCost ?? 0
   const gastaRodada = forma.consumesTurn !== false
-  const falta = custo - energiaAtual
-  const podeLiberar = falta <= 0
+  const falta = [
+    custo > energiaAtual ? `${custo - energiaAtual} de energia` : null,
+    custoSt > staminaAtual ? `${custoSt - staminaAtual} de stamina` : null,
+  ].filter((f): f is string => f !== null)
+  const podeLiberar = falta.length === 0
+  const manutencao = [
+    forma.drainPerTurn > 0 ? `${forma.drainPerTurn} EN` : null,
+    (forma.drainStaminaPerTurn ?? 0) > 0 ? `${forma.drainStaminaPerTurn} ST` : null,
+    (forma.drainHpPerTurn ?? 0) > 0 ? `${forma.drainHpPerTurn} HP` : null,
+  ].filter((m): m is string => m !== null)
 
   const ganhos = [
     ['ATQ', pct(forma.attackModifier)],
@@ -48,6 +63,8 @@ export function BotaoDeForma({
       forma={forma}
       cor={cor ?? 'var(--accent)'}
       custo={custo}
+      custoSt={custoSt}
+      manutencao={manutencao}
       gastaRodada={gastaRodada}
       podeLiberar={podeLiberar}
       falta={falta}
@@ -60,6 +77,8 @@ function Interior({
   forma,
   cor,
   custo,
+  custoSt,
+  manutencao,
   gastaRodada,
   podeLiberar,
   falta,
@@ -68,9 +87,11 @@ function Interior({
   forma: TransformationDef
   cor: string
   custo: number
+  custoSt: number
+  manutencao: string[]
   gastaRodada: boolean
   podeLiberar: boolean
-  falta: number
+  falta: string[]
   ganhos: [string, string][]
 }) {
   // useFormStatus só enxerga o form ancestral, então precisa estar num
@@ -107,7 +128,7 @@ function Interior({
         <span className="min-w-0 flex-1">
           <span className="flex items-start justify-between gap-2">
             <span className="font-bold leading-snug">{pending ? 'Liberando…' : forma.name}</span>
-            <TagDeCusto>{custo} EN</TagDeCusto>
+            <TagDeCusto>{custoSt > 0 ? `${custo} EN · ${custoSt} ST` : `${custo} EN`}</TagDeCusto>
           </span>
 
           <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs mt-1 tabular-nums">
@@ -122,7 +143,11 @@ function Interior({
             </span>
           </span>
 
-          {!podeLiberar && <span className="block text-xs mt-1 text-red-400/90">Faltam {falta} de energia.</span>}
+          {manutencao.length > 0 && (
+            <span className="block text-xs mt-1 text-amber-400/90 tabular-nums">Mantém: {manutencao.join(' · ')} por rodada</span>
+          )}
+
+          {!podeLiberar && <span className="block text-xs mt-1 text-red-400/90">Faltam {falta.join(' e ')}.</span>}
         </span>
       </div>
     </button>

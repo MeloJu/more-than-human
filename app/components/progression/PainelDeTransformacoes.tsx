@@ -61,7 +61,13 @@ export function PainelDeTransformacoes({
                   joga a forma: uma que não gasta pode ser liberada no meio da
                   troca, outra custa um turno inteiro apanhando. */}
               {t.consumesTurn ? ' · gasta a rodada' : ' · não gasta a rodada'}
-              {t.activationCost > 0 && ` · custa ${t.activationCost} de energia`}
+              {(t.activationCost > 0 || t.activationStaminaCost > 0) &&
+                ` · liberar custa ${[
+                  t.activationCost > 0 ? `${t.activationCost} de energia` : null,
+                  t.activationStaminaCost > 0 ? `${t.activationStaminaCost} de stamina` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' e ')}`}
             </div>
 
             {modificadores.length > 0 && (
@@ -77,16 +83,18 @@ export function PainelDeTransformacoes({
               </div>
             )}
 
-            {(t.drainPerTurn > 0 || t.drainHpPerTurn > 0) && (
+            {(t.drainPerTurn > 0 || t.drainStaminaPerTurn > 0 || t.drainHpPerTurn > 0) && (
               <div className="text-xs mt-1.5 text-amber-600 dark:text-amber-400">
                 Custo por rodada:{' '}
                 {[
                   t.drainPerTurn > 0 ? `${t.drainPerTurn} de energia` : null,
+                  t.drainStaminaPerTurn > 0 ? `${t.drainStaminaPerTurn} de stamina` : null,
                   t.drainHpPerTurn > 0 ? `${t.drainHpPerTurn} de vida` : null,
                 ]
                   .filter(Boolean)
-                  .join(' e ')}
-                {t.drainHpPerTurn > 0 && ' — a forma cai antes de te matar'}
+                  .join(', ')}
+                {' — sem energia ou stamina para pagar, a forma cai'}
+                {t.drainHpPerTurn > 0 && ', e ela cai antes de a vida te matar'}
               </div>
             )}
           </li>

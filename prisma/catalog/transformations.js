@@ -637,4 +637,101 @@ const transformations = [
   },
 ];
 
-module.exports = { transformations };
+// ---- Preço de toda forma: ativar e manter, em energia e stamina ----
+//
+// POR QUE EXISTE. Antes só dez das cinquenta e cinco formas tinham
+// manutenção, e Super Saiyan e as automáticas não cobravam nem a ativação.
+// Transformar era só ganho, e a reserva nunca acabava numa luta: em cem
+// lutas simuladas o Ichigo nunca desceu de 61% de energia. Com isso, treinar
+// energia ou stamina não valia nada, e a forma não era uma decisão — era
+// "ligue assim que puder".
+//
+// Agora toda forma cobra as quatro coisas, e o dono do projeto pediu as duas
+// reservas de propósito: a forma disputa energia com os golpes e stamina com
+// a guarda. Quanto mais tempo transformado, menos sobra para o resto — e
+// quem treinou a reserva sustenta a forma por mais tempo.
+//
+// UMA REGRA SÓ, e não um número por forma. O preço sai da FORÇA da forma, a
+// soma dos ganhos percentuais dela; as PERDAS entram subtraindo, porque a
+// Suì-Fēng que troca defesa por ataque já está pagando com o corpo. Assim
+// forma nova ganha preço coerente sem ninguém precisar inventar um número.
+//
+// O que o catálogo já dizia CONTINUA VALENDO como piso, e não é
+// sobrescrito: o custo de ativação do Bankai, e o dreno pesado do Super
+// Saiyan 3 e do Lendário, que são o tema daquelas formas.
+//
+// O PREÇO ACOMPANHA O NÍVEL DA FORMA. A primeira versão cobrava números
+// fixos pequenos (6 de energia por rodada num Bankai) e a simulação mostrou
+// que não mudava nada: a reserva cresce com o nível, e no nível 13 o Ichigo
+// tem 242 de energia e recupera 19 por rodada. Então o preço é uma fração da
+// reserva e da regeneração de um personagem MÉDIO no nível em que a forma
+// libera. A regra mede contra a média, e não contra a reserva de quem usa,
+// de propósito: quem treinou energia ou stamina tem reserva acima da média e
+// sustenta a forma por mais tempo — é isso que faz o treino valer.
+
+/** Reserva média de energia e stamina no nível 1 (média dos 52 personagens). */
+const ENERGIA_MEDIA = 123;
+const STAMINA_MEDIA = 107;
+/**
+ * Espelhos de LEVEL_SCALING, ENERGY_REGEN_PCT e STAMINA_REGEN_PCT
+ * (app/lib/battle/constants.ts). O catálogo é CommonJS e não importa o
+ * TypeScript; mudou lá, muda aqui.
+ */
+const ESCALA_POR_NIVEL = 0.12;
+const REGEN_ENERGIA = 0.08;
+const REGEN_STAMINA = 0.05;
+
+/** Ativação: fração da reserva média, por ponto de força. */
+const ATIVACAO_ENERGIA = 0.25;
+const ATIVACAO_STAMINA = 0.2;
+/**
+ * Manutenção: fração da regeneração média por rodada, por ponto de força.
+ *
+ * O PESO ESTÁ NA STAMINA, e isso saiu da simulação. Com a energia pesada
+ * (1,5 da regeneração), o Lendário do Broly e o SSJ3 ficaram PIORES que lutar
+ * sem forma: a manutenção comia a energia que o kit de ki precisa para
+ * existir. E com a stamina leve, ela nunca acabava e treiná-la seguia
+ * valendo zero. Invertendo — a forma pesa na stamina e belisca a energia —,
+ * medido contra o mesmo personagem um nível acima:
+ *
+ *                   sem forma   preço antigo   preço novo   +5 stamina
+ *   Ichigo Bankai       2%          23%            8%          12%
+ *   Goku SSJ2           9%          54%           46%          54%
+ *   Broly Lendário     24%          38%           37%          38%
+ *
+ * A forma continua valendo muito, mas passou a ter PRAZO: o Bankai do Ichigo
+ * cai por volta da 11ª rodada, e 5 pontos de stamina o seguram até a 17ª.
+ * Stamina virou treino de quem depende de forma; energia, de quem depende
+ * de ki (o Broly ganha 14 pontos com +5 de energia).
+ */
+const MANUTENCAO_ENERGIA = 0.5;
+const MANUTENCAO_STAMINA = 4.0;
+/** Piso da força, para forma quase só de troca não sair de graça. */
+const FORCA_MINIMA = 0.1;
+
+function forcaDaForma(def) {
+  const soma =
+    (def.attackModifier ?? 0) +
+    (def.defenseModifier ?? 0) +
+    (def.speedModifier ?? 0) +
+    Math.max(0, def.energyModifier ?? 0);
+  return Math.max(FORCA_MINIMA, soma);
+}
+
+function precoDaForma(def) {
+  const forca = forcaDaForma(def);
+  const escala = 1 + ESCALA_POR_NIVEL * (def.levelRequirement - 1);
+  const energia = ENERGIA_MEDIA * escala;
+  const stamina = STAMINA_MEDIA * escala;
+  return {
+    activationCost: Math.max(def.activationCost ?? 0, Math.round(forca * ATIVACAO_ENERGIA * energia)),
+    activationStaminaCost: Math.round(forca * ATIVACAO_STAMINA * stamina),
+    drainPerTurn: Math.max(def.drainPerTurn ?? 0, Math.round(forca * MANUTENCAO_ENERGIA * REGEN_ENERGIA * energia)),
+    drainStaminaPerTurn: Math.max(1, Math.round(forca * MANUTENCAO_STAMINA * REGEN_STAMINA * stamina)),
+  };
+}
+
+module.exports = {
+  transformations: transformations.map((def) => ({ ...def, ...precoDaForma(def) })),
+  precoDaForma,
+};

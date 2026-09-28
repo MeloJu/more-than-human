@@ -1243,6 +1243,47 @@ export function applyTransformation(c: CombatantState, t: TransformationDef): Co
   }
 }
 
+/**
+ * Quanto falta, em energia e em stamina, para pagar a ativação de uma forma.
+ * Zero nas duas é "pode liberar". Devolve as duas faltas, e não um booleano,
+ * porque a tela precisa dizer QUAL recurso está faltando.
+ */
+export function faltaParaAtivar(c: CombatantState, t: TransformationDef): { energia: number; stamina: number } {
+  return {
+    energia: Math.max(0, (t.activationCost ?? 0) - c.currentEnergy),
+    stamina: Math.max(0, (t.activationStaminaCost ?? 0) - (c.currentStamina ?? 0)),
+  }
+}
+
+export function podeAtivar(c: CombatantState, t: TransformationDef): boolean {
+  const falta = faltaParaAtivar(c, t)
+  return falta.energia === 0 && falta.stamina === 0
+}
+
+/**
+ * Libera uma forma COBRANDO a ativação — o único caminho de entrada numa
+ * forma durante a luta, seja por clique, seja por gatilho automático.
+ *
+ * Antes só o Bankai cobrava, e só no clique: Super Saiyan e as formas
+ * automáticas (Ultra Instinct, Wrathful) eram de graça. Agora toda forma
+ * cobra energia E stamina, as duas.
+ *
+ * COBRA ANTES DE APLICAR. Formas como o Super Saiyan reduzem a energia
+ * máxima, e applyTransformation corta a atual ao novo teto; cobrando depois,
+ * o preço sairia do que sobrou do corte e custaria mais do que a tela diz.
+ *
+ * Quem chama confere podeAtivar antes. Aqui a cobrança nunca deixa a reserva
+ * negativa, como última defesa contra um estado inválido.
+ */
+export function ativarForma(c: CombatantState, t: TransformationDef): CombatantState {
+  const pago: CombatantState = {
+    ...c,
+    currentEnergy: Math.max(0, c.currentEnergy - (t.activationCost ?? 0)),
+    currentStamina: Math.max(0, (c.currentStamina ?? 0) - (t.activationStaminaCost ?? 0)),
+  }
+  return applyTransformation(pago, t)
+}
+
 function revertTransformation(c: CombatantState): CombatantState {
   return {
     ...c,
@@ -1260,10 +1301,14 @@ function revertTransformation(c: CombatantState): CombatantState {
 /**
  * Cobra o preço por rodada de uma forma ativa.
  *
- * SÃO DOIS PREÇOS DE NATUREZA DIFERENTE, e por isso não compartilham campo.
- * Ficar sem ENERGIA faz a forma CAIR — é o Super Saiyan 3, que se sustenta
- * enquanto houver fôlego. Ficar sem VIDA mataria — é o custo dos Oito Portões
- * e do Mangekyō, que na obra cobram o corpo.
+ * SÃO PREÇOS DE NATUREZA DIFERENTE, e por isso não compartilham campo.
+ * Ficar sem ENERGIA ou sem STAMINA faz a forma CAIR — é o Super Saiyan 3, que
+ * se sustenta enquanto houver fôlego. Ficar sem VIDA mataria — é o custo dos
+ * Oito Portões e do Mangekyō, que na obra cobram o corpo.
+ *
+ * Energia e stamina são cobradas JUNTAS ou nenhuma: se faltar uma, a forma
+ * cai sem tirar nada da outra. Cobrar metade e derrubar mesmo assim seria
+ * pagar por uma rodada de forma que não aconteceu.
  *
  * O dreno de vida NÃO MATA. Ao chegar em 1 de HP a forma cai e o personagem
  * fica de pé, queimado. A alternativa — deixar a própria transformação matar
@@ -1279,13 +1324,17 @@ function applyDrain(c: CombatantState, transformations: Record<string, Transform
   if (!t) return c
 
   const drenoHp = t.drainHpPerTurn ?? 0
-  if (t.drainPerTurn <= 0 && drenoHp <= 0) return c
+  const drenoSt = t.drainStaminaPerTurn ?? 0
+  if (t.drainPerTurn <= 0 && drenoSt <= 0 && drenoHp <= 0) return c
 
-  // Sem energia para sustentar, a forma cai antes de cobrar qualquer vida.
-  if (t.drainPerTurn > 0 && c.currentEnergy < t.drainPerTurn) return revertTransformation(c)
+  // Sem energia ou stamina para sustentar, a forma cai antes de cobrar vida.
+  if (c.currentEnergy < t.drainPerTurn || (c.currentStamina ?? 0) < drenoSt) return revertTransformation(c)
 
-  const comEnergia =
-    t.drainPerTurn > 0 ? { ...c, currentEnergy: c.currentEnergy - t.drainPerTurn } : c
+  const comEnergia: CombatantState = {
+    ...c,
+    currentEnergy: c.currentEnergy - t.drainPerTurn,
+    currentStamina: (c.currentStamina ?? 0) - drenoSt,
+  }
   if (drenoHp <= 0) return comEnergia
 
   if (comEnergia.currentHp <= drenoHp) {
@@ -1335,13 +1384,18 @@ function maybeAutoTransform(
   if (c.activeTransformationId) return null // v1: no stacking/overriding once transformed
   const hpRatio = c.maxHp > 0 ? c.currentHp / c.maxHp : 0
   const energyRatio = c.maxEnergy > 0 ? c.currentEnergy / c.maxEnergy : 0
+  // Forma automática também paga a ativação, e só dispara se puder pagar: o
+  // Ultra Instinct não é de graça só porque ninguém clicou nele.
   const candidates = Object.values(transformations).filter(
-    (t) => triggers.includes(t.triggerType) && evaluateAutoTrigger(t.triggerType, t.triggerPayload, { hpRatio, energyRatio, lastDamageTaken })
+    (t) =>
+      triggers.includes(t.triggerType) &&
+      evaluateAutoTrigger(t.triggerType, t.triggerPayload, { hpRatio, energyRatio, lastDamageTaken }) &&
+      podeAtivar(c, t)
   )
   if (candidates.length === 0) return null
   candidates.sort((a, b) => b.levelRequirement - a.levelRequirement)
   const chosen = candidates[0]
-  return { combatant: applyTransformation(c, chosen), transformation: chosen }
+  return { combatant: ativarForma(c, chosen), transformation: chosen }
 }
 
 function makeTransformResult(side: Side, t: TransformationDef): TurnResult {
@@ -1750,9 +1804,11 @@ export function resolveRound(
 
     if (acao?.kind === 'TRANSFORM' && p.lado === LADO_ALIADO && p.indice === 0) {
       const t = ctx.playerTransformations[acao.transformationId]
-      if (t) {
+      // Sem como pagar, a ação não acontece. A tela já impede o clique; isto
+      // é para o POST direto, que não passa pela tela.
+      if (t && podeAtivar(c, t)) {
         // Se transformar também é uma ação diferente — quebra o combo.
-        atual = comCombatenteEm(atual, p, { ...applyTransformation(c, t), comboPreparado: undefined })
+        atual = comCombatenteEm(atual, p, { ...ativarForma(c, t), comboPreparado: undefined })
         turnResults.push(makeTransformResult(p.lado, t))
       }
       continue

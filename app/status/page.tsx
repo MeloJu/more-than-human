@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { prisma } from '@/app/lib/prisma'
 import { bonusDeAtributos } from '@/app/lib/progression/atributos'
 import { requireUser } from '@/app/lib/session'
-import { equipSkill, unequipSkill, unlockSkillNode } from '@/app/lib/progression/actions'
+import { equipSkill, redistribuirAtributos, unequipSkill, unlockSkillNode } from '@/app/lib/progression/actions'
+import { custoDaRedistribuicao, pontosAlocados } from '@/app/lib/progression/redistribuicao'
 import { getLoadoutSlotCount } from '@/app/lib/progression/constants'
 import { computeFighterStats, sumStatBonuses } from '@/app/lib/battle/engine'
 import { getEquipmentBonus } from '@/app/lib/equipment/queries'
@@ -23,14 +24,20 @@ const STATUS_ERROR_MESSAGES: Record<string, string> = {
   invalid_skill: 'Essa skill não está disponível pra equipar.',
   invalid_slot: 'Slot de loadout inválido.',
   invalid_attribute: 'Atributo inválido.',
+  nothing_to_redistribute: 'Não há pontos investidos para redistribuir.',
+  insufficient_coins: 'Moedas insuficientes para redistribuir.',
 }
 
 function parseEffects(json: unknown): SkillEffect[] {
   return Array.isArray(json) ? (json as SkillEffect[]) : []
 }
 
-export default async function StatusPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const { error } = await searchParams
+export default async function StatusPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; redistribuido?: string }>
+}) {
+  const { error, redistribuido } = await searchParams
   const errorMessage = resolveErrorMessage(STATUS_ERROR_MESSAGES, error, 'Ocorreu um erro.')
 
   const user = await requireUser()
@@ -64,6 +71,10 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
     orderBy: { levelRequirement: 'asc' },
   })
 
+  const conta = await prisma.user.findUnique({ where: { id: user.id }, select: { coins: true } })
+  const investidos = pontosAlocados(selected)
+  const custoRedistribuir = custoDaRedistribuicao(selected.redistribuicoes)
+
   const effectiveStats = computeFighterStats(selected.character, selected.level, sumStatBonuses(treeBonus, equipmentBonus, bonusDeAtributos(selected)))
   const xpForNextLevel = selected.level * XP_PER_LEVEL
   const slotCount = getLoadoutSlotCount(selected.level)
@@ -88,6 +99,12 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
           Pontos disponíveis: <span className="font-semibold">{selected.pointsAvailable}</span>
         </div>
       </div>
+
+      {redistribuido && !errorMessage && (
+        <div className="rounded-md border border-green-600/40 bg-green-500/10 px-4 py-2 text-sm">
+          Pontos devolvidos. Invista de novo abaixo.
+        </div>
+      )}
 
       {errorMessage && (
         <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
@@ -122,6 +139,34 @@ export default async function StatusPage({ searchParams }: { searchParams: Promi
         />
         {selected.pointsAvailable === 0 && (
           <p className="text-xs opacity-50">Você ganha um ponto a cada nível. Passe de nível para investir.</p>
+        )}
+
+        {/* A confirmação é o próprio <details>: abrir já é o primeiro clique,
+            e o botão de dentro é o segundo. A página não tem diálogo de
+            confirmação, e redistribuir sem querer desfaz a build inteira. */}
+        {investidos > 0 && (
+          <details className="border-t border-border pt-3 text-sm">
+            <summary className="cursor-pointer select-none opacity-80 hover:opacity-100">
+              Redistribuir pontos ({investidos} investido{investidos > 1 ? 's' : ''})
+            </summary>
+            <div className="mt-2 space-y-2">
+              <p className="opacity-70">
+                Devolve todos os {investidos} pontos — os de nível e os de treino — para você investir de novo.{' '}
+                {custoRedistribuir === 0
+                  ? 'A primeira redistribuição deste personagem é de graça.'
+                  : `Custa ${custoRedistribuir} moedas (você tem ${conta?.coins ?? 0}).`}
+              </p>
+              <form action={redistribuirAtributos}>
+                <button
+                  type="submit"
+                  disabled={custoRedistribuir > (conta?.coins ?? 0)}
+                  className="btn-primary rounded-md px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  {custoRedistribuir === 0 ? 'Confirmar redistribuição grátis' : `Confirmar por ${custoRedistribuir} moedas`}
+                </button>
+              </form>
+            </div>
+          </details>
         )}
       </div>
 

@@ -10,6 +10,7 @@ import { escolherLoadoutPadrao } from '@/app/lib/battle/ai'
 import { getLoadoutSlotCount } from './constants'
 import { ATRIBUTO_POR_PONTO, colunaDe, ehAtributo } from './atributos'
 import { custoDoTreino } from './treino'
+import { alocacoesZeradas, custoDaRedistribuicao, pontosAlocados } from './redistribuicao'
 import { getSelectedCharacter } from './queries'
 
 type Db = Prisma.TransactionClient | typeof prisma
@@ -242,4 +243,55 @@ export async function treinarAtributo(atributo: string): Promise<void> {
 
   revalidatePath('/treino')
   revalidatePath('/status')
+}
+
+/**
+ * Devolve todos os pontos de atributo para serem gastos de novo. Ver
+ * app/lib/progression/redistribuicao.ts para por que existe e por que a
+ * primeira é de graça.
+ *
+ * TRAVA PELA CONTAGEM. Dois cliques seguidos leriam as mesmas alocações e
+ * devolveriam os pontos duas vezes. O update só passa se `redistribuicoes`
+ * ainda for o número lido; o segundo clique encontra a contagem já avançada
+ * e não faz nada.
+ */
+export async function redistribuirAtributos(): Promise<void> {
+  const user = await requireUser()
+
+  const personagem = await getSelectedCharacter(user.id)
+  if (!personagem) redirect('/select')
+
+  const pontos = pontosAlocados(personagem)
+  if (pontos === 0) redirect('/status?error=nothing_to_redistribute')
+  const custo = custoDaRedistribuicao(personagem.redistribuicoes)
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const travou = await tx.userCharacter.updateMany({
+        where: { id: personagem.id, redistribuicoes: personagem.redistribuicoes },
+        data: {
+          ...alocacoesZeradas(),
+          pointsAvailable: { increment: pontos },
+          redistribuicoes: { increment: 1 },
+        },
+      })
+      if (travou.count === 0) throw new Error('CONFLICT')
+
+      if (custo > 0) {
+        const pagou = await tx.user.updateMany({
+          where: { id: user.id, coins: { gte: custo } },
+          data: { coins: { decrement: custo } },
+        })
+        if (pagou.count === 0) throw new Error('INSUFFICIENT_COINS')
+      }
+    })
+  } catch (e) {
+    if (e instanceof Error && e.message === 'INSUFFICIENT_COINS') redirect('/status?error=insufficient_coins')
+    if (e instanceof Error && e.message === 'CONFLICT') redirect('/status')
+    throw e
+  }
+
+  revalidatePath('/status')
+  revalidatePath('/treino')
+  redirect('/status?redistribuido=1')
 }
