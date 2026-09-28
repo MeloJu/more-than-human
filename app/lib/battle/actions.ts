@@ -33,7 +33,7 @@ import { getEquipmentBonus } from '@/app/lib/equipment/queries'
 import { autoFillLoadout } from '@/app/lib/progression/actions'
 import { recordStoryProgress } from '@/app/lib/story/actions'
 import { MAX_ROUNDS, NPC_WINS_ON_WIN } from './constants'
-import type { BaseStats, BattleState, Outcome, PlayerAction, TurnResult, BattleStateGravado} from './types'
+import type { BaseStats, BattleState, Outcome, PlayerAction, Postura, TurnResult, BattleStateGravado } from './types'
 
 type BattleRow = Awaited<ReturnType<typeof prisma.battle.findFirst>>
 
@@ -111,7 +111,11 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
     ctx.state,
     {
       aliadas: [acaoDoJogador],
-      inimigas: [acaoDaIa(vilao(ctx.state), Object.values(ctx.enemySkills), heroi(ctx.state), ctx.enemyTransformations)],
+      inimigas: [
+        acaoDaIa(vilao(ctx.state), Object.values(ctx.enemySkills), heroi(ctx.state), ctx.enemyTransformations, {
+          skillsDoOponente: Object.values(ctx.playerSkills),
+        }),
+      ],
     },
     {
       playerSkills: ctx.playerSkills,
@@ -436,13 +440,21 @@ export async function startRaidBattle(userCharacterId: string, monsterId: string
   })
 }
 
-export async function takeTurn(battleId: string, skillId: string | null): Promise<void> {
+const POSTURAS: readonly Postura[] = ['NEUTRA', 'ESQUIVA', 'APARAR', 'GUARDA', 'IMPETO']
+
+/** A postura enviada com o golpe. Valor desconhecido vira a neutra: o campo vem do navegador. */
+function posturaDoFormulario(dados?: FormData): Postura {
+  const valor = dados?.get('postura')
+  return POSTURAS.find((p) => p === valor) ?? 'NEUTRA'
+}
+
+export async function takeTurn(battleId: string, skillId: string | null, dados?: FormData): Promise<void> {
   const ctx = await loadActiveBattleContext(battleId)
   const chosenSkill = skillId ? ctx.playerSkills[skillId] ?? null : null
   if (skillId && !chosenSkill) redirect(`/battle/ai/${battleId}?error=invalid_skill`)
   if (!isLegalMove(heroi(ctx.state), chosenSkill)) redirect(`/battle/ai/${battleId}?error=illegal_move`)
 
-  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'ATTACK', skillId })
+  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'ATTACK', skillId, postura: posturaDoFormulario(dados) })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
 }

@@ -25,7 +25,7 @@ import {
   traitEnergyCostModifier,
   vilao,
 } from '@/app/lib/battle/engine'
-import { ENERGIA_INICIAL, ENERGY_REGEN_PCT } from '@/app/lib/battle/constants'
+import { ENERGIA_INICIAL, ENERGY_REGEN_PCT, POSTURA_CUSTO, POSTURA_NEUTRA_REGEN, STAMINA_REGEN_PCT } from '@/app/lib/battle/constants'
 import type {
   AppliedEffect,
   BaseStats,
@@ -954,11 +954,17 @@ describe('stamina — reserva defensiva separada', () => {
     expect(heroi(r.state).currentStamina!).toBeLessThan(100)
   })
 
-  it('stamina regenera mais devagar que energia — é o que impede defesa infinita', () => {
-    const s = createInitialState(stats({ energy: 100, stamina: 100 }), stats())
-    const gasto = comHeroi(s, { currentEnergy: 0, currentStamina: 0 })
-    const r = resolveRound(gasto, ataqueBasico, ctxVazio(), NUNCA_CRITA)
-    expect(heroi(r.state).currentStamina!).toBeLessThan(heroi(r.state).currentEnergy)
+  it('nenhuma postura se paga sozinha — é o que impede defesa infinita', () => {
+    // Antes a trava era a stamina regenerar menos que a energia. Com as
+    // posturas, a defesa passou a custar a cada rodada, e a trava é esta:
+    // manter qualquer postura custa mais do que a regeneração devolve.
+    for (const custo of Object.values(POSTURA_CUSTO)) expect(custo).toBeGreaterThan(STAMINA_REGEN_PCT)
+  })
+
+  it('na postura neutra, a stamina volta mais rápido', () => {
+    const s = comHeroi(createInitialState(stats({ stamina: 100 }), stats()), { currentStamina: 0 })
+    const r = resolveRound(s, ataqueBasico, ctxVazio(), NUNCA_CRITA)
+    expect(heroi(r.state).currentStamina).toBe(Math.round(100 * STAMINA_REGEN_PCT) + Math.round(100 * POSTURA_NEUTRA_REGEN))
   })
 
   it('batalha antiga, sem o campo, trata stamina como zero em vez de quebrar', () => {

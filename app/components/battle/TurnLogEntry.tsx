@@ -1,5 +1,14 @@
 import { describeEffect } from '@/app/lib/battle/presentation'
-import type { TurnResult } from '@/app/lib/battle/types'
+import type { Postura, TurnResult } from '@/app/lib/battle/types'
+
+/** Como a postura de quem agiu aparece no log — "usou Getsuga Tenshō em Ímpeto". */
+const FRASE_DA_POSTURA: Record<Postura, string> = {
+  NEUTRA: '',
+  ESQUIVA: 'em esquiva',
+  APARAR: 'pronto para aparar',
+  GUARDA: 'em guarda',
+  IMPETO: 'em Ímpeto',
+}
 
 const NATUREZA_DO_CHOQUE: Record<string, string> = {
   beam: 'feixes',
@@ -171,10 +180,14 @@ export function TurnLogEntry({
   return (
     <>
       <span className="font-medium">{actorName}</span> usou <span className="font-medium">{turn.skillName}</span>
-      {turn.errou && <> e o golpe passou longe</>}
-      {turn.countered && (
-        <>, mas foi contra-atacado{typeof turn.reflectedDamage === 'number' ? ` e sofreu ${turn.reflectedDamage} de dano refletido` : ''}</>
-      )}
+      {turn.postura && <span className="opacity-70"> {FRASE_DA_POSTURA[turn.postura]}</span>}
+      {turn.errou && (turn.esquivou ? <>, mas {alvoName} esquivou</> : <> e o golpe passou longe</>)}
+      {turn.countered &&
+        (turn.aparou ? (
+          <>, mas {alvoName} aparou e revidou{typeof turn.reflectedDamage === 'number' ? ` — ${turn.reflectedDamage} de dano` : ''}</>
+        ) : (
+          <>, mas foi contra-atacado{typeof turn.reflectedDamage === 'number' ? ` e sofreu ${turn.reflectedDamage} de dano refletido` : ''}</>
+        ))}
       {acertou && (
         <>
           {' '}

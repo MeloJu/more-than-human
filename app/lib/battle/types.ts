@@ -279,6 +279,12 @@ export type TurnResult = {
   errou?: boolean
   /** ATTACK: o alvo estava bloqueando e a guarda aguentou. */
   bloqueado?: boolean
+  /** A postura de quem AGIU nesta linha, quando não era a neutra. */
+  postura?: Postura
+  /** O golpe passou longe porque o alvo esquivou (e não por imprecisão). */
+  esquivou?: boolean
+  /** O alvo aparou o golpe corpo a corpo e devolveu parte (ver reflectedDamage). */
+  aparou?: boolean
   /** ATTACK/BLOCK: stamina consumida pela guarda ao aparar o golpe. */
   guardaGasta?: number
   /** REVIVE: vida com que o aliado voltou. */
@@ -296,6 +302,19 @@ export type TurnResult = {
   targetHpAfter?: number
   effectsApplied?: AppliedEffect[]
 }
+
+/**
+ * De onde o golpe vem, e portanto o que o defende. Ver POSTURA em
+ * constants.ts: aparar só vale contra CORPO (é preciso alcançar a lâmina), e
+ * esquivar não vale contra AREA (não há para onde ir).
+ */
+export type Alcance = 'CORPO' | 'DISTANCIA' | 'AREA'
+
+/**
+ * Como o combatente se move na rodada — escolhida JUNTO com o golpe, e paga
+ * em stamina. Ver POSTURA em constants.ts.
+ */
+export type Postura = 'NEUTRA' | 'ESQUIVA' | 'APARAR' | 'GUARDA' | 'IMPETO'
 
 export type SkillDef = {
   id: string
@@ -324,6 +343,11 @@ export type SkillDef = {
    * alguma coisa.
    */
   tags: string[]
+  /**
+   * De onde o golpe vem. Ausente, é deduzido da categoria e das tags — ver
+   * alcanceDe em app/lib/battle/alcance.ts.
+   */
+  alcance?: Alcance
   /**
    * Fala/lore exibida ao usar a skill — ver TurnLogEntry. Nunca lido pelo
    * MOTOR (não afeta dano, custo, nada): é dado de apresentação carregado
@@ -435,6 +459,8 @@ export type AcaoDeCombate =
        * que ainda estiver de pé", que num 1x1 é sempre a resposta certa.
        */
       alvo?: number
+      /** Postura da rodada. Ausente vale NEUTRA. */
+      postura?: Postura
       /**
        * Forma que NÃO gasta a rodada (Bankai, Resurrección) a liberar no
        * próprio turno, antes do golpe. É como a IA libera a dela: o jogador

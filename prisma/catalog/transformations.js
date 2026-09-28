@@ -625,6 +625,12 @@ const transformations = [
 // por rodada no Super Saiyan 3 — saíram por isso: eram de quando a luta
 // começava com a energia cheia, e hoje transformariam a forma em armadilha.
 // O dreno de VIDA (Kenpachi, Yamamoto, Unohana) continua: é tema, não preço.
+//
+// A STAMINA DA FORMA CAIU PELA METADE quando as posturas chegaram (ver
+// POSTURA_CUSTO em app/lib/battle/constants.ts): as duas passaram a disputar
+// a mesma reserva, e com o preço cheio a forma voltou a não valer para o
+// Ichigo (+2), o Kenpachi (+2) e o Grimmjow (−13). Com metade, voltaram a
+// +19, +16 e +40.
 
 /** Reserva média de energia e stamina no nível 1 (média dos 52 personagens). */
 const ENERGIA_MEDIA = 123;
@@ -640,10 +646,10 @@ const REGEN_STAMINA = 0.05;
 
 /** Ativação: fração da reserva média, por ponto de força. */
 const ATIVACAO_ENERGIA = 0.04;
-const ATIVACAO_STAMINA = 0.12;
+const ATIVACAO_STAMINA = 0.06;
 /** Manutenção: fração da regeneração média por rodada, por ponto de força. */
 const MANUTENCAO_ENERGIA = 0.075;
-const MANUTENCAO_STAMINA = 2.4;
+const MANUTENCAO_STAMINA = 1.2;
 /** Piso da força, para forma quase só de troca não sair de graça. */
 const FORCA_MINIMA = 0.1;
 

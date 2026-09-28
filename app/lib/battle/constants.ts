@@ -311,3 +311,64 @@ export const CUSTO_ESCALA_POR_NIVEL = 0.02
  * sem guarda puniria quem apanha primeiro por uma coisa que não escolheu.
  */
 export const ENERGIA_INICIAL = 0.4
+
+/**
+ * POSTURAS: como o combatente se move na rodada, escolhida JUNTO com o golpe.
+ *
+ * POR QUE EXISTEM. A stamina sobrava: ela pagava bloqueio, escudo, cura e a
+ * manutenção de forma, e o bloqueio custava a rodada inteira, então quase
+ * nunca valia. Treinar stamina rendia zero. A postura é o gasto de stamina de
+ * TODA rodada, e é também o que dá leitura ao combate: aparar é apostar que o
+ * outro vem de perto, esquivar é fugir do golpe grande.
+ *
+ * O CUSTO É FIXO PARA O NÍVEL, e não fração da reserva de quem paga: é
+ * fração de STAMINA_DE_REFERENCIA, a reserva de um personagem médio, escalada
+ * pelo nível do combatente. A primeira versão cobrava fração da stamina
+ * MÁXIMA de cada um — e aí treinar stamina subia o custo junto com a reserva
+ * e não mudava nada, por construção. Com custo fixo, quem tem mais stamina
+ * que a média (por treino, ou por ser um personagem de fôlego) sustenta mais
+ * rodadas de postura. É a mesma regra do preço das formas.
+ */
+export const POSTURA_CUSTO: Record<'ESQUIVA' | 'APARAR' | 'GUARDA' | 'IMPETO', number> = {
+  ESQUIVA: 0.12,
+  APARAR: 0.15,
+  GUARDA: 0.06,
+  IMPETO: 0.1,
+}
+
+/**
+ * Stamina de um personagem médio no nível 1 — a média dos 52 do elenco. É a
+ * régua do custo das posturas (ver POSTURA_CUSTO).
+ */
+export const STAMINA_DE_REFERENCIA = 107
+
+/** Stamina extra recuperada, em fração da máxima, por quem fica na neutra. */
+export const POSTURA_NEUTRA_REGEN = 0.05
+
+/**
+ * Chance de esquivar um golpe que não é em área, antes da disputa entre a
+ * agilidade de quem esquiva e a acurácia de quem ataca (±15, como no acerto).
+ */
+export const ESQUIVA_CHANCE = 0.45
+
+/**
+ * Força do contragolpe de quem apara, em múltiplos do ataque básico DELE.
+ *
+ * Não é fração do dano recebido, e isso foi um erro corrigido: devolvendo
+ * metade do golpe, um combatente de 20 de vida aparava um titã de 200 de
+ * ataque e o matava com o próprio golpe dele. O aparar anula o golpe e
+ * responde com a força de quem aparou — é defesa, não arma.
+ */
+export const APARAR_CONTRAGOLPE = 1
+
+/**
+ * Fração do dano que a postura de guarda absorve — menos que o bloqueio
+ * inteiro (BLOQUEIO_REDUCAO), porque ela não custa a rodada: quem está em
+ * guarda também ataca. A absorção é paga em stamina como a do bloqueio, e
+ * pode quebrar a guarda do mesmo jeito.
+ */
+export const GUARDA_POSTURA_REDUCAO = 0.3
+
+/** Ímpeto: quanto o golpe de quem avança bate a mais, e quanto ele toma a mais. */
+export const IMPETO_DANO = 0.25
+export const IMPETO_EXPOSTO = 0.2

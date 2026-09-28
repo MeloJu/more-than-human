@@ -116,8 +116,9 @@ describe('manutenção', () => {
 
   it('cobra stamina por rodada', () => {
     const t = forma({ drainStaminaPerTurn: 12 })
-    const semForma = rodada(createInitialState(stats(), stats()), forma({ id: 'outra' }))
-    const comForma = rodada(transformado(t), t)
+    // Stamina a meio caminho, para a regeneração não esbarrar no teto.
+    const semForma = rodada(comHeroi(createInitialState(stats(), stats()), { currentStamina: 50 }), forma({ id: 'outra' }))
+    const comForma = rodada(transformado(t, { currentStamina: 50 }), t)
     expect(heroi(comForma.state).activeTransformationId).toBe('bankai')
     expect(heroi(comForma.state).currentStamina).toBe((heroi(semForma.state).currentStamina ?? 0) - 12)
   })

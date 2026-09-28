@@ -266,8 +266,9 @@ describe('manutenção também drena stamina', () => {
 
     // 100 + 12 de regeneração de energia (6% de 200) − 20 de manutenção.
     expect(heroi(r.state).currentEnergy).toBe(92)
-    // 50 + 5 de regeneração de stamina (5% de 100) − 20 de manutenção.
-    expect(heroi(r.state).currentStamina).toBe(35)
+    // 50 + 5 de regeneração de stamina (5% de 100) − 20 de manutenção, + 5
+    // de quem atacou na postura neutra (POSTURA_NEUTRA_REGEN).
+    expect(heroi(r.state).currentStamina).toBe(40)
   })
 
   it('o domínio cai por falta de STAMINA mesmo com energia de sobra', () => {

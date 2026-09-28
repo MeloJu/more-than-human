@@ -20,7 +20,8 @@ import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
 import { FundoDoConfronto } from '@/app/components/battle/FundoDoConfronto'
 import { coresDoConfronto } from '@/app/lib/battle/cores'
 import { Swords } from 'lucide-react'
-import { custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
+import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
+import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
 import { impactoDaRodada } from '@/app/lib/battle/rodada'
 import type { BattleStateGravado, TurnResult } from '@/app/lib/battle/types'
 
@@ -105,6 +106,17 @@ export default async function BattleArenaPage({
     ? await prisma.transformation.findUnique({ where: { id: idDaFormaDoInimigo }, select: { name: true } })
     : null
 
+
+  // As posturas, com o custo JÁ para este combatente (ver custoDaPostura).
+  const posturas: OpcaoDePostura[] = (
+    [
+      ['NEUTRA', 'Neutra', 'Sem postura. Recupera stamina a mais nesta rodada.'],
+      ['ESQUIVA', 'Esquivar', 'Chance de desviar do golpe inteiro. Não funciona contra golpe em área.'],
+      ['APARAR', 'Aparar', 'Anula golpe corpo a corpo e contra-ataca. Contra golpe à distância, não adianta.'],
+      ['GUARDA', 'Guarda', 'Reduz o dano de qualquer golpe, pagando o que absorve em stamina.'],
+      ['IMPETO', 'Ímpeto', 'Seu golpe bate mais forte, mas você também apanha mais.'],
+    ] as const
+  ).map(([postura, nome, resumo]) => ({ postura, nome, resumo, custo: custoDaPostura(heroi(state), postura) }))
 
   // A cor de cada lado vem da arte do personagem, e a guarda de contraste
   // garante que os dois lados nunca saiam iguais: se colidirem (Ichigo e Jean
@@ -231,19 +243,25 @@ export default async function BattleArenaPage({
         <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${corJogador} 45%, var(--border))`} tinta>
           <div className="p-4 sm:p-5 space-y-4">
             <TituloDeSecao icone={<Swords className="h-5 w-5" style={{ color: corJogador }} />}>Ações</TituloDeSecao>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
-              <form action={takeTurn.bind(null, battleId, null)} className="h-full">
-                <BotaoDeAtaqueBasico />
-              </form>
-              {Object.values(playerSkills).map((skill) => (
-                <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
-                  <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
+            {/* A chave é a rodada: o seletor volta para a Neutra a cada uma —
+                ver SeletorDePostura. */}
+            <ComPostura key={ultimaRodada} opcoes={posturas} stamina={heroi(state).currentStamina ?? 0} cor={corJogador}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch mt-4">
+                <form action={takeTurn.bind(null, battleId, null)} className="h-full">
+                  <CampoDePostura />
+                  <BotaoDeAtaqueBasico />
                 </form>
-              ))}
-              <form action={blockTurn.bind(null, battleId)} className="h-full">
-                <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
-              </form>
-            </div>
+                {Object.values(playerSkills).map((skill) => (
+                  <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
+                    <CampoDePostura />
+                    <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
+                  </form>
+                ))}
+                <form action={blockTurn.bind(null, battleId)} className="h-full">
+                  <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
+                </form>
+              </div>
+            </ComPostura>
           </div>
         </PainelChanfrado>
       )}

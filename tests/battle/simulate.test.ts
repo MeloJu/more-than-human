@@ -52,24 +52,28 @@ describe('simulateBattle', () => {
   })
 
   it('espelhamento perfeito não favorece ninguém de forma absurda', () => {
-    // Mesmos stats dos dois lados: o empate de velocidade favorece o jogador
-    // (regra do motor), então ele deve vencer a maioria — mas não 100%, porque
-    // o crítico é aleatório.
+    // Mesmos stats dos dois lados. O empate de velocidade favorece o jogador,
+    // mas as posturas (esquiva, aparar) põem leitura e sorte na luta, então
+    // o espelho fica perto do meio — nunca num extremo.
     const wr = winRate({ stats: stats(), skills: semSkills }, { stats: stats(), skills: semSkills }, 100)
-    expect(wr).toBeGreaterThan(0.5)
+    expect(wr).toBeGreaterThan(0.3)
+    expect(wr).toBeLessThan(0.9)
   })
 })
 
 describe('winRate', () => {
-  it('vantagem esmagadora dá 100%', () => {
+  // QUASE SEMPRE, e não sempre: aparar e esquivar deixam o fraco salvar uma
+  // luta de vez em quando, lendo o golpe três rodadas seguidas. Esse é o
+  // ponto das posturas; o que não pode é virar a regra.
+  it('vantagem esmagadora vence quase sempre', () => {
     const forte: Combatente = { stats: stats({ attack: 200 }), skills: semSkills }
     const fraco: Combatente = { stats: stats({ hp: 20, defense: 0 }), skills: semSkills }
-    expect(winRate(forte, fraco, 50)).toBe(1)
+    expect(winRate(forte, fraco, 100)).toBeGreaterThanOrEqual(0.85)
   })
 
-  it('desvantagem esmagadora dá 0%', () => {
+  it('desvantagem esmagadora perde quase sempre', () => {
     const forte: Combatente = { stats: stats({ attack: 200 }), skills: semSkills }
     const fraco: Combatente = { stats: stats({ hp: 20, defense: 0 }), skills: semSkills }
-    expect(winRate(fraco, forte, 50)).toBe(0)
+    expect(winRate(fraco, forte, 100)).toBeLessThanOrEqual(0.15)
   })
 })

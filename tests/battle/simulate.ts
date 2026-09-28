@@ -76,8 +76,8 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
     const r = resolveRound(
       state,
       {
-        aliadas: [acaoDaIa(heroi(state), jogador.skills, vilao(state), formasJogador)],
-        inimigas: [acaoDaIa(vilao(state), inimigo.skills, heroi(state), formasInimigo)],
+        aliadas: [acaoDaIa(heroi(state), jogador.skills, vilao(state), formasJogador, { skillsDoOponente: inimigo.skills, rand })],
+        inimigas: [acaoDaIa(vilao(state), inimigo.skills, heroi(state), formasInimigo, { skillsDoOponente: jogador.skills, rand })],
       },
       {
         playerSkills: jogadorPorId,

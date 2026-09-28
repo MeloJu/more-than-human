@@ -1,5 +1,6 @@
-import { ativarForma, isLegalMove, podeAtivar, podeBloquear } from './engine'
-import type { AcaoDeCombate, CombatantState, SkillDef, TransformationDef } from './types'
+import { ativarForma, custoDaPostura, isLegalMove, podeAtivar, podeBloquear } from './engine'
+import { alcanceDe } from './alcance'
+import type { AcaoDeCombate, CombatantState, Postura, SkillDef, TransformationDef } from './types'
 
 const LOW_HP_HEAL_THRESHOLD = 0.4
 
@@ -286,17 +287,65 @@ export function acaoDaIa(
   self: CombatantState,
   skills: SkillDef[],
   oponente?: CombatantState,
-  formas: Record<string, TransformationDef> = {}
+  formas: Record<string, TransformationDef> = {},
+  /**
+   * O que a IA sabe do adversário para escolher a postura: o arsenal dele
+   * (não a escolha desta rodada, que ela não vê) e a fonte de sorte. Sem o
+   * arsenal, ela escolhe a postura sem palpite sobre o alcance do golpe.
+   */
+  leitura: { skillsDoOponente?: SkillDef[]; rand?: () => number } = {}
 ): AcaoDeCombate {
   const forma = escolherFormaDaIa(self, formas)
   if (forma && forma.consumesTurn !== false) return { kind: 'TRANSFORM', transformationId: forma.id }
   if (deveBloquear(self, skills)) return { kind: 'BLOCK' }
-  if (forma) {
-    const transformado = ativarForma(self, forma)
-    return { kind: 'ATTACK', skillId: pickAiSkill(comManutencaoReservada(transformado, forma), skills, oponente), liberar: forma.id }
-  }
-  const ativa = self.activeTransformationId ? formas[self.activeTransformationId] : undefined
-  return { kind: 'ATTACK', skillId: pickAiSkill(ativa ? comManutencaoReservada(self, ativa) : self, skills, oponente) }
+
+  const ativa = forma ?? (self.activeTransformationId ? formas[self.activeTransformationId] : undefined)
+  const base = forma ? ativarForma(self, forma) : self
+  const visto = ativa ? comManutencaoReservada(base, ativa) : base
+  const skillId = pickAiSkill(visto, skills, oponente)
+  const postura = escolherPosturaDaIa(visto, skills.find((s) => s.id === skillId) ?? null, oponente, leitura)
+  return { kind: 'ATTACK', skillId, postura, ...(forma ? { liberar: forma.id } : {}) }
+}
+
+/**
+ * Abaixo de quanto da stamina máxima a IA para de se posicionar e fica na
+ * neutra para recuperar. Sem esse piso ela gastaria a reserva inteira em
+ * postura e não teria como sustentar forma nem erguer guarda quando precisa.
+ */
+export const IA_STAMINA_MINIMA = 0.3
+
+/**
+ * A postura que a IA escolhe, junto com o golpe.
+ *
+ * ELA NÃO VÊ A SUA ESCOLHA. O palpite sai do arsenal do adversário: o golpe
+ * que ELE pagaria agora, e o alcance desse golpe. Contra quem vem de perto,
+ * aparar; contra quem dispara, esquivar; contra área, guarda. E com sorte no
+ * meio, para a IA não ser previsível — se ela sempre aparasse contra o
+ * Kenpachi, bastaria nunca atacar de perto nela.
+ */
+export function escolherPosturaDaIa(
+  self: CombatantState,
+  meuGolpe: SkillDef | null,
+  oponente: CombatantState | undefined,
+  leitura: { skillsDoOponente?: SkillDef[]; rand?: () => number }
+): Postura {
+  const rand = leitura.rand ?? Math.random
+  const max = self.maxStamina ?? 0
+  const sobra = (self.currentStamina ?? 0) - custoDaPostura(self, 'APARAR')
+  if (max <= 0 || sobra < max * IA_STAMINA_MINIMA) return 'NEUTRA'
+
+  // Adversário quase caído: avançar para fechar a luta.
+  if (oponente && oponente.maxHp > 0 && oponente.currentHp / oponente.maxHp <= 0.25 && meuGolpe) return 'IMPETO'
+
+  const palpite = oponente && leitura.skillsDoOponente
+    ? alcanceDe(leitura.skillsDoOponente.find((s) => s.id === pickAiSkill(oponente, leitura.skillsDoOponente!)) ?? null)
+    : null
+
+  const sorteio = rand()
+  if (palpite === 'CORPO') return sorteio < 0.45 ? 'APARAR' : sorteio < 0.65 ? 'GUARDA' : 'NEUTRA'
+  if (palpite === 'DISTANCIA') return sorteio < 0.45 ? 'ESQUIVA' : sorteio < 0.65 ? 'GUARDA' : 'NEUTRA'
+  if (palpite === 'AREA') return sorteio < 0.55 ? 'GUARDA' : 'NEUTRA'
+  return sorteio < 0.3 ? 'GUARDA' : sorteio < 0.5 ? 'ESQUIVA' : 'NEUTRA'
 }
 
 /**

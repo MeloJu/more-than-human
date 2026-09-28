@@ -9,6 +9,14 @@ import {
   LEVEL_SCALING,
   CUSTO_ESCALA_POR_NIVEL,
   ENERGIA_INICIAL,
+  APARAR_CONTRAGOLPE,
+  ESQUIVA_CHANCE,
+  GUARDA_POSTURA_REDUCAO,
+  IMPETO_DANO,
+  IMPETO_EXPOSTO,
+  POSTURA_CUSTO,
+  POSTURA_NEUTRA_REGEN,
+  STAMINA_DE_REFERENCIA,
   ACERTO_MINIMO,
   ATRIBUTO_NEUTRO,
   BLOQUEIO_CUSTO_BASE,
@@ -45,7 +53,9 @@ import type {
   TransformationDef,
   TransformationTrigger,
   TurnResult,
+  Postura,
 } from './types'
+import { alcanceDe } from './alcance'
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -905,6 +915,16 @@ export function custoDeErguerGuarda(c: CombatantState): number {
   return Math.max(1, Math.round((c.maxStamina ?? 0) * BLOQUEIO_CUSTO_BASE))
 }
 
+/**
+ * Quanto custa assumir uma postura: fração da stamina de um personagem MÉDIO
+ * no nível do combatente, e não da reserva dele — ver POSTURA_CUSTO.
+ */
+export function custoDaPostura(c: CombatantState, postura: Postura): number {
+  if (postura === 'NEUTRA') return 0
+  const reservaMedia = STAMINA_DE_REFERENCIA * (1 + LEVEL_SCALING * ((c.nivel ?? 1) - 1))
+  return Math.max(1, Math.round(reservaMedia * POSTURA_CUSTO[postura]))
+}
+
 export function podeBloquear(c: CombatantState): boolean {
   return (c.currentStamina ?? 0) >= custoDeErguerGuarda(c)
 }
@@ -916,9 +936,11 @@ function erguerGuarda(c: CombatantState): CombatantState {
 
 function passarPelaGuarda(
   defensor: CombatantState,
-  dano: number
+  dano: number,
+  /** O bloqueio inteiro absorve BLOQUEIO_REDUCAO; a postura de guarda, menos. */
+  reducao: number = BLOQUEIO_REDUCAO
 ): { dano: number; defensor: CombatantState; bloqueado: boolean; guardaGasta: number; quebrou: boolean } {
-  const impedido = Math.round(dano * BLOQUEIO_REDUCAO)
+  const impedido = Math.round(dano * reducao)
   const custo = Math.round(impedido * GUARDA_POR_DANO)
   const reserva = defensor.currentStamina ?? 0
 
@@ -992,8 +1014,11 @@ function performSkillUse(
   defender: CombatantState,
   skill: SkillDef | null,
   rand: () => number,
-  /** Se o defensor declarou bloqueio nesta rodada — ver passarPelaGuarda. */
-  defensorBloqueia = false
+  /**
+   * Como cada lado se defende nesta rodada: o bloqueio inteiro (ver
+   * passarPelaGuarda) e a postura de cada um (ver POSTURA_CUSTO).
+   */
+  defesa: { bloqueia?: boolean; posturaAtacante?: Postura; posturaDefensor?: Postura } = {}
 ): {
   attacker: CombatantState
   defender: CombatantState
@@ -1028,6 +1053,8 @@ function performSkillUse(
   let bloqueado = false
   let guardaGasta = 0
   let guardaQuebrou = false
+  let esquivou = false
+  let aparou = false
   let countered = false
   let reflectedDamage: number | undefined
   let targetHpBefore: number | undefined
@@ -1046,15 +1073,44 @@ function performSkillUse(
     errou = acertoGarantido
       ? false
       : !resolverAcerto(newAttacker, newDefender, skill?.precision ?? 100, rand).acertou
+
+    // ESQUIVA: uma segunda chance de o golpe passar longe, só para quem se
+    // moveu para isso. Não vale contra golpe em área — não há para onde ir —
+    // nem contra o acerto garantido do domínio. A disputa entre agilidade e
+    // acurácia mexe nela do mesmo jeito que mexe no acerto normal.
+    if (!errou && !acertoGarantido && defesa.posturaDefensor === 'ESQUIVA' && alcanceDe(skill) !== 'AREA') {
+      if (rand() < ESQUIVA_CHANCE - ajusteDeAcerto(newAttacker, newDefender)) {
+        errou = true
+        esquivou = true
+      }
+    }
   }
 
   if (power > 0 && !errou) {
     const counterIdx = acertoGarantido
       ? -1
       : newDefender.statusEffects.findIndex((e) => e.type === 'COUNTER' && e.remainingRounds > 0)
-    const computed = computeDamage(newAttacker, newDefender, power, scalingStat, rand, effects)
+    const bruto = computeDamage(newAttacker, newDefender, power, scalingStat, rand, effects)
+    // ÍMPETO: quem avança bate mais forte, e quem está avançando apanha mais.
+    const impeto =
+      (defesa.posturaAtacante === 'IMPETO' ? 1 + IMPETO_DANO : 1) *
+      (defesa.posturaDefensor === 'IMPETO' ? 1 + IMPETO_EXPOSTO : 1)
+    const computed = { ...bruto, damage: Math.max(1, Math.round(bruto.damage * impeto)) }
+    // APARAR: só contra quem veio de perto. É a aposta da postura — contra
+    // golpe à distância, a stamina foi gasta à toa.
+    const aparando =
+      counterIdx === -1 && !acertoGarantido && defesa.posturaDefensor === 'APARAR' && alcanceDe(skill) === 'CORPO'
 
-    if (counterIdx !== -1) {
+    if (aparando) {
+      aparou = true
+      countered = true
+      // O contragolpe é um ataque básico de quem aparou — ver APARAR_CONTRAGOLPE.
+      const contra = computeDamage(newDefender, newAttacker, BASIC_ATTACK_POWER, 'attack', rand)
+      reflectedDamage = Math.round(contra.damage * APARAR_CONTRAGOLPE)
+      newAttacker = { ...newAttacker, currentHp: Math.max(0, newAttacker.currentHp - reflectedDamage) }
+      damage = 0
+      targetHpAfter = newDefender.currentHp
+    } else if (counterIdx !== -1) {
       countered = true
       const counter = newDefender.statusEffects[counterIdx]
       reflectedDamage = Math.round((computed.damage * counter.magnitude) / 100)
@@ -1068,8 +1124,13 @@ function performSkillUse(
       // primeiro e só então gastar escudo faz o escudo render mais, que é o
       // prêmio de quem se preparou E se defendeu.
       let danoFinal = computed.damage
-      if (defensorBloqueia) {
-        const guarda = passarPelaGuarda(newDefender, computed.damage)
+      const reducaoDaGuarda = defesa.bloqueia
+        ? BLOQUEIO_REDUCAO
+        : defesa.posturaDefensor === 'GUARDA'
+          ? GUARDA_POSTURA_REDUCAO
+          : 0
+      if (reducaoDaGuarda > 0) {
+        const guarda = passarPelaGuarda(newDefender, computed.damage, reducaoDaGuarda)
         danoFinal = guarda.dano
         newDefender = guarda.defensor
         bloqueado = guarda.bloqueado
@@ -1132,6 +1193,9 @@ function performSkillUse(
     errou: errou || undefined,
     bloqueado: bloqueado || undefined,
     guardaGasta: guardaGasta > 0 ? guardaGasta : undefined,
+    postura: defesa.posturaAtacante && defesa.posturaAtacante !== 'NEUTRA' ? defesa.posturaAtacante : undefined,
+    esquivou: esquivou || undefined,
+    aparou: aparou || undefined,
     severidade: typeof damage === 'number' && damage > 0 ? severidadeDe(damage, newDefender.maxHp) : undefined,
     countered: countered || undefined,
     reflectedDamage,
@@ -1759,6 +1823,29 @@ export function resolveRound(
     })
   }
 
+  // 3b. POSTURA, paga aqui pelo mesmo motivo do bloqueio: ela precisa estar de
+  //     pé quando o golpe do outro chegar, seja quem for mais rápido. Sem
+  //     stamina para a postura pedida, o combatente fica na neutra — a
+  //     intenção de atacar continua valendo. Atordoado não se posiciona.
+  const posturas = new Map<string, Postura>()
+  for (const p of vivos()) {
+    const acao = acaoDe(input, p)
+    if (acao?.kind !== 'ATTACK' || bloqueando.has(chave(p))) continue
+    const c = combatenteEm(atual, p)
+    const pedida = acao.postura ?? 'NEUTRA'
+    if (pedida === 'NEUTRA' || isStunned(c)) {
+      posturas.set(chave(p), 'NEUTRA')
+      continue
+    }
+    const custo = custoDaPostura(c, pedida)
+    if ((c.currentStamina ?? 0) < custo) {
+      posturas.set(chave(p), 'NEUTRA')
+      continue
+    }
+    atual = comCombatenteEm(atual, p, { ...c, currentStamina: (c.currentStamina ?? 0) - custo })
+    posturas.set(chave(p), pedida)
+  }
+
   // 4. Habilidade e alvo de cada um, resolvidos ANTES de qualquer golpe sair.
   //    Tem que ser antes: o choque compara os dois golpes partindo juntos, e
   //    isso não existiria se cada um fosse escolhido na sua vez.
@@ -1915,7 +2002,11 @@ export function resolveRound(
       alvoAtual,
       golpe.skill,
       rand,
-      bloqueando.has(chave(mira))
+      {
+        bloqueia: bloqueando.has(chave(mira)),
+        posturaAtacante: posturas.get(chave(p)),
+        posturaDefensor: posturas.get(chave(mira)),
+      }
     )
     atual = comCombatenteEm(atual, p, r.attacker)
     atual = comCombatenteEm(atual, mira, r.defender)
@@ -1953,6 +2044,16 @@ export function resolveRound(
   for (const p of principais) {
     if (!estaDePe(combatenteEm(atual, p))) continue
     atual = comCombatenteEm(atual, p, applyDrain(combatenteEm(atual, p), formasDe(p)))
+  }
+
+  // 7b. Quem passou a rodada na postura neutra recupera stamina a mais: é o
+  //     que faz ficar parado ser uma escolha, e não só a falta de uma.
+  for (const p of vivos()) {
+    if (posturas.get(chave(p)) !== 'NEUTRA') continue
+    const c = combatenteEm(atual, p)
+    const max = c.maxStamina ?? 0
+    const extra = Math.round(max * POSTURA_NEUTRA_REGEN)
+    atual = comCombatenteEm(atual, p, { ...c, currentStamina: Math.min(max, (c.currentStamina ?? 0) + extra) })
   }
 
   // 8. Desfecho: um lado perde quando TODOS caem, não quando o primeiro cai.
