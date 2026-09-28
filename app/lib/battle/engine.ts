@@ -7,6 +7,8 @@ import {
   ENERGY_REGEN_PCT,
   STAMINA_REGEN_PCT,
   LEVEL_SCALING,
+  CUSTO_ESCALA_POR_NIVEL,
+  ENERGIA_INICIAL,
   ACERTO_MINIMO,
   ATRIBUTO_NEUTRO,
   BLOQUEIO_CUSTO_BASE,
@@ -108,12 +110,12 @@ function makeEffectId(): string {
   return `fx-${Math.random().toString(36).slice(2, 10)}`
 }
 
-function makeCombatant(stats: BaseStats, energyCostModifier = 0): CombatantState {
+function makeCombatant(stats: BaseStats, energyCostModifier = 0, nivel = 1): CombatantState {
   return {
     currentHp: stats.hp,
     maxHp: stats.hp,
     baseMaxHp: stats.hp,
-    currentEnergy: stats.energy,
+    currentEnergy: Math.round(stats.energy * ENERGIA_INICIAL),
     maxEnergy: stats.energy,
     currentStamina: stats.stamina,
     maxStamina: stats.stamina,
@@ -129,6 +131,7 @@ function makeCombatant(stats: BaseStats, energyCostModifier = 0): CombatantState
     cooldowns: {},
     activeTransformationId: null,
     energyCostModifier,
+    nivel,
     statusEffects: [],
   }
 }
@@ -311,12 +314,14 @@ export function traitEnergyCostModifier(traits: TraitDef[]): number {
 export function createInitialState(
   player: BaseStats,
   enemy: BaseStats,
-  passivos?: { player?: number; enemy?: number }
+  passivos?: { player?: number; enemy?: number },
+  /** Nível de cada lado — ver CombatantState.nivel. Ausente vale 1. */
+  niveis?: { player?: number; enemy?: number }
 ): BattleState {
   return {
     version: 2,
-    aliados: [makeCombatant(player, passivos?.player ?? 0)],
-    inimigos: [makeCombatant(enemy, passivos?.enemy ?? 0)],
+    aliados: [makeCombatant(player, passivos?.player ?? 0, niveis?.player ?? 1)],
+    inimigos: [makeCombatant(enemy, passivos?.enemy ?? 0, niveis?.enemy ?? 1)],
     outcome: null,
   }
 }
@@ -382,10 +387,18 @@ export function migrarEstado(gravado: BattleStateGravado): BattleState {
  * de traço passivo. Nunca desce abaixo de 1 quando a habilidade custa algo:
  * um traço muito forte não deve tornar tudo gratuito, senão energia deixa de
  * ser recurso e a rotação de habilidades perde o sentido.
+ *
+ * O CUSTO CRESCE COM O NÍVEL, na mesma proporção da reserva (LEVEL_SCALING).
+ * Antes ele era fixo enquanto a reserva triplicava até o nível 20, e a
+ * energia deixava de existir como recurso: o Naruto no nível 20 gastava 28
+ * por rodada de uma reserva de 344 — nem com regeneração zero ele esvaziaria
+ * numa luta de nove rodadas. Com o custo acompanhando, uma habilidade custa a
+ * mesma FRAÇÃO da reserva em qualquer nível, e quem treinou energia (reserva
+ * acima da do nível) é quem sente a diferença.
  */
 export function energyCostFor(c: CombatantState, energyCost: number): number {
   if (energyCost <= 0) return 0
-  const fator = 1 + (c.energyCostModifier ?? 0)
+  const fator = (1 + (c.energyCostModifier ?? 0)) * (1 + CUSTO_ESCALA_POR_NIVEL * ((c.nivel ?? 1) - 1))
   return Math.max(1, Math.round(energyCost * fator))
 }
 
@@ -583,7 +596,10 @@ function computeDamage(
   const defSpeed = getCombatStat(defender, 'speed')
   // Dentro do próprio domínio a técnica é amplificada — ver DOMAIN_DAMAGE_BONUS.
   const amplificacao = dominioAberto(attacker) ? 1 + DOMAIN_DAMAGE_BONUS : 1
-  let raw = (power + scaledBonus(attacker, scalingStat)) * amplificacao
+  // A forma age no golpe, qualquer que seja o atributo de escala — ver
+  // applyTransformation.
+  const forma = 1 + (attacker.formaDano ?? 0)
+  let raw = (power + scaledBonus(attacker, scalingStat)) * amplificacao * forma
 
   // EXECUTE: golpe de acabamento — o alvo já está abaixo do limiar de vida.
   const execucao = effects.find((e) => e.type === 'EXECUTE')
@@ -608,7 +624,10 @@ function computeDamage(
     raw *= 1 + finalizacao.magnitude / 100
   }
 
-  const mitigated = raw * (100 / (100 + def))
+  // A guarda da forma corta o dano recebido. Piso de 0,5 no divisor para uma
+  // forma de defesa muito negativa não multiplicar o dano sem limite.
+  const guarda = Math.max(0.5, 1 + (defender.formaGuarda ?? 0))
+  const mitigated = (raw * (100 / (100 + def))) / guarda
   const critChance = clamp(
     CRIT_BASE_CHANCE + Math.max(0, atkSpeed - defSpeed) * CRIT_SPEED_COEFFICIENT,
     CRIT_BASE_CHANCE,
@@ -950,6 +969,23 @@ function aplicarDanoDireto(target: CombatantState, amount: number): { target: Co
   return { target: { ...target, currentHp }, actualDamage: target.currentHp - currentHp }
 }
 
+/**
+ * Cobra o custo de uma habilidade e a põe em recarga. Separado do golpe porque
+ * há golpe pago que não acontece: o anulado no choque (ver resolveRound).
+ *
+ * O custo sai da reserva certa: defesa da stamina, o resto da energia.
+ */
+function pagarGolpe(c: CombatantState, skill: SkillDef): CombatantState {
+  const custo = energyCostFor(c, skill.energyCost)
+  const daStamina = custaStamina(skill)
+  return {
+    ...c,
+    currentEnergy: daStamina ? c.currentEnergy : Math.max(0, c.currentEnergy - custo),
+    currentStamina: daStamina ? Math.max(0, (c.currentStamina ?? 0) - custo) : c.currentStamina,
+    cooldowns: { ...c.cooldowns, [skill.id]: skill.cooldown },
+  }
+}
+
 function performSkillUse(
   side: Side,
   attacker: CombatantState,
@@ -975,25 +1011,15 @@ function performSkillUse(
   reviveSolicitado?: number
 } {
   const power = skill ? skill.power : BASIC_ATTACK_POWER
-  const energyCost = skill ? energyCostFor(attacker, skill.energyCost) : 0
   const effects = skill ? skill.effects : []
   // Ataque básico escala de ataque: é golpe físico, não técnica.
   const scalingStat: ScalingStat = skill ? skill.scalingStat : 'attack'
 
-  // O custo sai da reserva certa: defesa da stamina, o resto da energia.
-  const daStamina = skill ? custaStamina(skill) : false
-  let newAttacker: CombatantState = {
-    ...attacker,
-    currentEnergy: daStamina ? attacker.currentEnergy : Math.max(0, attacker.currentEnergy - energyCost),
-    currentStamina: daStamina
-      ? Math.max(0, (attacker.currentStamina ?? 0) - energyCost)
-      : attacker.currentStamina,
-    cooldowns: skill ? { ...attacker.cooldowns, [skill.id]: skill.cooldown } : attacker.cooldowns,
-    // comboPreparado NÃO muda aqui, de propósito: ele ainda precisa valer
-    // COMO ESTAVA (a carga da rodada passada) na hora de computeDamage
-    // decidir se ESTE golpe é a finalização dela. Só é atualizado pro valor
-    // desta habilidade no FIM da função — ver o retorno.
-  }
+  // comboPreparado NÃO muda aqui, de propósito: ele ainda precisa valer COMO
+  // ESTAVA (a carga da rodada passada) na hora de computeDamage decidir se
+  // ESTE golpe é a finalização dela. Só é atualizado pro valor desta
+  // habilidade no FIM da função — ver o retorno.
+  let newAttacker: CombatantState = skill ? pagarGolpe(attacker, skill) : attacker
   let newDefender = defender
 
   let damage: number | undefined
@@ -1110,7 +1136,7 @@ function performSkillUse(
     countered: countered || undefined,
     reflectedDamage,
     healed: healed > 0 ? healed : undefined,
-    energySpent: energyCost,
+    energySpent: skill ? energyCostFor(attacker, skill.energyCost) : 0,
     targetHpBefore,
     targetHpAfter,
     effectsApplied: supportResult.applied.length > 0 ? supportResult.applied : undefined,
@@ -1227,6 +1253,28 @@ function tickStatusEffects(side: Side, c: CombatantState): { combatant: Combatan
   return { combatant: { ...c, currentHp: hp, statusEffects }, results }
 }
 
+/**
+ * Aplica uma forma: sem cobrar nada (ver ativarForma).
+ *
+ * A FORMA MULTIPLICA O GOLPE, NÃO O ATRIBUTO. O ganho de ataque e o de defesa
+ * da forma viram `formaDano` e `formaGuarda`, lidos direto no dano. Antes
+ * eles multiplicavam o ATRIBUTO, e isso fazia duas coisas erradas:
+ *
+ *   1. Quase não mudava o dano. O atributo só alimenta um bônus pequeno por
+ *      cima do poder do golpe; +26% de ataque no Bankai do Ichigo davam uns
+ *      6% a mais de dano. Idem a defesa, diluída na curva 100/(100+def).
+ *   2. Não valia nada para quem escala de energia — a maioria do elenco:
+ *      Byakuya, Grimmjow, Kenpachi, Goku, Broly. O "+25% de ataque" do Super
+ *      Saiyan não chegava no Kamehameha.
+ *
+ * Medido com as formas cobrando para ativar e manter: lutar transformado era
+ * PIOR que lutar sem forma para quase todo mundo (Goku −65 pontos, Broly
+ * −62, Byakuya −46). A forma virou armadilha. Agindo no golpe, o número que a
+ * tela mostra ("ATQ +26%") passa a ser o que acontece, para qualquer kit.
+ *
+ * A velocidade continua sendo atributo: ela decide iniciativa e crítico, e é
+ * lá que ela já age de verdade.
+ */
 export function applyTransformation(c: CombatantState, t: TransformationDef): CombatantState {
   const maxHp = c.baseMaxHp + t.flatHpBonus
   const maxEnergy = Math.max(1, Math.round(c.baseMaxEnergy * (1 + t.energyModifier)))
@@ -1236,9 +1284,11 @@ export function applyTransformation(c: CombatantState, t: TransformationDef): Co
     currentHp: Math.min(c.currentHp + t.flatHpBonus, maxHp),
     maxEnergy,
     currentEnergy: Math.min(c.currentEnergy, maxEnergy),
-    attack: Math.round((c.baseAttack + t.flatAttackBonus) * (1 + t.attackModifier)),
-    defense: Math.round((c.baseDefense + t.flatDefenseBonus) * (1 + t.defenseModifier)),
+    attack: c.baseAttack + t.flatAttackBonus,
+    defense: c.baseDefense + t.flatDefenseBonus,
     speed: Math.round((c.baseSpeed + t.flatSpeedBonus) * (1 + t.speedModifier)),
+    formaDano: t.attackModifier,
+    formaGuarda: t.defenseModifier,
     activeTransformationId: t.id,
   }
 }
@@ -1294,6 +1344,8 @@ function revertTransformation(c: CombatantState): CombatantState {
     attack: c.baseAttack,
     defense: c.baseDefense,
     speed: c.baseSpeed,
+    formaDano: undefined,
+    formaGuarda: undefined,
     activeTransformationId: null,
   }
 }
@@ -1617,15 +1669,15 @@ export function resolveRound(
   ctx: {
     playerSkills: Record<string, SkillDef>
     enemySkills: Record<string, SkillDef>
-    /**
-     * Transformações de `aliados[0]`, o personagem do jogador.
-     *
-     * Um mapa só, e não um por combatente, porque hoje ninguém mais tem
-     * transformação desbloqueada: o inimigo entra como Character puro do
-     * catálogo, sem nenhuma. Quando existir aliado controlado pela máquina
-     * com forma própria, isto vira um mapa por posição.
-     */
+    /** Transformações de `aliados[0]`, o personagem do jogador. */
     playerTransformations: Record<string, TransformationDef>
+    /**
+     * Transformações de `inimigos[0]`. A IA também se transforma, pagando o
+     * mesmo preço: um Grimmjow que nunca solta a Pantera é outro personagem.
+     * Opcional porque PvP e os testes antigos não têm. Os demais membros de
+     * um time ainda não têm forma — quando tiverem, isto vira mapa por posição.
+     */
+    enemyTransformations?: Record<string, TransformationDef>
   },
   rand: () => number = Math.random
 ): { state: BattleState; turnResults: TurnResult[] } {
@@ -1663,19 +1715,20 @@ export function resolveRound(
     turnResults.push(...r.results)
   }
 
-  // 2. Transformação automática de início de rodada. Só o principal aliado
-  //    tem formas hoje — ver o comentário de ctx.playerTransformations.
-  const heroiEmCampo: EmCampo = { lado: LADO_ALIADO, indice: 0 }
-  if (estaDePe(combatenteEm(atual, heroiEmCampo))) {
-    const auto = maybeAutoTransform(
-      combatenteEm(atual, heroiEmCampo),
-      ctx.playerTransformations,
-      ['LOW_HP', 'ENERGY_CHARGE'],
-      0
-    )
+  // 2. Transformação automática de início de rodada, do principal de CADA
+  //    lado — só eles têm formas (ver ctx.enemyTransformations).
+  const principais: EmCampo[] = [
+    { lado: LADO_ALIADO, indice: 0 },
+    { lado: 'ENEMY', indice: 0 },
+  ]
+  const formasDe = (p: EmCampo): Record<string, TransformationDef> =>
+    p.indice !== 0 ? {} : p.lado === LADO_ALIADO ? ctx.playerTransformations : ctx.enemyTransformations ?? {}
+  for (const p of principais) {
+    if (!estaDePe(combatenteEm(atual, p))) continue
+    const auto = maybeAutoTransform(combatenteEm(atual, p), formasDe(p), ['LOW_HP', 'ENERGY_CHARGE'], 0)
     if (auto) {
-      atual = comCombatenteEm(atual, heroiEmCampo, auto.combatant)
-      turnResults.push(makeTransformResult(LADO_ALIADO, auto.transformation))
+      atual = comCombatenteEm(atual, p, auto.combatant)
+      turnResults.push(makeTransformResult(p.lado, auto.transformation))
     }
   }
 
@@ -1802,8 +1855,8 @@ export function resolveRound(
 
     const acao = acaoDe(input, p)
 
-    if (acao?.kind === 'TRANSFORM' && p.lado === LADO_ALIADO && p.indice === 0) {
-      const t = ctx.playerTransformations[acao.transformationId]
+    if (acao?.kind === 'TRANSFORM') {
+      const t = formasDe(p)[acao.transformationId]
       // Sem como pagar, a ação não acontece. A tela já impede o clique; isto
       // é para o POST direto, que não passa pela tela.
       if (t && podeAtivar(c, t)) {
@@ -1814,11 +1867,32 @@ export function resolveRound(
       continue
     }
 
-    if (bloqueando.has(chave(p)) || anulados.has(chave(p))) continue
+    if (bloqueando.has(chave(p))) continue
+
+    // GOLPE ANULADO NO CHOQUE AINDA É PAGO. Antes o perdedor do choque (ou os
+    // dois, no empate) saía daqui de graça: sem gastar energia e sem entrar em
+    // recarga, podia lançar a mesma técnica na rodada seguinte. Num espelho,
+    // os dois lados escolhem o mesmo feixe toda rodada e se chocavam para
+    // sempre sem gastar nada — a energia média ficava em 97% e toda medição
+    // de balanceamento feita em espelho saía distorcida. A técnica foi
+    // lançada; perdeu a disputa, mas foi lançada.
+    if (anulados.has(chave(p))) {
+      const anulado = golpes.get(chave(p))
+      if (anulado?.skill) atual = comCombatenteEm(atual, p, { ...pagarGolpe(c, anulado.skill), comboPreparado: undefined })
+      continue
+    }
 
     const golpe = golpes.get(chave(p))
     // Quem não declarou ataque nesta rodada não age.
     if (!golpe) continue
+
+    // Forma que não gasta a rodada, liberada no próprio turno antes do golpe.
+    // Sem como pagar, o golpe sai sem ela — a intenção era atacar.
+    const liberar = acao?.kind === 'ATTACK' && acao.liberar ? formasDe(p)[acao.liberar] : undefined
+    if (liberar && liberar.consumesTurn === false && !c.activeTransformationId && podeAtivar(c, liberar)) {
+      atual = comCombatenteEm(atual, p, ativarForma(c, liberar))
+      turnResults.push(makeTransformResult(p.lado, liberar))
+    }
 
     // O ALVO É RECONFERIDO AQUI, e não só na hora de escolher: alguém mais
     // rápido pode ter derrubado quem este ia atacar no meio da mesma rodada.
@@ -1831,11 +1905,13 @@ export function resolveRound(
     if (!mira) continue
 
     const alvoAtual = combatenteEm(atual, mira)
+    // Relido, e não `c`: a forma liberada logo acima já mudou o atacante.
+    const atacante = combatenteEm(atual, p)
 
-    const hpAntes = c.currentHp
+    const hpAntes = atacante.currentHp
     const r = performSkillUse(
       p.lado,
-      c,
+      atacante,
       alvoAtual,
       golpe.skill,
       rand,
@@ -1858,21 +1934,26 @@ export function resolveRound(
     // Transformação por dano recebido, do lado de quem apanhou E de quem
     // levou counter — as duas são "tomei dano", e o counter machuca o atacante.
     for (const machucado of [p, mira]) {
-      if (machucado.lado !== LADO_ALIADO || machucado.indice !== 0) continue
+      if (machucado.indice !== 0) continue
       const depois = combatenteEm(atual, machucado)
       if (!estaDePe(depois)) continue
       const sofrido = mesmoLugar(machucado, p) ? hpAntes - depois.currentHp : r.turnResult.damage ?? 0
       if (sofrido <= 0) continue
-      const auto = maybeAutoTransform(depois, ctx.playerTransformations, ['ON_DAMAGE_TAKEN'], sofrido)
+      const auto = maybeAutoTransform(depois, formasDe(machucado), ['ON_DAMAGE_TAKEN'], sofrido)
       if (auto) {
         atual = comCombatenteEm(atual, machucado, auto.combatant)
-        turnResults.push(makeTransformResult(LADO_ALIADO, auto.transformation))
+        turnResults.push(makeTransformResult(machucado.lado, auto.transformation))
       }
     }
   }
 
-  // 7. Fim da rodada: dreno das formas ativas (só o principal aliado as tem).
-  atual = comCombatenteEm(atual, heroiEmCampo, applyDrain(combatenteEm(atual, heroiEmCampo), ctx.playerTransformations))
+  // 7. Fim da rodada: manutenção das formas ativas, do principal de cada lado.
+  // Só de quem está de pé: o dreno de vida "não mata, deixa em 1", e aplicado
+  // em quem já caiu na rodada ele o LEVANTARIA com 1 de vida.
+  for (const p of principais) {
+    if (!estaDePe(combatenteEm(atual, p))) continue
+    atual = comCombatenteEm(atual, p, applyDrain(combatenteEm(atual, p), formasDe(p)))
+  }
 
   // 8. Desfecho: um lado perde quando TODOS caem, não quando o primeiro cai.
   const aliadosDePe = atual.aliados.some(estaDePe)

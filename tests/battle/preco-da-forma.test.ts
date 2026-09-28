@@ -64,9 +64,12 @@ const ataqueBasico = {
 const rodada = (s: ReturnType<typeof createInitialState>, t: TransformationDef, aliadas = ataqueBasico.aliadas) =>
   resolveRound(s, { ...ataqueBasico, aliadas }, { playerSkills: {}, enemySkills: {}, playerTransformations: { [t.id]: t } }, NUNCA_CRITA)
 
+/** A luta começa com parte da energia (ENERGIA_INICIAL); estes testes partem da reserva cheia. */
+const cheio = () => ({ ...heroi(createInitialState(stats(), stats())), currentEnergy: 100 })
+
 describe('ativação', () => {
   it('cobra energia e stamina', () => {
-    const c = heroi(createInitialState(stats(), stats()))
+    const c = cheio()
     const r = ativarForma(c, forma())
     expect(r.currentEnergy).toBe(70)
     expect(r.currentStamina).toBe(80)
@@ -76,7 +79,7 @@ describe('ativação', () => {
   it('cobra ANTES de aplicar: a forma que corta a energia máxima não encarece a ativação', () => {
     // Energia 100, teto cai para 50. Cobrando antes: 100 − 30 = 70, cortado a
     // 50. Cobrando depois, sairia do que sobrou do corte: 50 − 30 = 20.
-    const c = heroi(createInitialState(stats(), stats()))
+    const c = cheio()
     const r = ativarForma(c, forma({ energyModifier: -0.5 }))
     expect(r.currentEnergy).toBe(50)
   })
@@ -148,9 +151,12 @@ describe('preço no catálogo', () => {
     expect(ss2.drainStaminaPerTurn!).toBeGreaterThan(ss1.drainStaminaPerTurn!)
   })
 
-  it('o dreno temático que o catálogo já tinha continua valendo como piso', () => {
-    // O Super Saiyan 3 sempre foi a forma que come energia; a regra geral não
-    // pode deixá-lo mais barato do que o tema dele pedia.
-    expect(porNome('Goku', 'Super Saiyan 3').drainPerTurn).toBeGreaterThanOrEqual(10)
+  it('a manutenção pesa na STAMINA, não na energia', () => {
+    // Energia é o recurso dos golpes desde que a luta começa com 40% dela; com
+    // o preço da forma em energia, lutar transformado ficava pior que lutar
+    // sem forma. Ver o bloco de preço em prisma/catalog/transformations.js.
+    for (const t of catalogo.transformations.filter((t) => t.levelRequirement >= 10)) {
+      expect(t.drainStaminaPerTurn!, t.name).toBeGreaterThan(t.drainPerTurn!)
+    }
   })
 })

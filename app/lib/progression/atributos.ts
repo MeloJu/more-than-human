@@ -16,38 +16,37 @@ export type Atributo = (typeof ATRIBUTOS)[number]
 /**
  * Quanto UM ponto de nível dá em cada atributo.
  *
- * CALIBRADO POR SIMULAÇÃO, não por fórmula. A primeira versão saía de um
- * orçamento (hp + 5*atq + 5*def + 4*vel + 0,3*energia) que prometia "um ponto
- * vale o mesmo em qualquer lugar" — e o simulador mostrou que não valia.
- * Medido com um treino (5 pontos) partindo de uma luta perdida contra o mesmo
- * personagem um nível acima:
+ * CALIBRADO POR SIMULAÇÃO, não por fórmula: +5 pontos num atributo, e quanto
+ * isso muda a vitória contra o mesmo personagem um nível acima, com a IA
+ * pilotando os dois lados (formas incluídas) e a média dos dois lados da
+ * mesa — o lado do jogador leva vantagem no empate de iniciativa.
  *
- *                 antes (Ichigo / Byakuya / Goku)   agora
- *   ataque        +52 /   0 / +32 pp                +28 /   0 / +20
- *   defesa         +3 /  +7 /  +6                   +14 / +19 / +18
- *   acurácia       +3 /  +5 /  +3                    +6 / +11 /  +7
+ *                 vida  ataque defesa  veloc. energia stamina agilid.
+ *   Ichigo         +22    +32    +26    +10    +37     −4     +17
+ *   Byakuya         +9      0     +9    +42     +1      0     +18
+ *   Goku            +2     +3     +8     +6    +13      0      +3
+ *   Naruto         +50    +10    +52    +40    +12      0     +23
+ *   Broly          +33      0    +80    +29    +15      0     +29
  *
- * Ataque esmagava tudo nos kits que escalam dele, e defesa e acurácia
- * rendiam quase nada para qualquer um — era "uma escolha certa e cinco
- * erradas". Agora cada personagem tem três ou quatro treinos que valem a
- * pena, e o atributo de ESCALA do kit dele continua sendo o melhor sem
- * esmagar os outros. Isso é desejado: o Ichigo treina ataque, o Byakuya
- * treina energia, e é o kit que diz qual.
+ * Cada personagem tem dois ou três treinos que valem a pena, e o kit decide
+ * quais — que é o desejado: não existe "o" atributo certo.
+ *
+ * MEDIÇÕES ANTERIORES ESTAVAM ERRADAS. O golpe que perdia um choque saía de
+ * graça (ver resolveRound), e em espelho os dois lados se chocavam toda
+ * rodada sem gastar nada. A tabela que existia aqui foi medida assim.
+ *
+ * ENERGIA CAIU DE 12 PARA 6 quando a economia de energia passou a existir
+ * (a luta começa com 40% dela — ver ENERGY_REGEN_PCT). A 12, ela virou o
+ * melhor treino de todo mundo: +72 pontos para o Goku, +51 para o Ichigo.
+ *
+ * STAMINA SEGUE VALENDO QUASE ZERO, e não é este número: nas lutas medidas
+ * ela nunca acaba, porque a manutenção da forma fica perto da regeneração.
+ * Ela passa a contar em luta longa, de raid, onde a forma precisa durar.
  *
  * POR QUE A DEFESA PRECISOU DE 5. O dano é mitigado por 100/(100+defesa), e
  * com defesa na casa dos 20 a curva é quase plana: 10 pontos tiram só ~7% do
  * dano recebido. A mesma curva faz a defesa render cada vez menos quanto mais
  * se tem — é o limitador natural dela, e por isso ela aguenta um número maior.
- *
- * VELOCIDADE CONTINUA VALENDO METADE: decide a iniciativa E alimenta o
- * crítico, rende em duas dimensões. E mesmo a 1 por ponto ela já é o
- * segundo melhor treino do Goku e do Byakuya.
- *
- * O QUE CONTINUA SEM VALER: stamina rende zero para os três, e energia só
- * rende para quem escala dela. Não é o número daqui — a reserva nunca acaba:
- * em 100 lutas o Ichigo nunca desceu de 61% de energia, porque quem limita o
- * uso é a recarga das habilidades. Consertar isso é mexer na economia da
- * luta (regeneração), não nesta tabela.
  *
  * Guardamos os PONTOS gastos no banco, não o bônus final. Mudar um número
  * aqui reajusta todo mundo na próxima batalha, em vez de deixar personagens
@@ -58,7 +57,7 @@ export const ATRIBUTO_POR_PONTO: Record<Atributo, number> = {
   attack: 1,
   defense: 5,
   speed: 1,
-  energy: 12,
+  energy: 6,
   stamina: 12,
   /**
    * Acurácia e agilidade mudam a FREQUÊNCIA com que o resto acontece, e as

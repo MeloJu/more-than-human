@@ -24,7 +24,7 @@ import {
   traitEnergyCostModifier,
   vilao,
 } from './engine'
-import { deveBloquear, pickAiSkill } from './ai'
+import { acaoDaIa } from './ai'
 import { tierLiberado } from './raid'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
@@ -48,9 +48,17 @@ async function loadActiveBattleContext(battleId: string) {
   const enemy = await loadEnemyProfile(battle)
   if (!userCharacter || !enemy) redirect(`/battle/ai?error=not_found`)
 
-  const [playerSkills, playerTransformations] = await Promise.all([
+  const state = migrarEstado(battle.state as unknown as BattleStateGravado)
+
+  // As formas do inimigo, pelo nível com que ele entrou na luta. Monstro de
+  // raid ainda não tem forma nenhuma; batalha gravada antes de o nível ir
+  // para o estado lê nível 1, que também não libera nenhuma.
+  const [playerSkills, playerTransformations, enemyTransformations] = await Promise.all([
     getEquippedSkills(userCharacter.id),
     getPlayerTransformations(userCharacter.characterId, userCharacter.level),
+    battle.enemyCharacterId
+      ? getPlayerTransformations(battle.enemyCharacterId, vilao(state).nivel ?? 1)
+      : Promise.resolve({}),
   ])
 
   // Estágio de história dita o próprio XP (xpReward), que é o número exibido
@@ -86,8 +94,32 @@ async function loadActiveBattleContext(battleId: string) {
     isFirstStoryClear,
     playerSkills,
     playerTransformations,
-    state: migrarEstado(battle.state as unknown as BattleStateGravado),
+    enemyTransformations,
+    state,
   }
+}
+
+type ContextoDeBatalha = Awaited<ReturnType<typeof loadActiveBattleContext>>
+
+/**
+ * Resolve uma rodada com a ação do jogador contra a da IA. A IA decide por
+ * acaoDaIa — bloquear, transformar ou atacar —, a mesma decisão que o
+ * simulador de balanceamento usa.
+ */
+function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
+  return resolveRound(
+    ctx.state,
+    {
+      aliadas: [acaoDoJogador],
+      inimigas: [acaoDaIa(vilao(ctx.state), Object.values(ctx.enemySkills), heroi(ctx.state), ctx.enemyTransformations)],
+    },
+    {
+      playerSkills: ctx.playerSkills,
+      enemySkills: ctx.enemySkills,
+      playerTransformations: ctx.playerTransformations,
+      enemyTransformations: ctx.enemyTransformations,
+    }
+  )
 }
 
 function decideDrawOrHpTiebreak(state: BattleState): Outcome {
@@ -282,9 +314,14 @@ async function finalizeRound(
   }
 }
 
+/**
+ * `level` é o nível com que o inimigo entra na luta: decide quanto as
+ * habilidades dele custam (ver energyCostFor) e quais formas ele tem.
+ * Monstro de raid usa 1 — os stats dele são fixos, sem escala por nível.
+ */
 type EnemyRef =
-  | { kind: 'character'; characterId: string; base: BaseStats }
-  | { kind: 'monster'; monsterId: string; base: BaseStats }
+  | { kind: 'character'; characterId: string; base: BaseStats; level: number }
+  | { kind: 'monster'; monsterId: string; base: BaseStats; level: number }
 
 // The one truly identical tail shared by startAiBattle/startRaidBattle/
 // startStoryBattle: compute the player's stats, seed the battle state,
@@ -317,9 +354,12 @@ export async function createBattleAndRedirect(params: {
     ),
     traits
   )
-  const state = createInitialState(playerBase, params.enemy.base, {
-    player: traitEnergyCostModifier(traits),
-  })
+  const state = createInitialState(
+    playerBase,
+    params.enemy.base,
+    { player: traitEnergyCostModifier(traits) },
+    { player: params.userCharacter.level, enemy: params.enemy.level }
+  )
 
   const battle = await prisma.battle.create({
     data: {
@@ -359,7 +399,7 @@ export async function startAiBattle(userCharacterId: string): Promise<never> {
   return createBattleAndRedirect({
     userId,
     userCharacter,
-    enemy: { kind: 'character', characterId: enemyCharacter.id, base: enemyBase },
+    enemy: { kind: 'character', characterId: enemyCharacter.id, base: enemyBase, level: userCharacter.level },
   })
 }
 
@@ -392,7 +432,7 @@ export async function startRaidBattle(userCharacterId: string, monsterId: string
   return createBattleAndRedirect({
     userId,
     userCharacter,
-    enemy: { kind: 'monster', monsterId: monster.id, base: enemyBase },
+    enemy: { kind: 'monster', monsterId: monster.id, base: enemyBase, level: 1 },
   })
 }
 
@@ -402,18 +442,7 @@ export async function takeTurn(battleId: string, skillId: string | null): Promis
   if (skillId && !chosenSkill) redirect(`/battle/ai/${battleId}?error=invalid_skill`)
   if (!isLegalMove(heroi(ctx.state), chosenSkill)) redirect(`/battle/ai/${battleId}?error=illegal_move`)
 
-  const playerAction: PlayerAction = { kind: 'ATTACK', skillId }
-  const inimigoBloqueia = deveBloquear(vilao(ctx.state), Object.values(ctx.enemySkills))
-  const enemySkillId = pickAiSkill(vilao(ctx.state), Object.values(ctx.enemySkills), heroi(ctx.state))
-
-  const { state: newState, turnResults } = resolveRound(
-    ctx.state,
-    {
-      aliadas: [playerAction],
-      inimigas: [inimigoBloqueia ? { kind: 'BLOCK' } : { kind: 'ATTACK', skillId: enemySkillId }],
-    },
-    { playerSkills: ctx.playerSkills, enemySkills: ctx.enemySkills, playerTransformations: ctx.playerTransformations }
-  )
+  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'ATTACK', skillId })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
 }
@@ -429,14 +458,7 @@ export async function blockTurn(battleId: string): Promise<void> {
   const ctx = await loadActiveBattleContext(battleId)
   if (!podeBloquear(heroi(ctx.state))) redirect(`/battle/ai/${battleId}?error=no_stamina`)
 
-  const inimigoBloqueia = deveBloquear(vilao(ctx.state), Object.values(ctx.enemySkills))
-  const enemySkillId = pickAiSkill(vilao(ctx.state), Object.values(ctx.enemySkills), heroi(ctx.state))
-
-  const { state: newState, turnResults } = resolveRound(
-    ctx.state,
-    { aliadas: [{ kind: 'BLOCK' }], inimigas: [inimigoBloqueia ? { kind: 'BLOCK' } : { kind: 'ATTACK', skillId: enemySkillId }] },
-    { playerSkills: ctx.playerSkills, enemySkills: ctx.enemySkills, playerTransformations: ctx.playerTransformations }
-  )
+  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'BLOCK' })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
 }
@@ -489,18 +511,7 @@ export async function activateTransformation(battleId: string, transformationId:
     return
   }
 
-  const playerAction: PlayerAction = { kind: 'TRANSFORM', transformationId }
-  const inimigoBloqueia = deveBloquear(vilao(ctx.state), Object.values(ctx.enemySkills))
-  const enemySkillId = pickAiSkill(vilao(ctx.state), Object.values(ctx.enemySkills), heroi(ctx.state))
-
-  const { state: newState, turnResults } = resolveRound(
-    ctx.state,
-    {
-      aliadas: [playerAction],
-      inimigas: [inimigoBloqueia ? { kind: 'BLOCK' } : { kind: 'ATTACK', skillId: enemySkillId }],
-    },
-    { playerSkills: ctx.playerSkills, enemySkills: ctx.enemySkills, playerTransformations: ctx.playerTransformations }
-  )
+  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'TRANSFORM', transformationId })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
 }

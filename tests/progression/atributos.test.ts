@@ -59,8 +59,11 @@ describe('atributos alocáveis', () => {
     expect(ATRIBUTO_POR_PONTO.accuracy).toBe(ATRIBUTO_POR_PONTO.agility)
   })
 
-  it('as duas reservas rendem igual entre si', () => {
-    expect(ATRIBUTO_POR_PONTO.energy).toBe(ATRIBUTO_POR_PONTO.stamina)
+  it('energia rende menos por ponto que stamina — ela é reserva E escala de dano', () => {
+    // Energia paga os golpes e ainda é o atributo de escala de ki, kidō e
+    // ninjutsu; a 12 por ponto ela virou o melhor treino de todo mundo. Ver o
+    // comentário de ATRIBUTO_POR_PONTO.
+    expect(ATRIBUTO_POR_PONTO.energy).toBeLessThan(ATRIBUTO_POR_PONTO.stamina)
   })
 
   it('todo atributo tem valor por ponto e nome de coluna', () => {

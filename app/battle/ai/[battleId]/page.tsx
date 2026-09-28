@@ -1,3 +1,4 @@
+import { prisma } from '@/app/lib/prisma'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/app/lib/session'
@@ -97,6 +98,13 @@ export default async function BattleArenaPage({
 
   const formaAtivaDoJogador = idDaFormaAtiva ? playerTransformations[idDaFormaAtiva] : undefined
 
+  // A IA também se transforma (ver acaoDaIa). Só o nome é preciso aqui, então
+  // uma leitura pontual em vez de carregar todas as formas do inimigo.
+  const idDaFormaDoInimigo = vilao(state).activeTransformationId
+  const formaAtivaDoInimigo = idDaFormaDoInimigo
+    ? await prisma.transformation.findUnique({ where: { id: idDaFormaDoInimigo }, select: { name: true } })
+    : null
+
 
   // A cor de cada lado vem da arte do personagem, e a guarda de contraste
   // garante que os dois lados nunca saiam iguais: se colidirem (Ichigo e Jean
@@ -183,7 +191,14 @@ export default async function BattleArenaPage({
         />
 
         <CartaAnimada impacto={impacto.ENEMY} rodada={ultimaRodada}>
-          <FighterCard name={enemy.name} imageUrl={enemy.imageUrl} cor={corInimigo} combatant={vilao(state)} />
+          <FighterCard
+            name={enemy.name}
+            imageUrl={enemy.imageUrl}
+            cor={corInimigo}
+            levelBadge={vilao(state).nivel}
+            transformationName={formaAtivaDoInimigo?.name}
+            combatant={vilao(state)}
+          />
         </CartaAnimada>
       </div>
 

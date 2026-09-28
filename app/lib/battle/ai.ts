@@ -1,5 +1,5 @@
-import { isLegalMove, podeBloquear } from './engine'
-import type { CombatantState, SkillDef } from './types'
+import { ativarForma, isLegalMove, podeAtivar, podeBloquear } from './engine'
+import type { AcaoDeCombate, CombatantState, SkillDef, TransformationDef } from './types'
 
 const LOW_HP_HEAL_THRESHOLD = 0.4
 
@@ -234,4 +234,84 @@ export function deveBloquear(self: CombatantState, availableSkills: SkillDef[]):
   // Uma heurística de IA não deveria mover balanceamento nessa escala sem uma
   // recurva dos estágios junto. A regra volta quando essa recurva for feita.
   return !availableSkills.some((s) => s.power > 0 && isLegalMove(self, s))
+}
+
+/**
+ * Quantas rodadas a IA precisa conseguir SUSTENTAR uma forma para liberá-la.
+ *
+ * Sem essa margem, a IA liberaria a forma assim que desse para pagar a
+ * ativação — e ela cairia na rodada seguinte por falta de manutenção, com a
+ * ativação jogada fora. Três rodadas é o mínimo para a forma pagar o que
+ * custou numa luta que dura de seis a dez.
+ */
+export const RODADAS_DE_FORMA_MINIMAS = 3
+
+/**
+ * A forma que a IA deve liberar agora, ou null.
+ *
+ * Só as de gatilho MANUAL: as automáticas (Ultra Instinct, Wrathful) o motor
+ * dispara sozinho, para a IA e para o jogador igual. Entre as que dá para
+ * pagar E sustentar, a de nível mais alto — que é a mais forte.
+ */
+export function escolherFormaDaIa(
+  self: CombatantState,
+  formas: Record<string, TransformationDef>
+): TransformationDef | null {
+  if (self.activeTransformationId) return null
+  const candidatas = Object.values(formas).filter((t) => {
+    if (t.triggerType !== 'MANUAL' || !podeAtivar(self, t)) return false
+    const energiaDepois = self.currentEnergy - (t.activationCost ?? 0)
+    const staminaDepois = (self.currentStamina ?? 0) - (t.activationStaminaCost ?? 0)
+    return (
+      energiaDepois >= t.drainPerTurn * RODADAS_DE_FORMA_MINIMAS &&
+      staminaDepois >= (t.drainStaminaPerTurn ?? 0) * RODADAS_DE_FORMA_MINIMAS
+    )
+  })
+  if (candidatas.length === 0) return null
+  return candidatas.sort((a, b) => b.levelRequirement - a.levelRequirement)[0]
+}
+
+/**
+ * A ação completa da IA numa rodada: bloquear, transformar ou atacar.
+ *
+ * Existe para que batalha, simulador e qualquer modo futuro decidam da MESMA
+ * forma — antes cada chamador montava "bloqueia? senão ataca" à mão.
+ *
+ * Forma que gasta a rodada vira a ação da rodada. Forma que não gasta vai
+ * junto do ataque, em `liberar`, e o golpe é escolhido JÁ COM a forma paga:
+ * escolher antes poderia apontar uma habilidade que a ativação deixou sem
+ * energia para pagar.
+ */
+export function acaoDaIa(
+  self: CombatantState,
+  skills: SkillDef[],
+  oponente?: CombatantState,
+  formas: Record<string, TransformationDef> = {}
+): AcaoDeCombate {
+  const forma = escolherFormaDaIa(self, formas)
+  if (forma && forma.consumesTurn !== false) return { kind: 'TRANSFORM', transformationId: forma.id }
+  if (deveBloquear(self, skills)) return { kind: 'BLOCK' }
+  if (forma) {
+    const transformado = ativarForma(self, forma)
+    return { kind: 'ATTACK', skillId: pickAiSkill(comManutencaoReservada(transformado, forma), skills, oponente), liberar: forma.id }
+  }
+  const ativa = self.activeTransformationId ? formas[self.activeTransformationId] : undefined
+  return { kind: 'ATTACK', skillId: pickAiSkill(ativa ? comManutencaoReservada(self, ativa) : self, skills, oponente) }
+}
+
+/**
+ * O combatente como a IA deve enxergá-lo na hora de escolher o golpe: com a
+ * manutenção da forma JÁ separada da reserva.
+ *
+ * Sem isso a IA gastava toda a energia em habilidade, a forma não tinha com
+ * que se pagar no fim da rodada e caía — e a IA a liberava de novo, pagando
+ * outra ativação (e, no Super Saiyan, outra rodada inteira). Medido, lutar
+ * SEM forma chegava a render 72 pontos a mais de vitória que lutar com ela.
+ */
+function comManutencaoReservada(c: CombatantState, forma: TransformationDef): CombatantState {
+  return {
+    ...c,
+    currentEnergy: c.currentEnergy - forma.drainPerTurn,
+    currentStamina: (c.currentStamina ?? 0) - (forma.drainStaminaPerTurn ?? 0),
+  }
 }

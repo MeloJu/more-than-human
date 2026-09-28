@@ -73,7 +73,13 @@ export function CartaoDeHabilidade({
               <span className="font-medium tabular-nums">{skill.power}</span>
             </span>
           )}
-          <span className={daStamina ? 'text-amber-600 dark:text-amber-400' : 'text-spirit'}>
+          {/* Custo do NÍVEL 1: na luta ele cresce com o nível, junto com a
+              reserva (ver energyCostFor). O title diz isso a quem passar o
+              mouse, sem poluir o cartão. */}
+          <span
+            className={daStamina ? 'text-amber-600 dark:text-amber-400' : 'text-spirit'}
+            title="Custo no nível 1. Cresce com o nível, na mesma proporção da reserva."
+          >
             <span className="opacity-70">{daStamina ? 'Stamina ' : 'Energia '}</span>
             <span className="font-medium tabular-nums">{skill.energyCost}</span>
           </span>

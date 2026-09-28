@@ -25,6 +25,7 @@ import {
   traitEnergyCostModifier,
   vilao,
 } from '@/app/lib/battle/engine'
+import { ENERGIA_INICIAL, ENERGY_REGEN_PCT } from '@/app/lib/battle/constants'
 import type {
   AppliedEffect,
   BaseStats,
@@ -126,11 +127,13 @@ describe('computeBaseStats', () => {
 })
 
 describe('createInitialState', () => {
-  it('começa com HP e energia cheios, sem transformação nem efeitos', () => {
+  it('começa com HP e stamina cheios, energia em ENERGIA_INICIAL, sem transformação nem efeitos', () => {
     const s = createInitialState(stats(), stats({ hp: 200 }))
     expect(heroi(s).currentHp).toBe(100)
     expect(heroi(s).maxHp).toBe(100)
-    expect(heroi(s).currentEnergy).toBe(100)
+    expect(heroi(s).currentEnergy).toBe(Math.round(100 * ENERGIA_INICIAL))
+    expect(heroi(s).maxEnergy).toBe(100)
+    expect(heroi(s).currentStamina).toBe(100)
     expect(heroi(s).activeTransformationId).toBeNull()
     expect(heroi(s).statusEffects).toEqual([])
     expect(vilao(s).maxHp).toBe(200)
@@ -256,11 +259,39 @@ describe('isStunned', () => {
 })
 
 describe('applyTransformation', () => {
-  it('aplica bônus planos e multiplicadores sobre os stats BASE', () => {
+  it('o bônus plano vai no atributo; o percentual de ataque e defesa vai no GOLPE', () => {
+    // Ver applyTransformation: multiplicar o atributo quase não mudava o dano
+    // e não valia nada para quem escala de energia.
     const c = combatant({ attack: 20, baseAttack: 20 })
-    const t = transformacao({ flatAttackBonus: 10, attackModifier: 0.5 })
-    // (20 + 10) * 1.5 = 45
-    expect(applyTransformation(c, t).attack).toBe(45)
+    const t = transformacao({ flatAttackBonus: 10, attackModifier: 0.5, defenseModifier: 0.2 })
+    const r = applyTransformation(c, t)
+    expect(r.attack).toBe(30)
+    expect(r.formaDano).toBe(0.5)
+    expect(r.formaGuarda).toBe(0.2)
+  })
+
+  it('a forma aumenta o dano de golpe que escala de ENERGIA, não só de ataque', () => {
+    const kidō = skill({ id: 'kido', power: 30, energyCost: 0, scalingStat: 'energy' })
+    const rodada = (s: ReturnType<typeof createInitialState>) =>
+      resolveRound(
+        s,
+        { aliadas: [{ kind: 'ATTACK', skillId: 'kido' }], inimigas: [{ kind: 'ATTACK', skillId: null }] },
+        { ...ctxVazio(), playerSkills: { kido: kidō } },
+        NUNCA_CRITA
+      )
+    const base = createInitialState(stats({ hp: 1000 }), stats({ hp: 1000 }))
+    const semForma = rodada(base)
+    const comForma = rodada(comHeroi(base, applyTransformation(heroi(base), transformacao({ attackModifier: 0.5 }))))
+    const dano = (r: ReturnType<typeof rodada>) => 1000 - vilao(r.state).currentHp
+    expect(dano(comForma)).toBeGreaterThan(dano(semForma) * 1.4)
+  })
+
+  it('a guarda da forma corta o dano recebido', () => {
+    const base = createInitialState(stats({ hp: 1000 }), stats({ hp: 1000, attack: 40 }))
+    const semForma = resolveRound(base, ataqueBasico, ctxVazio(), NUNCA_CRITA)
+    const guardado = comHeroi(base, applyTransformation(heroi(base), transformacao({ defenseModifier: 0.5 })))
+    const comForma = resolveRound(guardado, ataqueBasico, ctxVazio(), NUNCA_CRITA)
+    expect(1000 - heroi(comForma.state).currentHp).toBeLessThan(1000 - heroi(semForma.state).currentHp)
   })
 
   it('aumenta HP máximo e atual pelo bônus plano', () => {
@@ -291,8 +322,11 @@ describe('applyTransformation', () => {
 
   it('recalcula a partir da base, então transformar duas vezes não acumula', () => {
     const c = combatant({ attack: 20, baseAttack: 20 })
-    const t = transformacao({ attackModifier: 1 })
-    expect(applyTransformation(applyTransformation(c, t), t).attack).toBe(40)
+    const t = transformacao({ attackModifier: 1, speedModifier: 1, flatAttackBonus: 5 })
+    const duas = applyTransformation(applyTransformation(c, t), t)
+    expect(duas.attack).toBe(25)
+    expect(duas.formaDano).toBe(1)
+    expect(duas.speed).toBe(applyTransformation(c, t).speed)
   })
 })
 
@@ -330,6 +364,7 @@ describe('resolveRound — dano e energia', () => {
 
   it('usar skill consome energia e coloca em cooldown', () => {
     const s = createInitialState(stats(), stats())
+    heroi(s).currentEnergy = 100
     const sk = skill({ energyCost: 25, cooldown: 3 })
     const r = resolveRound(
       s,
@@ -337,20 +372,21 @@ describe('resolveRound — dano e energia', () => {
       { ...ctxVazio(), playerSkills: { 'sk-1': sk } },
       NUNCA_CRITA
     )
-    // energia regenera 8% (8) no início da rodada e depois paga 25
+    // cheia, a regeneração do início da rodada esbarra no teto; depois paga 25
     expect(heroi(r.state).currentEnergy).toBe(100 - 25)
     expect(heroi(r.state).cooldowns['sk-1']).toBe(3)
   })
 
-  it('energia regenera 8% do máximo no início da rodada', () => {
+  it('energia regenera ENERGY_REGEN_PCT do máximo no início da rodada', () => {
     const s = createInitialState(stats(), stats())
     heroi(s).currentEnergy = 50
     const r = resolveRound(s, ataqueBasico, ctxVazio(), NUNCA_CRITA)
-    expect(heroi(r.state).currentEnergy).toBe(58)
+    expect(heroi(r.state).currentEnergy).toBe(50 + Math.round(100 * ENERGY_REGEN_PCT))
   })
 
   it('energia regenerada não passa do máximo', () => {
     const s = createInitialState(stats(), stats())
+    heroi(s).currentEnergy = 100
     const r = resolveRound(s, ataqueBasico, ctxVazio(), NUNCA_CRITA)
     expect(heroi(r.state).currentEnergy).toBe(100)
   })
@@ -914,7 +950,7 @@ describe('stamina — reserva defensiva separada', () => {
       NUNCA_CRITA
     )
     // A energia só varia pela regeneração da rodada, nunca pelo custo.
-    expect(heroi(r.state).currentEnergy).toBeGreaterThanOrEqual(100)
+    expect(heroi(r.state).currentEnergy).toBeGreaterThanOrEqual(heroi(s).currentEnergy)
     expect(heroi(r.state).currentStamina!).toBeLessThan(100)
   })
 
@@ -1040,6 +1076,24 @@ describe('choque de golpes', () => {
     // O inimigo perdeu: não deve haver ataque dele na rodada.
     expect(r.turnResults.some((t) => t.side === 'ENEMY' && t.kind === 'ATTACK')).toBe(false)
     expect(vilao(r.state).currentHp).toBeLessThan(100)
+  })
+
+  it('o golpe anulado no choque ainda é PAGO: gasta energia e entra em recarga', () => {
+    // Sem isso, perder o choque saía de graça e a técnica voltava na rodada
+    // seguinte; num espelho os dois se chocavam para sempre sem gastar nada.
+    const s = createInitialState(stats({ hp: 5000 }), stats({ hp: 5000 }))
+    const meu = { ...feixe('meu', 200), energyCost: 30, cooldown: 3 }
+    const dele = { ...feixe('dele', 5), energyCost: 30, cooldown: 3 }
+    const r = resolveRound(
+      s,
+      { aliadas: [{ kind: 'ATTACK', skillId: 'meu' }], inimigas: [{ kind: 'ATTACK', skillId: 'dele' }] },
+      { ...ctxVazio(), playerSkills: { meu }, enemySkills: { dele } },
+      NUNCA_CRITA
+    )
+    expect(r.turnResults.some((t) => t.kind === 'CLASH')).toBe(true)
+    expect(vilao(r.state).currentEnergy).toBe(heroi(r.state).currentEnergy)
+    expect(vilao(r.state).currentEnergy).toBeLessThan(100)
+    expect(vilao(r.state).cooldowns['dele']).toBeGreaterThan(0)
   })
 
   it('empate no choque gasta a rodada dos dois', () => {

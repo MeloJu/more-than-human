@@ -1,7 +1,7 @@
 import { createInitialState, heroi, resolveRound, vilao } from '@/app/lib/battle/engine'
-import { deveBloquear, pickAiSkill } from '@/app/lib/battle/ai'
+import { acaoDaIa } from '@/app/lib/battle/ai'
 import { MAX_ROUNDS } from '@/app/lib/battle/constants'
-import type { BaseStats, Outcome, SkillDef } from '@/app/lib/battle/types'
+import type { BaseStats, Outcome, SkillDef, TransformationDef } from '@/app/lib/battle/types'
 
 /**
  * Simulador de batalha para testar BALANCEAMENTO, não o motor.
@@ -43,6 +43,10 @@ export type Combatente = {
    * batalha real eles mudam.
    */
   energyCostModifier?: number
+  /** Nível do combatente: decide o custo das habilidades (ver energyCostFor). Ausente vale 1. */
+  nivel?: number
+  /** Formas disponíveis. A IA decide quando liberar, como na batalha de verdade. */
+  formas?: Record<string, TransformationDef>
 }
 
 export type ResultadoSimulacao = {
@@ -54,25 +58,33 @@ export type ResultadoSimulacao = {
 
 export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: number): ResultadoSimulacao {
   const rand = seededRandom(seed)
-  let state = createInitialState(jogador.stats, inimigo.stats, {
-    player: jogador.energyCostModifier ?? 0,
-    enemy: inimigo.energyCostModifier ?? 0,
-  })
+  let state = createInitialState(
+    jogador.stats,
+    inimigo.stats,
+    { player: jogador.energyCostModifier ?? 0, enemy: inimigo.energyCostModifier ?? 0 },
+    { player: jogador.nivel ?? 1, enemy: inimigo.nivel ?? 1 }
+  )
+  const formasJogador = jogador.formas ?? {}
+  const formasInimigo = inimigo.formas ?? {}
 
   const jogadorPorId = Object.fromEntries(jogador.skills.map((s) => [s.id, s]))
   const inimigoPorId = Object.fromEntries(inimigo.skills.map((s) => [s.id, s]))
 
   let rodadas = 0
   while (state.outcome === null && rodadas < MAX_ROUNDS) {
-    const jogadorBloqueia = deveBloquear(heroi(state), jogador.skills)
-    const inimigoBloqueia = deveBloquear(vilao(state), inimigo.skills)
-    const escolhaJogador = pickAiSkill(heroi(state), jogador.skills, vilao(state))
-    const escolhaInimigo = pickAiSkill(vilao(state), inimigo.skills, heroi(state))
-
+    // Os dois lados decidem pela mesma função da batalha de verdade.
     const r = resolveRound(
       state,
-      { aliadas: [jogadorBloqueia ? { kind: 'BLOCK' } : { kind: 'ATTACK', skillId: escolhaJogador }], inimigas: [inimigoBloqueia ? { kind: 'BLOCK' } : { kind: 'ATTACK', skillId: escolhaInimigo }] },
-      { playerSkills: jogadorPorId, enemySkills: inimigoPorId, playerTransformations: {} },
+      {
+        aliadas: [acaoDaIa(heroi(state), jogador.skills, vilao(state), formasJogador)],
+        inimigas: [acaoDaIa(vilao(state), inimigo.skills, heroi(state), formasInimigo)],
+      },
+      {
+        playerSkills: jogadorPorId,
+        enemySkills: inimigoPorId,
+        playerTransformations: formasJogador,
+        enemyTransformations: formasInimigo,
+      },
       rand
     )
     state = r.state

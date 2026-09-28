@@ -1,6 +1,35 @@
 import type { ScalingStat } from './types'
 
-export const ENERGY_REGEN_PCT = 0.08
+/**
+ * A ECONOMIA DE ENERGIA SÃO TRÊS NÚMEROS, e eles só fazem sentido juntos:
+ * esta regeneração, ENERGIA_INICIAL e CUSTO_ESCALA_POR_NIVEL.
+ *
+ * O PROBLEMA QUE ELES RESOLVEM: energia não existia como recurso. Medido no
+ * elenco inteiro, 400 lutas por nível entre pares sorteados, com a IA
+ * pilotando os dois lados: a energia média ficava entre 87% e 93%, e em 0%
+ * das rodadas faltava energia para alguma habilidade. Treinar energia não
+ * valia nada.
+ *
+ * POR QUE BAIXAR SÓ A REGENERAÇÃO NÃO RESOLVIA: a luta mediana dura de 6 a
+ * 10 rodadas, curta demais para a regeneração acumular. Com 5% em vez de 8%,
+ * a energia média caía só de 87% para 82% — a reserva INICIAL sozinha
+ * pagava a luta inteira. O que decide é o tamanho da reserva com que se
+ * começa, contra o custo do que se lança.
+ *
+ * Com os três (6%, começar com 40%, custo +2% por nível):
+ *
+ *   nível   luta mediana   energia média   rodadas em que faltou energia
+ *     3          6              27%                  19%
+ *     8          7              25%                  23%
+ *    14          9              23%                  28%
+ *    20         10              24%                  26%
+ *
+ * A pressão é PARECIDA EM TODO NÍVEL, que era o ponto — antes, qualquer
+ * ajuste que apertava no nível 20 deixava o nível 3 sem pressão nenhuma, e
+ * vice-versa. E a luta não ficou mais longa: faltar energia troca a técnica
+ * por um golpe mais barato, não paralisa ninguém.
+ */
+export const ENERGY_REGEN_PCT = 0.06
 
 /**
  * Regeneração de stamina por rodada, MENOR que a de energia de propósito.
@@ -255,3 +284,30 @@ export const PVP_LEVEL_RANGE = 2
 // scaleForLevel). Story mode is its first caller, but this is combatant
 // scaling math, not a story-specific rule.
 export const LEVEL_SCALING = 0.12
+
+/**
+ * Quanto o custo de energia das habilidades cresce por nível do combatente.
+ * Ver energyCostFor e ENERGY_REGEN_PCT.
+ *
+ * BEM MENOS QUE LEVEL_SCALING (12%), e isso foi medido: com o custo crescendo
+ * no mesmo ritmo da reserva, a energia acabava em 70% a 94% das rodadas do
+ * nível 5 em diante, e lutas iam ao teto de 50 rodadas com os dois lados
+ * no ataque básico. As habilidades de nível alto JÁ custam mais na base —
+ * quem montou o kit contou com isso —, então escalar pelo nível inteiro
+ * cobrava o nível duas vezes.
+ */
+export const CUSTO_ESCALA_POR_NIVEL = 0.02
+
+/**
+ * Fração da energia máxima com que cada combatente começa a luta.
+ *
+ * É a alavanca principal da economia (ver ENERGY_REGEN_PCT): numa luta de
+ * seis a dez rodadas, a reserva inicial é quase tudo o que se tem. Começar
+ * com 40% dá ritmo à luta — o golpe mais caro espera a energia subir, ou sai
+ * cedo à custa das rodadas seguintes — e é também o que faz treinar energia
+ * valer: reserva maior é começo maior e regeneração maior.
+ *
+ * Só a energia. A stamina começa cheia: ela é a reserva da DEFESA, e começar
+ * sem guarda puniria quem apanha primeiro por uma coisa que não escolheu.
+ */
+export const ENERGIA_INICIAL = 0.4

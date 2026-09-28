@@ -181,6 +181,21 @@ export type CombatantState = {
    * foram gravadas antes deste campo existir; ausente vale 0.
    */
   energyCostModifier?: number
+  /**
+   * Nível com que este combatente entrou na luta. O custo das habilidades
+   * cresce com ele na MESMA proporção da reserva (ver energyCostFor).
+   * Opcional porque batalhas em andamento foram gravadas antes do campo;
+   * ausente vale 1, que é o custo de sempre.
+   */
+  nivel?: number
+  /**
+   * Quanto a forma ativa multiplica o DANO do golpe (0.26 = +26%) e quanto
+   * corta do dano recebido (0.18 = recebe o dano dividido por 1,18). Ver
+   * applyTransformation para por que a forma age no golpe e não no atributo.
+   * Ausentes fora de forma, e em batalhas gravadas antes dos campos.
+   */
+  formaDano?: number
+  formaGuarda?: number
   statusEffects: StatusEffectInstance[]
 }
 
@@ -420,6 +435,12 @@ export type AcaoDeCombate =
        * que ainda estiver de pé", que num 1x1 é sempre a resposta certa.
        */
       alvo?: number
+      /**
+       * Forma que NÃO gasta a rodada (Bankai, Resurrección) a liberar no
+       * próprio turno, antes do golpe. É como a IA libera a dela: o jogador
+       * faz isso fora da rodada, pela action, mas a IA só age dentro dela.
+       */
+      liberar?: string
     }
   | { kind: 'TRANSFORM'; transformationId: string }
   /**

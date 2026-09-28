@@ -78,8 +78,8 @@ export async function startStoryBattle(stageId: string): Promise<never> {
     userId: user.id,
     userCharacter,
     enemy: stage.enemyCharacterId
-      ? { kind: 'character', characterId: stage.enemyCharacterId, base: enemyBase }
-      : { kind: 'monster', monsterId: stage.enemyMonsterId!, base: enemyBase },
+      ? { kind: 'character', characterId: stage.enemyCharacterId, base: enemyBase, level: stage.enemyLevel }
+      : { kind: 'monster', monsterId: stage.enemyMonsterId!, base: enemyBase, level: stage.enemyLevel },
     storyStageId: stage.id,
   })
 }

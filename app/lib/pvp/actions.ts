@@ -115,7 +115,10 @@ async function pairPlayers(
   ])
   if (!hostFighter || !guestFighter) return null
 
-  const state = createInitialState(hostFighter.base, guestFighter.base)
+  const state = createInitialState(hostFighter.base, guestFighter.base, undefined, {
+    player: hostFighter.uc.level,
+    enemy: guestFighter.uc.level,
+  })
 
   try {
     return await prisma.$transaction(async (tx) => {

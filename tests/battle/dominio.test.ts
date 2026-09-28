@@ -160,8 +160,8 @@ describe('manutenção', () => {
     const comDominio = comHeroi(base, { currentEnergy: 100, statusEffects: [efeitoDe('DOMAIN', { magnitude: 20 })] })
     const r = jogadorUsa(comDominio, skill({ energyCost: 0 }))
 
-    // 100 + 16 de regeneração (8% de 200) − 20 de manutenção.
-    expect(heroi(r.state).currentEnergy).toBe(96)
+    // 100 + 12 de regeneração (6% de 200) − 20 de manutenção.
+    expect(heroi(r.state).currentEnergy).toBe(92)
   })
 
   it('o domínio cai quando não há energia para sustentar', () => {
@@ -264,8 +264,8 @@ describe('manutenção também drena stamina', () => {
     })
     const r = jogadorUsa(comDominio, skill({ energyCost: 0 }))
 
-    // 100 + 16 de regeneração de energia (8% de 200) − 20 de manutenção.
-    expect(heroi(r.state).currentEnergy).toBe(96)
+    // 100 + 12 de regeneração de energia (6% de 200) − 20 de manutenção.
+    expect(heroi(r.state).currentEnergy).toBe(92)
     // 50 + 5 de regeneração de stamina (5% de 100) − 20 de manutenção.
     expect(heroi(r.state).currentStamina).toBe(35)
   })
