@@ -37,8 +37,12 @@ export function BotaoDeHabilidade({ skill, combatente }: { skill: SkillDef; comb
   const recargaRestante = combatente.cooldowns[skill.id] ?? 0
   const reserva = daStamina ? combatente.currentStamina ?? 0 : combatente.currentEnergy
 
-  const motivo =
-    recargaRestante > 0
+  // Golpe da forma vem primeiro: sem a forma ele não existe, e dizer "em
+  // recarga" ou "sem energia" esconderia o que o jogador precisa fazer.
+  const semForma = skill.requerForma && combatente.activeTransformationId !== skill.requerForma
+  const motivo = semForma
+    ? `só com ${skill.requerFormaNome ?? 'a forma'}`
+    : recargaRestante > 0
       ? `${recargaRestante} ${recargaRestante === 1 ? 'rodada' : 'rodadas'} de recarga`
       : reserva < custo
         ? `sem ${daStamina ? 'stamina' : 'energia'}`

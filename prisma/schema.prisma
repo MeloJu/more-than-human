@@ -107,6 +107,13 @@ model Transformation {
   drainStaminaPerTurn   Int              @default(0)
   unlocksSkill    Skill?                @relation("TransformationUnlockSkill", fields: [unlocksSkillId], references: [id])
   unlocksSkillId   String?
+
+  /// Golpes que SÓ podem ser usados com esta forma ativa — o Senbonzakura
+  /// Kageyoshi fora do Bankai, por exemplo. Antes o Byakuya o lançava sem
+  /// nunca liberar a forma. Vale só para o personagem dono da forma: outro
+  /// personagem com a mesma habilidade no kit continua usando livremente.
+  /// Ver prisma/catalog/transformations.js (campo `golpes`).
+  golpes           Skill[]               @relation("GolpesDaForma")
   triggerType      TransformationTrigger @default(MANUAL)
   triggerPayload   Json?
   imageUrl         String?
@@ -316,6 +323,7 @@ model Skill {
   treeNodes                SkillTreeNode[]
   turns                    Turn[]
   grantedByTransformations Transformation[]             @relation("TransformationUnlockSkill")
+  golpeDeFormas            Transformation[]             @relation("GolpesDaForma")
   monsterLinks             MonsterSkill[]
   equippedBy               UserCharacterEquippedSkill[]
   grantedTo                UserCharacterSkill[]

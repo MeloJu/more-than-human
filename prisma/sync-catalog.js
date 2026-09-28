@@ -45,6 +45,7 @@ const supportCatalog = require('./catalog/supports');
 const transformationCatalog = require('./catalog/transformations');
 const traitCatalog = require('./catalog/traits');
 const descricoesCatalog = require('./catalog/descricoes');
+const aposentadasCatalog = require('./catalog/aposentadas');
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -183,6 +184,23 @@ async function syncMecanicasDeDano() {
     registra('mecânica', `${sk.name} +${def.efeitoNovo.type}`, { acao: 'atualizar', campos: ['effects'] });
     if (!DRY_RUN) {
       await prisma.skill.update({ where: { id: sk.id }, data: { effects: [...atuais, def.efeitoNovo] } });
+    }
+  }
+
+  // Efeitos que saíram — ver `remocoes` em mecanicas-de-dano.js.
+  for (const rem of mecanicasDeDano.remocoes ?? []) {
+    const sk = await prisma.skill.findUnique({
+      where: { name_category: { name: rem.nomeDaSkill, category: rem.categoria } },
+      select: { id: true, name: true, effects: true },
+    });
+    const atuais = Array.isArray(sk?.effects) ? sk.effects : [];
+    if (!sk || !atuais.some((e) => e.type === rem.tipo)) {
+      relatorio.iguais += 1;
+      continue;
+    }
+    registra('mecânica', `${sk.name} −${rem.tipo}`, { acao: 'atualizar', campos: ['effects'] });
+    if (!DRY_RUN) {
+      await prisma.skill.update({ where: { id: sk.id }, data: { effects: atuais.filter((e) => e.type !== rem.tipo) } });
     }
   }
 }
@@ -848,15 +866,71 @@ async function syncTransformations() {
       unlocksSkillId,
     };
 
-    const atual = await prisma.transformation.findFirst({ where: { characterId: c.id, name: def.name } });
-    registra('transformação', `${c.name} · ${def.name} (nv ${def.levelRequirement})`, diff(atual, desejado));
+    // Golpes que só existem com a forma ativa. A lista do catálogo é a
+    // verdade inteira: o que sair dela deixa de ser golpe da forma no banco.
+    const golpeIds = [];
+    for (const g of def.golpes ?? []) {
+      const sk = await prisma.skill.findUnique({
+        where: { name_category: { name: g.name, category: g.category } },
+        select: { id: true },
+      });
+      if (!sk) throw new Error(`Transformação "${def.name}" tem golpe inexistente: ${g.name}`);
+      golpeIds.push(sk.id);
+    }
+
+    const atual = await prisma.transformation.findFirst({
+      where: { characterId: c.id, name: def.name },
+      include: { golpes: { select: { id: true } } },
+    });
+    const golpesAtuais = (atual?.golpes ?? []).map((g) => g.id).sort().join(',');
+    const golpesMudaram = golpesAtuais !== [...golpeIds].sort().join(',');
+    const { golpes: _golpes, ...atualSemGolpes } = atual ?? {};
+    const d = diff(atual ? atualSemGolpes : null, desejado);
+    if (golpesMudaram && d.acao === 'igual') {
+      registra('transformação', `${c.name} · ${def.name} (nv ${def.levelRequirement})`, { acao: 'atualizar', campos: ['golpes'] });
+    } else {
+      registra('transformação', `${c.name} · ${def.name} (nv ${def.levelRequirement})`, golpesMudaram ? { ...d, campos: [...(d.campos ?? []), 'golpes'] } : d);
+    }
     if (DRY_RUN) continue;
 
+    const golpes = { set: golpeIds.map((id) => ({ id })) };
     if (atual) {
-      await prisma.transformation.update({ where: { id: atual.id }, data: desejado });
+      await prisma.transformation.update({ where: { id: atual.id }, data: { ...desejado, golpes } });
     } else {
-      await prisma.transformation.create({ data: desejado });
+      await prisma.transformation.create({ data: { ...desejado, golpes: { connect: golpeIds.map((id) => ({ id })) } } });
     }
+  }
+}
+
+/**
+ * Tira do kit o que o catálogo aposentou — ver prisma/catalog/aposentadas.js.
+ * A única remoção que o sync faz, e só de vínculo de catálogo
+ * (CharacterSkill), nunca de dado de jogador.
+ *
+ * Roda DEPOIS de todo passo que cria vínculo (kits, invocadores, escadas),
+ * para nenhum deles recriar o que foi aposentado.
+ */
+async function syncAposentadas() {
+  for (const a of aposentadasCatalog.aposentadas) {
+    const sk = await prisma.skill.findUnique({
+      where: { name_category: { name: a.skill, category: a.category } },
+      select: { id: true },
+    });
+    if (!sk) continue;
+    let characterId;
+    if (a.character) {
+      const c = await prisma.character.findFirst({ where: { name: a.character }, select: { id: true } });
+      if (!c) throw new Error(`Aposentada referencia personagem inexistente: ${a.character}`);
+      characterId = c.id;
+    }
+    const where = { skillId: sk.id, ...(characterId ? { characterId } : {}) };
+    const n = await prisma.characterSkill.count({ where });
+    if (n === 0) {
+      relatorio.iguais += 1;
+      continue;
+    }
+    registra('aposentada', `${a.skill} (${a.character ?? 'todos'}, ${n} vínculo${n > 1 ? 's' : ''})`, { acao: 'remover', campos: [] });
+    if (!DRY_RUN) await prisma.characterSkill.deleteMany({ where });
   }
 }
 
@@ -950,6 +1024,7 @@ async function main() {
   // Por ultimo: depende de toda habilidade ja existir com o poder final.
   await syncPrecisao();
   await syncMecanicasDeDano();
+  await syncAposentadas();
   // Por último: depende das renomeações e das habilidades que as assinaturas
   // criam — ver syncDescricoes.
   await syncDescricoes();

@@ -97,7 +97,6 @@ const quincy = {
     { name: 'Chuva de Reishi', category: 'OTHER', power: 29, energyCost: 28, cooldown: 4, tags: ['quincy'], effects: [], level: 11 },
     { name: 'Blut Arterie', category: 'OTHER', power: 0, energyCost: 27, cooldown: 4, tags: ['quincy', 'buff'], effects: [{ type: 'BUFF', target: 'SELF', stat: 'attack', magnitude: 24, duration: 3 }], level: 13 },
     { name: 'Flecha Absoluta', category: 'OTHER', power: 34, energyCost: 32, cooldown: 5, tags: ['quincy'], effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'defense', magnitude: 20, duration: 2 }], level: 14 },
-    { name: 'Letzt Stil', category: 'OTHER', power: 38, energyCost: 35, cooldown: 5, tags: ['quincy', 'ultimate'], effects: [{ type: 'DEBUFF', target: 'SELF', stat: 'speed', magnitude: 14, duration: 2 }], level: 16 },
   ],
 }
 

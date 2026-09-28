@@ -141,6 +141,25 @@ export async function getTreeBonus(userCharacterId: string): Promise<StatBonus> 
   )
 }
 
+/**
+ * Marca, no kit de um personagem, os golpes que só existem com uma forma dele
+ * ativa (Transformation.golpes). A marca é do PERSONAGEM: outro personagem com
+ * a mesma habilidade no kit, mas sem aquela forma, continua usando livremente.
+ */
+export async function marcarGolpesDeForma(characterId: string, skills: Record<string, SkillDef>): Promise<Record<string, SkillDef>> {
+  const formas = await prisma.transformation.findMany({
+    where: { characterId },
+    select: { id: true, name: true, golpes: { select: { id: true } } },
+  })
+  for (const forma of formas) {
+    for (const g of forma.golpes) {
+      const s = skills[g.id]
+      if (s) skills[g.id] = { ...s, requerForma: forma.id, requerFormaNome: forma.name }
+    }
+  }
+  return skills
+}
+
 export async function getEligiblePlayerSkills(userCharacterId: string, characterId: string, level: number): Promise<Record<string, SkillDef>> {
   const [levelSkills, treeUnlocks, granted] = await Promise.all([
     prisma.characterSkill.findMany({ where: { characterId, requiredLevel: { lte: level } }, include: { skill: true } }),
@@ -160,7 +179,7 @@ export async function getEligiblePlayerSkills(userCharacterId: string, character
   for (const g of granted) {
     if (hasBattleValue(g.skill)) skills[g.skill.id] = toSkillDef(g.skill)
   }
-  return skills
+  return marcarGolpesDeForma(characterId, skills)
 }
 
 /**
@@ -184,7 +203,7 @@ export async function getEnemySkills(characterId: string, level: number): Promis
   const usaveis = rows.map((cs) => cs.skill).filter(hasBattleValue).map(toSkillDef)
   const skills: Record<string, SkillDef> = {}
   for (const s of escolherLoadoutPadrao(usaveis, getLoadoutSlotCount(level))) skills[s.id] = s
-  return skills
+  return marcarGolpesDeForma(characterId, skills)
 }
 
 export async function getMonsterSkills(monsterId: string): Promise<Record<string, SkillDef>> {
@@ -198,13 +217,20 @@ export async function getMonsterSkills(monsterId: string): Promise<Record<string
 
 /** Only the subset of the eligible pool the player has equipped for battle (see app/lib/progression). */
 export async function getEquippedSkills(userCharacterId: string): Promise<Record<string, SkillDef>> {
-  const [rows, equipmentSkills] = await Promise.all([
+  const [rows, equipmentSkills, uc] = await Promise.all([
     prisma.userCharacterEquippedSkill.findMany({ where: { userCharacterId }, include: { skill: true } }),
     getEquipmentGrantedSkills(userCharacterId),
+    prisma.userCharacter.findUnique({ where: { id: userCharacterId }, select: { characterId: true, level: true } }),
   ])
+  // O equipado passa pelo kit ATUAL: uma habilidade que saiu do kit (ver
+  // prisma/catalog/aposentadas.js) continua no slot de quem a tinha — o sync
+  // não mexe em dado de jogador —, mas deixa de aparecer na batalha. E é do
+  // kit que vem a marca de golpe da forma.
+  const elegiveis = uc ? await getEligiblePlayerSkills(userCharacterId, uc.characterId, uc.level) : {}
   const skills: Record<string, SkillDef> = {}
   for (const row of rows) {
-    if (hasBattleValue(row.skill)) skills[row.skill.id] = toSkillDef(row.skill)
+    const s = elegiveis[row.skill.id]
+    if (s) skills[s.id] = s
   }
   // Vêm depois de propósito: a skill do equipamento se soma ao loadout em vez
   // de disputar um dos 4 slots com ele.

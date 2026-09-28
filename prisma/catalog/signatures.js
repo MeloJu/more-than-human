@@ -45,19 +45,6 @@ const goku = {
       level: 1,
     },
     {
-      name: 'Kaioken',
-      category: 'KI',
-      power: 20,
-      energyCost: 18,
-      cooldown: 3,
-      tags: ['ki', 'buff'],
-      effects: [
-        { type: 'BUFF', target: 'SELF', stat: 'attack', magnitude: 20, duration: 2 },
-        { type: 'BUFF', target: 'SELF', stat: 'speed', magnitude: 18, duration: 2 },
-      ],
-      level: 2,
-    },
-    {
       name: 'Punho do Dragão',
       category: 'KI',
       power: 30,
@@ -313,19 +300,6 @@ const aizen = {
       level: 4,
     },
     {
-      name: 'Hōgyoku: Evolução',
-      category: 'OTHER',
-      power: 0,
-      energyCost: 26,
-      cooldown: 5,
-      tags: ['buff'],
-      effects: [
-        { type: 'BUFF', target: 'SELF', stat: 'attack', magnitude: 24, duration: 3 },
-        { type: 'BUFF', target: 'SELF', stat: 'defense', magnitude: 18, duration: 3 },
-      ],
-      level: 9,
-    },
-    {
       name: 'Transcendência',
       category: 'OTHER',
       power: 50,
@@ -368,19 +342,6 @@ const ichigo = {
       tags: ['espada'],
       effects: [],
       level: 2,
-    },
-    {
-      name: 'Máscara Hollow',
-      category: 'OTHER',
-      power: 22,
-      energyCost: 24,
-      cooldown: 4,
-      tags: ['hollow', 'buff'],
-      effects: [
-        { type: 'BUFF', target: 'SELF', stat: 'attack', magnitude: 24, duration: 3 },
-        { type: 'BUFF', target: 'SELF', stat: 'speed', magnitude: 20, duration: 3 },
-      ],
-      level: 5,
     },
     {
       name: 'Getsuga Tenshō Negro',

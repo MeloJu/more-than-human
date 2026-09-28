@@ -180,6 +180,7 @@ const transformations = [
   {
     character: "Ichigo Kurosaki",
     name: "Bankai: Tensa Zangetsu",
+    golpes: [{ name: "Tensa Zangetsu: Final Getsuga", category: 'OTHER' }],
     levelRequirement: 12,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -190,6 +191,7 @@ const transformations = [
   {
     character: "Rukia Kuchiki",
     name: "Bankai: Hakka no Togame",
+    golpes: [{ name: "Hakka no Togame", category: 'OTHER' }],
     levelRequirement: 14,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -201,6 +203,7 @@ const transformations = [
   {
     character: "Byakuya Kuchiki",
     name: "Bankai: Senbonzakura Kageyoshi",
+    golpes: [{ name: "Senbonzakura Kageyoshi", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -211,6 +214,7 @@ const transformations = [
   {
     character: "Renji Abarai",
     name: "Bankai: Hihiō Zabimaru",
+    golpes: [{ name: "Hihio Zabimaru", category: 'OTHER' }],
     levelRequirement: 12,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -231,6 +235,7 @@ const transformations = [
   {
     character: "Kenpachi Zaraki",
     name: "Bankai: Nozarashi",
+    golpes: [{ name: "Nozarashi", category: 'OTHER' }],
     levelRequirement: 16,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -242,6 +247,7 @@ const transformations = [
   {
     character: "Mayuri Kurotsuchi",
     name: "Bankai: Konjiki Ashisogi Jizō",
+    golpes: [{ name: "Konjiki Ashisogi Jizō", category: 'OTHER' }],
     levelRequirement: 14,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -253,6 +259,7 @@ const transformations = [
   {
     character: "Retsu Unohana",
     name: "Bankai: Minazuki",
+    golpes: [{ name: "Minazuki: Verdadeira Forma", category: 'OTHER' }],
     levelRequirement: 15,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -264,6 +271,7 @@ const transformations = [
   {
     character: "Yamamoto Genryūsai",
     name: "Bankai: Zanka no Tachi",
+    golpes: [{ name: "Zanka no Tachi: Cremation", category: 'OTHER' }],
     levelRequirement: 17,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -297,6 +305,7 @@ const transformations = [
   {
     character: "Sajin Komamura",
     name: "Bankai: Kokujō Tengen Myō'ō",
+    golpes: [{ name: "Kokujō Tengen Myōō", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -307,6 +316,7 @@ const transformations = [
   {
     character: "Gin Ichimaru",
     name: "Bankai: Kamishini no Yari",
+    golpes: [{ name: "Kamishini no Yari", category: 'OTHER' }],
     levelRequirement: 14,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -317,6 +327,7 @@ const transformations = [
   {
     character: "Kisuke Urahara",
     name: "Bankai: Kannonbiraki Benihime",
+    golpes: [{ name: "Kannonbiraki Benihime Aratame", category: 'OTHER' }],
     levelRequirement: 15,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -328,6 +339,7 @@ const transformations = [
   {
     character: "Kaname Tosen",
     name: "Bankai: Enma Kōrogi",
+    golpes: [{ name: "Suzumushi Tsuishiki: Enma Kōrogi", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -401,6 +413,7 @@ const transformations = [
   {
     character: "Tia Harribel",
     name: "Resurrección: Tiburón",
+    golpes: [{ name: "Tiburón: Sawing Sharks", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -411,6 +424,7 @@ const transformations = [
   {
     character: "Coyote Starrk",
     name: "Resurrección: Los Lobos",
+    golpes: [{ name: "Los Lobos", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -431,6 +445,7 @@ const transformations = [
   {
     character: "Nnoitra Gilga",
     name: "Resurrección: Santa Teresa",
+    golpes: [{ name: "Santa Teresa: Scythe Slash", category: 'OTHER' }],
     levelRequirement: 12,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -441,6 +456,7 @@ const transformations = [
   {
     character: "Zommari Rureaux",
     name: "Resurrección: Brujería",
+    golpes: [{ name: "Brujería: Multi-Strike", category: 'OTHER' }],
     levelRequirement: 12,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -461,6 +477,7 @@ const transformations = [
   {
     character: "Yammy Llargo",
     name: "Resurrección: Ira",
+    golpes: [{ name: "Ira: Rampage", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -471,6 +488,7 @@ const transformations = [
   {
     character: "Szayelaporro Granz",
     name: "Resurrección: Fornicarás",
+    golpes: [{ name: "Fornicarás: Toxic Spore", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -580,11 +598,64 @@ const transformations = [
   {
     character: 'Patolino',
     name: 'Calça Nova da Loja: O Mago',
+    golpes: [{ name: "Feitiço da Fúria Emplumada", category: 'OTHER' }],
     levelRequirement: 5,
     attackModifier: 0.15,
     energyModifier: 0.15,
     defenseModifier: -0.05,
     unlocksSkill: { name: 'Feitiço da Fúria Emplumada', category: 'OTHER' },
+  },
+  // ---- Formas que eram habilidade de buff ----
+  //
+  // Estas cinco existiam como habilidade de "buff em si mesmo", mas na obra
+  // são estados em que o personagem entra e se mantém — forma. O dono do
+  // projeto confirmou cada uma. O nível e os ganhos vêm da habilidade que
+  // cada uma substitui, que saiu do kit.
+
+  // Kaioken: o corpo não aguenta. Cobra VIDA por rodada, além do preço de
+  // toda forma — é o tema da técnica, e o que a separa do Super Saiyan.
+  {
+    character: 'Goku',
+    name: 'Kaioken',
+    levelRequirement: 2,
+    consumesTurn: false,
+    attackModifier: 0.2,
+    speedModifier: 0.18,
+    drainHpPerTurn: 3,
+  },
+  {
+    character: 'Naruto Uzumaki',
+    name: 'Manto de Chakra da Kurama',
+    levelRequirement: 5,
+    consumesTurn: false,
+    attackModifier: 0.2,
+    speedModifier: 0.15,
+  },
+  // Sharingan: ler o movimento, mais que bater mais forte.
+  {
+    character: 'Sasuke Uchiha',
+    name: 'Sharingan',
+    levelRequirement: 1,
+    consumesTurn: false,
+    attackModifier: 0.1,
+    speedModifier: 0.2,
+  },
+  {
+    character: 'Mahito',
+    name: 'Corpo Espiritual Instantâneo da Morte Distorcida',
+    levelRequirement: 9,
+    consumesTurn: false,
+    attackModifier: 0.28,
+    defenseModifier: 0.08,
+    speedModifier: 0.22,
+  },
+  // Antes do Bankai (nível 16): tirar o tapa-olho que come o próprio reiatsu.
+  {
+    character: 'Kenpachi Zaraki',
+    name: 'Sem o Tapa-Olho',
+    levelRequirement: 5,
+    consumesTurn: false,
+    attackModifier: 0.3,
   },
 ];
 

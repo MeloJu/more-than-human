@@ -370,16 +370,6 @@ const mahito = {
       level: 5,
     },
     {
-      name: 'Corpo Espiritual Instantâneo',
-      category: 'OTHER',
-      power: 40,
-      energyCost: 33,
-      cooldown: 5,
-      tags: ['maldicao', 'buff'],
-      effects: [{ type: 'BUFF', target: 'SELF', stat: 'speed', magnitude: 22, duration: 2 }],
-      level: 9,
-    },
-    {
       name: 'Expansão de Domínio: Bairro Autoencarnado',
       category: 'OTHER',
       power: 29,

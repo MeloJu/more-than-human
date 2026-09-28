@@ -310,7 +310,7 @@ const descricoes = [
   ['Quincy Focus', 'OTHER', 'Uryū concentra o reishi, e o ataque sobe.'],
 
   // Yamamoto Genryūsai
-  ['Zanka no Tachi: Cremation', 'OTHER', 'Zanka no Tachi: o calor do sol inteiro concentrado no gume. Queima por algumas rodadas e rende muito mais logo depois da Ativação.'],
+  ['Zanka no Tachi: Cremation', 'OTHER', 'Zanka no Tachi: o calor do sol inteiro concentrado no gume. Só existe com o Bankai liberado, e queima por algumas rodadas.'],
   ['Ryūjin Jakka: Flame Strike', 'OTHER', 'As chamas de Ryūjin Jakka, a Zanpakutō de fogo mais poderosa da Soul Society.'],
   ['Zanka no Tachi: Ativação', 'OTHER', 'Yamamoto recolhe todas as chamas para dentro da lâmina: ataque e defesa sobem. Prepara a Cremação.'],
 

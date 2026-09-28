@@ -349,6 +349,14 @@ export type SkillDef = {
    */
   alcance?: Alcance
   /**
+   * Id da forma sem a qual este golpe não pode ser usado — o Senbonzakura
+   * Kageyoshi só existe com o Bankai. Preenchido ao carregar o kit de um
+   * personagem, a partir das formas DELE (ver marcarGolpesDeForma).
+   */
+  requerForma?: string
+  /** Nome da forma exigida, para a tela explicar o bloqueio. */
+  requerFormaNome?: string
+  /**
    * Fala/lore exibida ao usar a skill — ver TurnLogEntry. Nunca lido pelo
    * MOTOR (não afeta dano, custo, nada): é dado de apresentação carregado
    * junto porque SkillDef é o que atravessa a fronteira banco->batalha.

@@ -469,6 +469,8 @@ function reservaPara(c: CombatantState, skill: SkillDef): number {
 
 export function isLegalMove(combatant: CombatantState, skill: SkillDef | null): boolean {
   if (!skill) return true // Basic Attack is always legal
+  // Golpe da forma: só existe com ela ativa.
+  if (skill.requerForma && combatant.activeTransformationId !== skill.requerForma) return false
   const onCooldown = (combatant.cooldowns[skill.id] ?? 0) > 0
   return !onCooldown && reservaPara(combatant, skill) >= energyCostFor(combatant, skill.energyCost)
 }

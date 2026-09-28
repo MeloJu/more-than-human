@@ -199,7 +199,10 @@ export default async function StatusPage({
                   <form action={equipSkill.bind(null, selected.id, slot)} className="flex gap-2">
                     <select name="skillId" className="flex-1 rounded-md border border-border px-2 py-1 text-sm bg-surface">
                       {unequippedEligible.map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                          {s.requerFormaNome ? ` (só com ${s.requerFormaNome})` : ''}
+                        </option>
                       ))}
                     </select>
                     <button type="submit" className="rounded-md px-3 py-1.5 text-xs border border-border hover:bg-surface-raised">Equipar</button>

@@ -68,7 +68,6 @@ const kits = [
   { character: "Broly", skills: [
     { skill: "Rampage Smash", category: "KI", level: 1 },
     { skill: "Wrathful Roar", category: "KI", level: 1 },
-    { skill: "Unstoppable Rage", category: "KI", level: 1 },
   ] },
   { character: "Byakuya Kuchiki", skills: [
     { skill: "Hadō #4: Byakurai", category: "HADO", level: 1 },
@@ -154,7 +153,6 @@ const kits = [
     { skill: "Fio Cego", category: "OTHER", level: 1 },
     { skill: "Teimosia de Kenpachi", category: "OTHER", level: 1 },
     { skill: "Pressão Assassina", category: "OTHER", level: 1 },
-    { skill: "Remover o Tapa-Olho", category: "OTHER", level: 5 },
     { skill: "Nozarashi", category: "OTHER", level: 9 },
   ] },
   { character: "Kisuke Urahara", skills: [
@@ -179,7 +177,6 @@ const kits = [
     { skill: "Shadow Clone Barrage", category: "NINJUTSU", level: 1 },
     { skill: "Rasengan", category: "NINJUTSU", level: 1 },
     { skill: "Uzumaki Barrier", category: "NINJUTSU", level: 1 },
-    { skill: "Nine-Tails Chakra Cloak", category: "NINJUTSU", level: 5 },
   ] },
   { character: "Nnoitra Gilga", skills: [
     { skill: "Bloodlust", category: "OTHER", level: 1 },
@@ -235,7 +232,6 @@ const kits = [
   ] },
   { character: "Sasuke Uchiha", skills: [
     { skill: "Fire Style: Fireball", category: "NINJUTSU", level: 1 },
-    { skill: "Sharingan Insight", category: "GENJUTSU", level: 1 },
     { skill: "Chidori", category: "NINJUTSU", level: 1 },
     { skill: "Amaterasu", category: "NINJUTSU", level: 5 },
   ] },
@@ -308,7 +304,6 @@ const kits = [
   ] },
   { character: "Yamamoto Genryūsai", skills: [
     { skill: "Ryūjin Jakka: Flame Strike", category: "OTHER", level: 1 },
-    { skill: "Zanka no Tachi: Ativação", category: "OTHER", level: 1 },
     { skill: "Hadō #96: Ittō Kasō", category: "HADO", level: 1 },
     { skill: "Zanka no Tachi: Cremation", category: "OTHER", level: 5 },
   ] },
@@ -329,7 +324,6 @@ const kits = [
     { skill: "Vital Point Strike", category: "OTHER", level: 1 },
     { skill: "Goddess of Flash", category: "OTHER", level: 1 },
     { skill: "Utsusemi", category: "OTHER", level: 5 },
-    { skill: "Shunkō", category: "OTHER", level: 9 },
   ] },
   { character: "Zommari Rureaux", skills: [
     { skill: "Brujería: Multi-Strike", category: "OTHER", level: 1 },

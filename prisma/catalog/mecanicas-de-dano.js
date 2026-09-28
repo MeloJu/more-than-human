@@ -241,17 +241,6 @@ const aplicacoes = [
     efeitoNovo: { type: 'COMBO_STUN', target: 'SELF', magnitude: 40 },
   },
 
-  // YAMAMOTO — BURST PURO PELO BANKAI, a pedido do dono do projeto: fora do
-  // Bankai ele é "só uma espada" (ninguém via o shikai dele em séculos,
-  // porque nunca precisava); Zanka no Tachi é onde a força inteira mora.
-  // Zanka no Tachi: Ativação já virou a carga (renomeacao-canonica.js);
-  // aqui o ultimate ganha o pagamento.
-  {
-    nomeDaSkill: 'Zanka no Tachi: Cremation',
-    categoria: 'OTHER',
-    efeitoNovo: { type: 'COMBO_FOLLOWUP', target: 'SELF', magnitude: 50, comboTag: 'combo:zanka-no-tachi' },
-  },
-
   // URAHARA — ESTRATEGISTA, não combo literal (variando de propósito: nem
   // todo mundo carrega-e-solta). Ele não tinha NENHUMA fonte de
   // atordoamento própria, então o COMBO_STUN da nova Corte Certeiro (ver
@@ -266,4 +255,16 @@ const aplicacoes = [
   },
 ];
 
-module.exports = { aplicacoes };
+// Efeitos que saíram de uma habilidade. O sync de mecânicas só acrescentava,
+// então tirar um efeito precisa ser dito aqui, com o porquê.
+const remocoes = [
+  // YAMAMOTO — o combo "Ativação carrega, Cremation paga" era o jeito de
+  // fazer o burst dele morar no Bankai, a pedido do dono do projeto. Agora a
+  // Cremation SÓ EXISTE com o Bankai liberado (ver golpes em
+  // transformations.js), que é o mesmo pedido cumprido direto. A Ativação saiu
+  // do kit por duplicar a forma, e o bônus de finalização ficaria morto na
+  // tela, prometendo um combo que não existe mais.
+  { nomeDaSkill: 'Zanka no Tachi: Cremation', categoria: 'OTHER', tipo: 'COMBO_FOLLOWUP' },
+];
+
+module.exports = { aplicacoes, remocoes };
