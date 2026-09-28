@@ -40,13 +40,20 @@ const transformations = [
   // ganha defesa e perde velocidade; o Kenpachi paga com vida.
 
   // ---- Goku ----
+  //
+  // SUPER SAIYAN E SUPER SAIYAN 2 NÃO CORTAM A ENERGIA. Cortavam 5% e 10%, e
+  // o kit de ki escala da energia máxima: a forma enfraquecia justamente os
+  // golpes principais. Medido, o SSJ do Goku valia −12 pontos de vitória. O
+  // dono do projeto pediu que o SSJ2 custe menos que o SSJ3; sem o corte, o
+  // SSJ2 vale +38 (Goku) e +26 (Vegeta), e o SSJ3 fica como a forma cara: o
+  // único a cortar energia (−20%), e a que mais cobra para manter. Os três
+  // continuam gastando a rodada — o Saiyajin para e grita.
   {
     character: 'Goku',
     name: 'Super Saiyan',
     levelRequirement: 5,
     attackModifier: 0.15,
     speedModifier: 0.05,
-    energyModifier: -0.05,
   },
   {
     character: 'Goku',
@@ -54,7 +61,6 @@ const transformations = [
     levelRequirement: 10,
     attackModifier: 0.25,
     speedModifier: 0.1,
-    energyModifier: -0.1,
   },
   {
     character: 'Goku',
@@ -76,12 +82,12 @@ const transformations = [
   {
     character: 'Goku',
     name: 'Super Saiyan Blue',
+    golpes: [{ name: "Spirit Bomb", category: 'KI' }],
     levelRequirement: 28,
     attackModifier: 0.25,
     defenseModifier: 0.2,
     speedModifier: 0.15,
     energyModifier: 0.15,
-    unlocksSkill: { name: 'Spirit Bomb', category: 'KI' },
   },
   {
     character: 'Goku',
@@ -100,7 +106,6 @@ const transformations = [
     levelRequirement: 5,
     attackModifier: 0.14,
     speedModifier: 0.04,
-    energyModifier: -0.05,
   },
   {
     character: 'Vegeta',
@@ -108,7 +113,6 @@ const transformations = [
     levelRequirement: 10,
     attackModifier: 0.24,
     speedModifier: 0.08,
-    energyModifier: -0.1,
   },
   {
     character: 'Vegeta',
@@ -131,12 +135,12 @@ const transformations = [
   {
     character: 'Vegeta',
     name: 'Super Saiyan Blue',
+    golpes: [{ name: "Final Flash", category: 'KI' }],
     levelRequirement: 28,
     attackModifier: 0.27,
     defenseModifier: 0.2,
     speedModifier: 0.12,
     energyModifier: 0.12,
-    unlocksSkill: { name: 'Final Flash', category: 'KI' },
   },
   {
     character: 'Vegeta',
@@ -393,6 +397,7 @@ const transformations = [
   {
     character: "Ulquiorra Cifer",
     name: "Resurrección: Murciélago",
+    golpes: [{ name: "Lanza del Relámpago", category: 'OTHER' }, { name: "Cero Oscuras", category: 'OTHER' }],
     levelRequirement: 13,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -403,6 +408,7 @@ const transformations = [
   {
     character: "Grimmjow Jaegerjaquez",
     name: "Resurrección: Pantera",
+    golpes: [{ name: "Desgarrón", category: 'OTHER' }],
     levelRequirement: 12,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -581,6 +587,7 @@ const transformations = [
   {
     character: "Sosuke Aizen",
     name: "Hōgyoku: Fusão",
+    golpes: [{ name: "Transcendência", category: 'OTHER' }],
     levelRequirement: 16,
     // Liberada no meio da troca: não gasta a rodada.
     consumesTurn: false,
@@ -603,7 +610,6 @@ const transformations = [
     attackModifier: 0.15,
     energyModifier: 0.15,
     defenseModifier: -0.05,
-    unlocksSkill: { name: 'Feitiço da Fúria Emplumada', category: 'OTHER' },
   },
   // ---- Formas que eram habilidade de buff ----
   //

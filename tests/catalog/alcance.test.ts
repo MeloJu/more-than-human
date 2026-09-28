@@ -35,6 +35,13 @@ describe('catálogo de alcance', () => {
     expect(alcanceDe('Rasengan')).toBe('CORPO')
   })
 
+  it('invocação vale pelo jeito que ataca, não por ser invocação', () => {
+    expect(alcanceDe('Shikigami: Cães Divinos')).toBe('CORPO') // mordem
+    expect(alcanceDe('Shikigami: Nue')).toBe('CORPO') // choque no contato
+    expect(alcanceDe('Shikigami: Touro Máximo')).toBe('AREA') // inunda o campo
+    expect(alcanceDe('Uzumaki: Redemoinho de Maldições')).toBe('DISTANCIA') // disparo
+  })
+
   it('golpe de Pokémon de contato fica corpo a corpo', () => {
     expect(alcanceDe('Pikachu: Investida Trovão')).toBe('CORPO')
     expect(alcanceDe('Snorlax: Corpo Pesado')).toBe('CORPO')

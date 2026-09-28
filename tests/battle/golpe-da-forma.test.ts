@@ -8,7 +8,7 @@ const { kits } = require('../../prisma/catalog/kits') as { kits: { skills: { ski
 const { signatures } = require('../../prisma/catalog/signatures') as { signatures: { skills: { name: string }[] }[] }
 const { jujutsuKits } = require('../../prisma/catalog/jujutsu') as { jujutsuKits: { skills: { name: string }[] }[] }
 const { transformations } = require('../../prisma/catalog/transformations') as {
-  transformations: { character: string; name: string; golpes?: { name: string }[] }[]
+  transformations: { character: string; name: string; energyModifier?: number; golpes?: { name: string }[] }[]
 }
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -78,6 +78,23 @@ describe('catálogo', () => {
     // O sync recria vínculo a partir destes catálogos; se uma aposentada
     // estiver aqui, ela é apagada e recriada a cada execução.
     for (const a of aposentadas) expect(nomesNosKits.has(a.skill), a.skill).toBe(false)
+  })
+
+  const forma = (p: string, n: string) => transformations.find((t) => t.character === p && t.name === n)!
+
+  it('Spirit Bomb e Final Flash só existem no Super Saiyan Blue', () => {
+    expect(forma('Goku', 'Super Saiyan Blue').golpes?.map((g) => g.name)).toContain('Spirit Bomb')
+    expect(forma('Vegeta', 'Super Saiyan Blue').golpes?.map((g) => g.name)).toContain('Final Flash')
+  })
+
+  it('SSJ e SSJ2 não cortam energia; o SSJ3 é a forma cara e corta', () => {
+    // O kit de ki escala da energia máxima: cortá-la enfraquecia os golpes
+    // principais, e o SSJ do Goku valia −12 pontos de vitória.
+    for (const p of ['Goku', 'Vegeta']) {
+      expect(forma(p, 'Super Saiyan').energyModifier ?? 0).toBe(0)
+      expect(forma(p, 'Super Saiyan 2').energyModifier ?? 0).toBe(0)
+    }
+    expect(forma('Goku', 'Super Saiyan 3').energyModifier).toBeLessThan(0)
   })
 
   it('as cinco formas que eram habilidade existem', () => {

@@ -189,11 +189,17 @@ const alcances = [
 
   // Suguru Geto
   ["Invocação em Massa", 'OTHER', 'AREA'],
-  ["Dragão Arco-Íris", 'OTHER', 'DISTANCIA'],
-  ["Uzumaki: Redemoinho de Maldições", 'OTHER', 'DISTANCIA'],
-  ["Espírito Amaldiçoado Menor", 'OTHER', 'DISTANCIA'],
+  ["Dragão Arco-Íris", 'OTHER', 'CORPO'], // avança e esmaga com as mandíbulas
+  ["Uzumaki: Redemoinho de Maldições", 'OTHER', 'DISTANCIA'], // as maldições comprimidas são disparadas
+  ["Espírito Amaldiçoado Menor", 'OTHER', 'CORPO'],
   ["Corrosão Amaldiçoada", 'OTHER', 'DISTANCIA'],
   ["Deterioração Progressiva", 'OTHER', 'DISTANCIA'],
+
+  // Megumi Fushiguro
+  ["Shikigami: Cães Divinos", 'OTHER', 'CORPO'], // mordem e rasgam
+  ["Shikigami: Nue", 'OTHER', 'CORPO'], // as asas elétricas atordoam no contato
+  ["Shikigami: Sapo Amaldiçoado", 'OTHER', 'DISTANCIA'], // agarra com a língua de longe
+  ["Shikigami: Touro Máximo", 'OTHER', 'AREA'], // o Max Elephant inunda o campo
 
   // Hanami
   ["Floração Fatal", 'OTHER', 'AREA'],
@@ -255,6 +261,10 @@ const alcances = [
   // Solo Leveling
   ["Adaga do Monarca", 'OTHER', 'CORPO'],
   ["Exército das Sombras", 'OTHER', 'AREA'],
+  ["Igris, Cavaleiro de Sangue", 'OTHER', 'CORPO'], // um cavaleiro de espada
+  ["Beru, Formiga-Rei", 'OTHER', 'CORPO'], // garras
+  ["Erguer: Soldado das Sombras", 'OTHER', 'CORPO'],
+  ["Tank, Muralha de Ossos", 'OTHER', 'CORPO'],
 
   // Patolino
   ["Mine! Mine! Mine!", 'OTHER', 'CORPO'],
