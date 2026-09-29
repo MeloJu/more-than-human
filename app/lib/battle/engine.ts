@@ -1719,6 +1719,7 @@ function reviverAliado(
     resultado: {
       version: 1,
       side: lado,
+      posicao: indice,
       kind: 'REVIVE',
       skillId: null,
       skillName: caido.nome ?? 'Aliado caído',
@@ -1740,10 +1741,17 @@ export function resolveRound(
     /**
      * Transformações de `inimigos[0]`. A IA também se transforma, pagando o
      * mesmo preço: um Grimmjow que nunca solta a Pantera é outro personagem.
-     * Opcional porque PvP e os testes antigos não têm. Os demais membros de
-     * um time ainda não têm forma — quando tiverem, isto vira mapa por posição.
+     * Opcional porque PvP e os testes antigos não têm.
      */
     enemyTransformations?: Record<string, TransformationDef>
+    /**
+     * As formas de CADA posição de cada lado, paralelas aos arrays do estado.
+     * Com time, o aliado controlado pela IA e o chefe de raid se transformam
+     * tanto quanto o principal. Onde houver entrada, ela vale; onde não
+     * houver, o índice 0 cai em playerTransformations/enemyTransformations e
+     * os demais ficam sem forma — que é o que todo 1x1 já passa hoje.
+     */
+    formasPorPosicao?: Partial<Record<Side, Record<string, TransformationDef>[]>>
   },
   rand: () => number = Math.random
 ): { state: BattleState; turnResults: TurnResult[] } {
@@ -1760,6 +1768,19 @@ export function resolveRound(
   ]
   const vivos = () => posicoes.filter((p) => estaDePe(combatenteEm(atual, p)))
 
+  // Toda linha do log sai daqui dizendo QUEM dentro do lado (ver
+  // TurnResult.posicao). É carimbada aqui, e não dentro de cada função que
+  // monta a linha, porque só resolveRound sabe a posição: as outras recebem
+  // um combatente solto.
+  const em = (r: TurnResult, posicao: number): TurnResult => ({ ...r, posicao })
+
+  const formasDe = (p: EmCampo): Record<string, TransformationDef> => {
+    const propria = ctx.formasPorPosicao?.[p.lado]?.[p.indice]
+    if (propria) return propria
+    if (p.indice !== 0) return {}
+    return p.lado === LADO_ALIADO ? ctx.playerTransformations : ctx.enemyTransformations ?? {}
+  }
+
   // 1. Início da rodada: regeneração, recarga, manutenção de domínio e o tique
   //    dos efeitos — para todo mundo que estiver de pé.
   //
@@ -1773,28 +1794,21 @@ export function resolveRound(
   for (const p of vivos()) {
     const r = manterDominio(p.lado, combatenteEm(atual, p))
     atual = comCombatenteEm(atual, p, r.combatant)
-    turnResults.push(...r.results)
+    turnResults.push(...r.results.map((x) => em(x, p.indice)))
   }
   for (const p of vivos()) {
     const r = tickStatusEffects(p.lado, combatenteEm(atual, p))
     atual = comCombatenteEm(atual, p, r.combatant)
-    turnResults.push(...r.results)
+    turnResults.push(...r.results.map((x) => em(x, p.indice)))
   }
 
-  // 2. Transformação automática de início de rodada, do principal de CADA
-  //    lado — só eles têm formas (ver ctx.enemyTransformations).
-  const principais: EmCampo[] = [
-    { lado: LADO_ALIADO, indice: 0 },
-    { lado: 'ENEMY', indice: 0 },
-  ]
-  const formasDe = (p: EmCampo): Record<string, TransformationDef> =>
-    p.indice !== 0 ? {} : p.lado === LADO_ALIADO ? ctx.playerTransformations : ctx.enemyTransformations ?? {}
-  for (const p of principais) {
-    if (!estaDePe(combatenteEm(atual, p))) continue
+  // 2. Transformação automática de início de rodada, de todo mundo de pé que
+  //    tenha forma (ver ctx.formasPorPosicao).
+  for (const p of vivos()) {
     const auto = maybeAutoTransform(combatenteEm(atual, p), formasDe(p), ['LOW_HP', 'ENERGY_CHARGE'], 0)
     if (auto) {
       atual = comCombatenteEm(atual, p, auto.combatant)
-      turnResults.push(makeTransformResult(p.lado, auto.transformation))
+      turnResults.push(em(makeTransformResult(p.lado, auto.transformation), p.indice))
     }
   }
 
@@ -1818,6 +1832,7 @@ export function resolveRound(
     turnResults.push({
       version: 1,
       side: p.lado,
+      posicao: p.indice,
       kind: 'BLOCK',
       skillId: null,
       skillName: 'Bloqueio',
@@ -1898,6 +1913,8 @@ export function resolveRound(
     turnResults.push({
       version: 1,
       side: vencedor ?? LADO_ALIADO,
+      // Empate sai no lado aliado (acima), então a posição é a do aliado.
+      posicao: vencedor === b.lado ? b.indice : a.indice,
       kind: 'CLASH',
       clashTag: tag,
       skillId: null,
@@ -1935,7 +1952,7 @@ export function resolveRound(
     if (!estaDePe(c)) continue
 
     if (isStunned(c)) {
-      turnResults.push(makeStunResult(p.lado))
+      turnResults.push(em(makeStunResult(p.lado), p.indice))
       // Ficar atordoado não foi uma escolha, mas a janela da sequência
       // passou do mesmo jeito — o combo quebra aqui também.
       if (c.comboPreparado !== undefined) atual = comCombatenteEm(atual, p, { ...c, comboPreparado: undefined })
@@ -1951,7 +1968,7 @@ export function resolveRound(
       if (t && podeAtivar(c, t)) {
         // Se transformar também é uma ação diferente — quebra o combo.
         atual = comCombatenteEm(atual, p, { ...ativarForma(c, t), comboPreparado: undefined })
-        turnResults.push(makeTransformResult(p.lado, t))
+        turnResults.push(em(makeTransformResult(p.lado, t), p.indice))
       }
       continue
     }
@@ -1980,7 +1997,7 @@ export function resolveRound(
     const liberar = acao?.kind === 'ATTACK' && acao.liberar ? formasDe(p)[acao.liberar] : undefined
     if (liberar && liberar.consumesTurn === false && !c.activeTransformationId && podeAtivar(c, liberar)) {
       atual = comCombatenteEm(atual, p, ativarForma(c, liberar))
-      turnResults.push(makeTransformResult(p.lado, liberar))
+      turnResults.push(em(makeTransformResult(p.lado, liberar), p.indice))
     }
 
     // O ALVO É RECONFERIDO AQUI, e não só na hora de escolher: alguém mais
@@ -2012,7 +2029,12 @@ export function resolveRound(
     )
     atual = comCombatenteEm(atual, p, r.attacker)
     atual = comCombatenteEm(atual, mira, r.defender)
-    turnResults.push(r.turnResult, ...r.eventos)
+    // Os eventos do golpe (choque de domínio, guarda partida) dizem em `side`
+    // de quem é a linha; a posição sai de quem daquele lado estava na troca.
+    turnResults.push(
+      { ...r.turnResult, posicao: p.indice, posicaoDoAlvo: mira.indice },
+      ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? p.indice : mira.indice))
+    )
 
     // Ressurreição depois do golpe: quem lança pode ter derrubado alguém na
     // mesma ação (counter), e o aliado que acabou de cair já conta.
@@ -2027,7 +2049,6 @@ export function resolveRound(
     // Transformação por dano recebido, do lado de quem apanhou E de quem
     // levou counter — as duas são "tomei dano", e o counter machuca o atacante.
     for (const machucado of [p, mira]) {
-      if (machucado.indice !== 0) continue
       const depois = combatenteEm(atual, machucado)
       if (!estaDePe(depois)) continue
       const sofrido = mesmoLugar(machucado, p) ? hpAntes - depois.currentHp : r.turnResult.damage ?? 0
@@ -2035,16 +2056,15 @@ export function resolveRound(
       const auto = maybeAutoTransform(depois, formasDe(machucado), ['ON_DAMAGE_TAKEN'], sofrido)
       if (auto) {
         atual = comCombatenteEm(atual, machucado, auto.combatant)
-        turnResults.push(makeTransformResult(machucado.lado, auto.transformation))
+        turnResults.push(em(makeTransformResult(machucado.lado, auto.transformation), machucado.indice))
       }
     }
   }
 
-  // 7. Fim da rodada: manutenção das formas ativas, do principal de cada lado.
+  // 7. Fim da rodada: manutenção das formas ativas de todo mundo.
   // Só de quem está de pé: o dreno de vida "não mata, deixa em 1", e aplicado
   // em quem já caiu na rodada ele o LEVANTARIA com 1 de vida.
-  for (const p of principais) {
-    if (!estaDePe(combatenteEm(atual, p))) continue
+  for (const p of vivos()) {
     atual = comCombatenteEm(atual, p, applyDrain(combatenteEm(atual, p), formasDe(p)))
   }
 

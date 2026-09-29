@@ -67,13 +67,33 @@ function registra(
   if (ORDEM_DE_SEVERIDADE.indexOf(severidade) > atual) alvo.severidade = severidade
 }
 
-/** Recebe os turnos de UMA rodada e diz o que cada lado sofreu nela. */
-export function impactoDaRodada(resultados: TurnResult[]): Record<Side, ImpactoNoLutador> {
-  const impacto: Record<Side, ImpactoNoLutador> = { PLAYER: vazio(), ENEMY: vazio() }
+/**
+ * Como um lutador é identificado no impacto: o lado e a posição nele.
+ *
+ * Linha gravada antes de o motor carimbar a posição cai no 0, que era o
+ * único lutador de cada lado quando ela foi escrita (ver TurnResult.posicao).
+ */
+export function chaveDoLutador(side: Side, posicao = 0): string {
+  return `${side}:${posicao}`
+}
+
+/**
+ * Recebe os turnos de UMA rodada e diz o que CADA LUTADOR sofreu nela,
+ * indexado por chaveDoLutador. Com time, o dano no aliado não pode fazer a
+ * carta do jogador tremer: por isso a conta é por lutador, e não por lado.
+ * Quem não sofreu nada não aparece — ver impactoDe.
+ */
+export function impactoPorLutador(resultados: TurnResult[]): Record<string, ImpactoNoLutador> {
+  const impacto: Record<string, ImpactoNoLutador> = {}
+  const de = (side: Side, posicao: number | undefined) => {
+    const chave = chaveDoLutador(side, posicao)
+    impacto[chave] ??= vazio()
+    return impacto[chave]
+  }
 
   for (const t of resultados) {
     if (t.kind === 'GUARD_BREAK') {
-      impacto[t.side].guardaQuebrada = true
+      de(t.side, t.posicao).guardaQuebrada = true
       continue
     }
 
@@ -82,7 +102,7 @@ export function impactoDaRodada(resultados: TurnResult[]): Record<Side, ImpactoN
         // Dano contínuo não tem severidade nem crítico: é a mesma mordida
         // toda rodada, e tratá-la como golpe faria a carta tremer por algo
         // que o jogador não acabou de sofrer.
-        registra(impacto[t.side], t.damage, undefined, false)
+        registra(de(t.side, t.posicao), t.damage, undefined, false)
       }
       continue
     }
@@ -92,15 +112,33 @@ export function impactoDaRodada(resultados: TurnResult[]): Record<Side, ImpactoN
     // Contra-ataque: o golpe foi negado e o troco volta para quem bateu.
     if (t.countered) {
       if (typeof t.reflectedDamage === 'number' && t.reflectedDamage > 0) {
-        registra(impacto[t.side], t.reflectedDamage, undefined, false)
+        registra(de(t.side, t.posicao), t.reflectedDamage, undefined, false)
       }
       continue
     }
 
     if (typeof t.damage === 'number' && t.damage > 0) {
-      registra(impacto[oposto(t.side)], t.damage, t.severidade, t.isCrit)
+      registra(de(oposto(t.side), t.posicaoDoAlvo), t.damage, t.severidade, t.isCrit)
     }
   }
 
   return impacto
+}
+
+/** O impacto de um lutador, vazio se ele não sofreu nada na rodada. */
+export function impactoDe(
+  impacto: Record<string, ImpactoNoLutador>,
+  side: Side,
+  posicao = 0
+): ImpactoNoLutador {
+  return impacto[chaveDoLutador(side, posicao)] ?? vazio()
+}
+
+/**
+ * O que o PRINCIPAL de cada lado sofreu — a carta grande de cada lado da tela
+ * de 1x1. Em time, o que os aliados sofreram fica em impactoPorLutador.
+ */
+export function impactoDaRodada(resultados: TurnResult[]): Record<Side, ImpactoNoLutador> {
+  const porLutador = impactoPorLutador(resultados)
+  return { PLAYER: impactoDe(porLutador, 'PLAYER'), ENEMY: impactoDe(porLutador, 'ENEMY') }
 }

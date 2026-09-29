@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialState, resolveRound } from '@/app/lib/battle/engine'
-import type { AcoesDaRodada, BaseStats, CombatantState, SkillDef } from '@/app/lib/battle/types'
+import { impactoDaRodada, impactoDe, impactoPorLutador } from '@/app/lib/battle/rodada'
+import type { AcoesDaRodada, BaseStats, CombatantState, SkillDef, TransformationDef } from '@/app/lib/battle/types'
 
 /**
  * Combate com mais de um combatente por lado.
@@ -345,5 +346,89 @@ describe('ressurreição', () => {
       { reviver: reviver({ precision: 1 }) }
     )
     expect(r.state.aliados[1].currentHp).toBe(60)
+  })
+})
+
+describe('o log diz QUEM, não só o lado', () => {
+  // Com time, "o jogador bateu" não diz qual dos três — e a tela precisa
+  // saber qual carta anima. Ver TurnResult.posicao.
+  it('o golpe carrega a posição de quem bateu e a do alvo', () => {
+    const e = campo([stats({ speed: 5 }), stats({ speed: 30 })], [stats({ speed: 1 }), stats({ speed: 2 })])
+    const r = rodada(e, { aliadas: [atacar('sk', 1), atacar('sk', 0)], inimigas: [] })
+    const golpes = r.turnResults.filter((t) => t.kind === 'ATTACK' && t.side === 'PLAYER')
+    // O aliado 1 é o mais veloz, então age primeiro, no inimigo 0.
+    expect(golpes.map((t) => [t.posicao, t.posicaoDoAlvo])).toEqual([[1, 0], [0, 1]])
+  })
+
+  it('dano contínuo sai na posição de quem sofre', () => {
+    const e = campo([stats(), stats()], [stats()])
+    e.aliados[1] = {
+      ...e.aliados[1],
+      statusEffects: [{ id: 'd', type: 'DOT', magnitude: 7, remainingRounds: 2, sourceSkillName: 'Veneno' }],
+    }
+    const r = rodada(e, { aliadas: [], inimigas: [] })
+    const tique = r.turnResults.find((t) => t.kind === 'DOT_TICK')
+    expect(tique?.posicao).toBe(1)
+  })
+
+  it('o impacto da rodada separa o aliado do principal', () => {
+    const e = campo([stats({ speed: 1 }), stats({ speed: 1 })], [stats({ speed: 30 })])
+    const r = rodada(e, { aliadas: [], inimigas: [atacar('sk', 1)] })
+    const porLutador = impactoPorLutador(r.turnResults)
+    expect(impactoDe(porLutador, 'PLAYER', 1).dano).toBeGreaterThan(0)
+    // A carta do jogador não treme pelo golpe que pegou no aliado.
+    expect(impactoDe(porLutador, 'PLAYER', 0).dano).toBe(0)
+    expect(impactoDaRodada(r.turnResults).PLAYER.dano).toBe(0)
+  })
+})
+
+describe('forma para qualquer posição', () => {
+  const pantera: TransformationDef = {
+    id: 'pantera',
+    name: 'Pantera',
+    levelRequirement: 1,
+    energyModifier: 0,
+    attackModifier: 0.3,
+    defenseModifier: 0,
+    speedModifier: 0,
+    flatHpBonus: 0,
+    flatAttackBonus: 0,
+    flatDefenseBonus: 0,
+    flatSpeedBonus: 0,
+    drainPerTurn: 0,
+    triggerType: 'MANUAL',
+    triggerPayload: null,
+  }
+
+  it('o aliado controlado pela IA se transforma com a forma dele', () => {
+    const e = campo([stats(), stats()], [stats()])
+    const r = resolveRound(
+      e,
+      { aliadas: [atacar('sk'), { kind: 'TRANSFORM', transformationId: 'pantera' }], inimigas: [] },
+      {
+        playerSkills: { sk: skill() },
+        enemySkills: { sk: skill() },
+        playerTransformations: {},
+        formasPorPosicao: { PLAYER: [{}, { pantera }] },
+      },
+      NUNCA_CRITA
+    )
+    expect(r.state.aliados[1].activeTransformationId).toBe('pantera')
+    expect(r.state.aliados[0].activeTransformationId).toBeFalsy()
+    const linha = r.turnResults.find((t) => t.kind === 'TRANSFORM')
+    expect(linha?.posicao).toBe(1)
+  })
+
+  it('sem forma declarada para a posição, o aliado não se transforma', () => {
+    // O índice 0 continua caindo em playerTransformations; os outros ficam
+    // sem forma, como sempre ficaram.
+    const e = campo([stats(), stats()], [stats()])
+    const r = resolveRound(
+      e,
+      { aliadas: [atacar('sk'), { kind: 'TRANSFORM', transformationId: 'pantera' }], inimigas: [] },
+      { playerSkills: { sk: skill() }, enemySkills: { sk: skill() }, playerTransformations: { pantera } },
+      NUNCA_CRITA
+    )
+    expect(r.state.aliados[1].activeTransformationId).toBeFalsy()
   })
 })

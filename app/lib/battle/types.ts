@@ -253,6 +253,19 @@ export type AppliedEffect = {
 export type TurnResult = {
   version: 1
   side: Side
+  /**
+   * QUEM, dentro de `side`: o índice no array daquele lado (`aliados` ou
+   * `inimigos`). `side` sozinho bastava no 1x1; com time, "o jogador bateu"
+   * não diz qual dos três. Segue a mesma leitura de `side` para cada tipo de
+   * linha — em ATTACK é quem agiu, em DOT_TICK é quem sofreu, em GUARD_BREAK
+   * é quem teve a guarda partida (ver rodada.ts).
+   *
+   * Ausente nas linhas gravadas antes do time existir, e aí vale 0: toda
+   * batalha antiga é 1x1, e o índice 0 é o único que havia.
+   */
+  posicao?: number
+  /** ATTACK/SUPPORT: o índice do alvo no lado OPOSTO a `side`. */
+  posicaoDoAlvo?: number
   kind:
     | 'ATTACK'
     | 'TRANSFORM'
