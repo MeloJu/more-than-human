@@ -108,7 +108,7 @@ jobs:
       # era um scp manual feito uma vez, que ia silenciosamente ficando velho a
       # cada mudança no repositório.
       - name: Copy compose files to VM
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
