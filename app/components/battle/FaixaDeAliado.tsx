@@ -70,6 +70,7 @@ export function FaixaDeAliado({
             current={combatente.currentHp}
             max={combatente.maxHp}
             colorClass="bg-green-500"
+            vida
           />
           <StatBar
             label="Energia"

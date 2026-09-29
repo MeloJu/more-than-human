@@ -129,6 +129,7 @@ export function FighterCard({
             current={combatant.currentHp}
             max={combatant.maxHp}
             colorClass="bg-green-500"
+            vida
           />
           <StatBar
             label="Energia"

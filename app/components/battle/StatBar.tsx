@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
+import { AnimatePresence, animate, motion, useReducedMotion } from 'motion/react'
+import { corDaVida, duracaoDaQueda } from '@/app/lib/battle/barra'
 
 /**
  * Barra de recurso com RASTRO do valor anterior.
@@ -23,13 +24,22 @@ import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
  *
  * SOB prefers-reduced-motion nada desliza, mas o número do delta continua
  * aparecendo — ele é informação, não enfeite. Mesmo princípio de globals.css.
+ *
+ * A QUEDA ESCORRE, COMO NO POKÉMON. A barra não salta para o valor novo: ela
+ * desce devagar, o número desce contando junto, e na barra de vida a cor
+ * muda no caminho (verde, âmbar abaixo da metade, vermelha abaixo de 20%).
+ * Quanto maior o golpe, mais tempo ela leva — um arranhão passa rápido, um
+ * golpe devastador se arrasta, e é isso que faz ele PESAR na tela.
  */
+
+
 export function StatBar({
   label,
   current,
   max,
   colorClass,
   icone,
+  vida = false,
 }: {
   label: string
   current: number
@@ -37,25 +47,48 @@ export function StatBar({
   colorClass: string
   /** Ícone antes do rótulo — lê-se a barra pela forma antes de ler a palavra. */
   icone?: ReactNode
+  /** Barra de vida: a cor segue a fração que resta (ver corDaVida). */
+  vida?: boolean
 }) {
   const semMovimento = useReducedMotion()
   const valor = Math.max(0, current)
   const pct = max > 0 ? Math.max(0, Math.min(100, (valor / max) * 100)) : 0
 
+  // Durante a queda, o número que desce contando. Fora dela, null: a tela
+  // mostra o valor real, sem estado para manter em sincronia.
+  const [contando, setContando] = useState<number | null>(null)
+  const mostrado = contando ?? valor
+
   // O valor da renderização anterior. Ref e não state: mudá-lo não pode
   // provocar um render novo, senão vira laço.
   const anterior = useRef<{ valor: number; pct: number } | null>(null)
-  const [queda, setQueda] = useState<{ chave: number; dePct: number; delta: number } | null>(null)
+  const [queda, setQueda] = useState<{ chave: number; dePct: number; delta: number; duracao: number } | null>(null)
 
   useEffect(() => {
     const antes = anterior.current
     anterior.current = { valor, pct }
-    // Primeira montagem não tem "antes": nada a rastrear, e mostrar um rastro
-    // aqui inventaria uma perda que não aconteceu nesta tela.
-    if (!antes) return
-    if (valor >= antes.valor) return
-    setQueda({ chave: Date.now(), dePct: antes.pct, delta: antes.valor - valor })
-  }, [valor, pct])
+    // Primeira montagem não tem "antes": nada a rastrear. Ganho não escorre.
+    if (!antes || valor >= antes.valor) return
+    const duracao = semMovimento ? 0 : duracaoDaQueda(max > 0 ? (antes.valor - valor) / max : 0)
+    setQueda({ chave: Date.now(), dePct: antes.pct, delta: antes.valor - valor, duracao })
+    if (semMovimento) return
+    const contagem = animate(antes.valor, valor, {
+      duration: duracao,
+      ease: 'linear',
+      onUpdate: (v) => setContando(Math.round(v)),
+      onComplete: () => setContando(null),
+    })
+    // Chegou valor novo no meio da contagem: para e volta a mostrar o real,
+    // senão o número ficaria congelado no meio do caminho.
+    return () => {
+      contagem.stop()
+      setContando(null)
+    }
+  }, [valor, pct, max, semMovimento])
+
+  // Na barra de vida a cor acompanha o número que desce, não o valor final:
+  // é a troca de cor NO CAMINHO que dá a leitura do Pokémon.
+  const corDaBarra = vida ? corDaVida(max > 0 ? mostrado / max : 0) : undefined
 
   return (
     <div>
@@ -68,7 +101,7 @@ export function StatBar({
           {label}
         </span>
         <span className="tabular-nums font-semibold">
-          {valor} / {max}
+          {mostrado} / {max}
         </span>
 
         {/* O delta sobe e some ao lado do número, não em cima do retrato: a
@@ -95,24 +128,27 @@ export function StatBar({
             cheia e ele é exatamente o que se perdeu. Espera um instante antes
             de recolher — sem a pausa, ele alcança rápido demais para o olho
             registrar de onde saiu. */}
+        {/* Na vida o rastro é vermelho: é o que acabou de sair, parado no valor
+            antigo enquanto a barra escorre por cima dele. */}
         <AnimatePresence>
           {queda && !semMovimento && (
             <motion.div
               key={queda.chave}
-              className={`absolute inset-y-0 left-0 ${colorClass} opacity-30`}
+              className={`absolute inset-y-0 left-0 ${vida ? 'bg-red-500' : colorClass} ${vida ? 'opacity-60' : 'opacity-30'}`}
               initial={{ width: `${queda.dePct}%` }}
               animate={{ width: `${pct}%` }}
               exit={{ opacity: 0 }}
-              transition={{ delay: 0.35, duration: 0.55, ease: 'easeOut' }}
+              transition={{ delay: queda.duracao + 0.15, duration: 0.3, ease: 'easeOut' }}
             />
           )}
         </AnimatePresence>
 
         <motion.div
-          className={`absolute inset-y-0 left-0 ${colorClass}`}
+          className={`absolute inset-y-0 left-0 ${vida ? '' : colorClass}`}
+          style={corDaBarra ? { background: corDaBarra } : undefined}
           initial={false}
           animate={{ width: `${pct}%` }}
-          transition={{ duration: semMovimento ? 0 : 0.25, ease: 'easeOut' }}
+          transition={{ duration: semMovimento ? 0 : queda?.duracao || 0.25, ease: queda?.duracao ? 'linear' : 'easeOut' }}
         />
       </div>
     </div>
