@@ -63,6 +63,9 @@ export async function vitoriasContraIaHoje(userCharacterId: string, agora?: Date
       enemyMonsterId: null,
       storyStageId: null,
       opponentUserId: null,
+      // A luta de um andar de raid pode ter personagem do elenco como
+      // inimigo (o chefe), e não é treino contra IA.
+      raidRunId: null,
       updatedAt: { gte: inicioDoDiaUtc(agora) },
     },
   })

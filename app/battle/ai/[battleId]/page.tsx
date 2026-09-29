@@ -23,6 +23,10 @@ import { coresDoConfronto } from '@/app/lib/battle/cores'
 import { Swords } from 'lucide-react'
 import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
+import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
+import { raidPorSlug } from '@/app/lib/raid/catalogo'
+import { recompensaDaRaid } from '@/app/lib/raid/andares'
+import { seguirNaRaid } from '@/app/lib/raid/actions'
 import { impactoDe, impactoPorLutador } from '@/app/lib/battle/rodada'
 import type { BattleStateGravado, TurnResult } from '@/app/lib/battle/types'
 
@@ -54,10 +58,26 @@ export default async function BattleArenaPage({
   // Hollow é um Monster como a raid, mas mandar o jogador pra /battle/raid o
   // tiraria do arco no meio — por isso storyStageId é checado primeiro.
   const isStory = battle.storyStageId !== null
-  const isRaid = !isStory && battle.enemyMonsterId !== null
-  const modeLabel = isStory ? 'Modo: História' : isRaid ? 'Modo: Raid' : 'Modo: IA'
+  const isRaid = !isStory && (battle.raidRunId !== null || battle.enemyMonsterId !== null)
+
+  // O andar de raid que esta luta é: nome do lugar, posição na torre, e como
+  // a incursão ficou depois dela.
+  const raidRun = battle.raidRunId
+    ? await prisma.raidRun.findUnique({ where: { id: battle.raidRunId }, select: { id: true, raid: true, andar: true, status: true } })
+    : null
+  const raid = raidRun ? raidPorSlug(raidRun.raid) : undefined
+  const andarDaLuta = raid && battle.andar !== null ? raid.andares[battle.andar] : undefined
+  const proximoAndar = raid && raidRun?.status === 'ATIVA' ? raid.andares[raidRun.andar] : undefined
+
+  const modeLabel = isStory
+    ? 'Modo: História'
+    : raid && andarDaLuta
+      ? `Raid · ${raid.nome} · Andar ${(battle.andar ?? 0) + 1}/${raid.andares.length}: ${andarDaLuta.nome}`
+      : isRaid
+        ? 'Modo: Raid'
+        : 'Modo: IA'
   const backHref = isStory ? '/story' : isRaid ? '/battle/raid' : '/battle/ai'
-  const backLabel = isStory ? 'Voltar à História' : isRaid ? 'Nova Raid' : 'Nova Batalha'
+  const backLabel = isStory ? 'Voltar à História' : isRaid ? 'Voltar à Raid' : 'Nova Batalha'
 
   const [playerSkills, playerTransformations] = await Promise.all([
     getEquippedSkills(userCharacter.id),
@@ -82,17 +102,29 @@ export default async function BattleArenaPage({
     turns.filter((t) => t.round === ultimaRodada).map((t) => t.result as unknown as TurnResult)
   )
 
-  // A party (os contratados), na ordem das vagas. A posição é o índice no
-  // estado; o 0 é o próprio jogador e não está nesta tabela.
-  const party = await prisma.battleParticipant.findMany({
-    where: { battleId: battle.id, lado: 'PLAYER' },
+  // Quem luta além do principal de cada lado: a party (os contratados) e os
+  // demais inimigos de um andar. A posição é o índice no estado; o 0 de cada
+  // lado é o principal e não está nesta tabela.
+  const participantes = await prisma.battleParticipant.findMany({
+    where: { battleId: battle.id },
     orderBy: { posicao: 'asc' },
-    include: { character: { select: { name: true, imageUrl: true, corDestaque: true } } },
+    include: {
+      character: { select: { name: true, imageUrl: true, corDestaque: true } },
+      monster: { select: { name: true, imageUrl: true } },
+    },
   })
+  const party = participantes.filter((p) => p.lado === 'PLAYER')
+  const inimigosExtras = participantes.filter((p) => p.lado === 'ENEMY')
+  // O nome gravado no estado vence o do catálogo: é ele que numera os
+  // repetidos ("Hollow 2").
+  const nomeDe = (p: (typeof participantes)[number], lado: 'aliados' | 'inimigos') =>
+    state[lado][p.posicao]?.nome ?? p.character?.name ?? p.monster?.name ?? 'Lutador'
   const nomesAliados: string[] = [userCharacter.nickname]
-  for (const p of party) nomesAliados[p.posicao] = p.character.name
-  const idsDeFormaDaParty = party
-    .map((p) => state.aliados[p.posicao]?.activeTransformationId)
+  for (const p of party) nomesAliados[p.posicao] = nomeDe(p, 'aliados')
+  const nomesInimigos: string[] = [state.inimigos[0]?.nome ?? enemy.name]
+  for (const p of inimigosExtras) nomesInimigos[p.posicao] = nomeDe(p, 'inimigos')
+  const idsDeFormaDaParty = participantes
+    .map((p) => state[p.lado === 'PLAYER' ? 'aliados' : 'inimigos'][p.posicao]?.activeTransformationId)
     .filter((id): id is string => Boolean(id))
   const formasDaParty = idsDeFormaDaParty.length
     ? await prisma.transformation.findMany({ where: { id: { in: idsDeFormaDaParty } }, select: { id: true, name: true } })
@@ -177,7 +209,34 @@ export default async function BattleArenaPage({
               {state.outcome === 'ENEMY_WIN' && 'Derrota.'}
               {state.outcome === 'DRAW' && 'Empate.'}
             </div>
-            {desfecho.length > 0 ? (
+            {raid ? (
+              // FIM DE ANDAR: o que vem agora depende de como a incursão ficou.
+              <div className="space-y-3">
+                {raidRun?.status === 'ATIVA' && proximoAndar && (
+                  <>
+                    <p className="text-sm opacity-80">
+                      Andar limpo. A party segue como está: nada de vida ou energia volta entre os andares.
+                    </p>
+                    <form action={seguirNaRaid.bind(null, raidRun.id)}>
+                      <button type="submit" className="btn-primary px-4 py-2 text-sm">
+                        Subir para o andar {raidRun.andar + 1}: {proximoAndar.nome}
+                      </button>
+                    </form>
+                  </>
+                )}
+                {raidRun?.status === 'VENCIDA' && (
+                  <p className="text-sm">
+                    {raid.nome} vencida. +{recompensaDaRaid(userCharacter.level)} moedas pela raid.
+                  </p>
+                )}
+                {raidRun?.status === 'PERDIDA' && (
+                  <p className="text-sm opacity-80">A incursão em {raid.nome} acabou aqui.</p>
+                )}
+                <Link href={backHref} className="btn-ghost inline-block px-4 py-2 text-sm">
+                  {backLabel}
+                </Link>
+              </div>
+            ) : desfecho.length > 0 ? (
               <CenaDeDialogo falas={desfecho} retratos={retratosDesfecho} autoAbrir>
                 <Link href={backHref} className="btn-primary px-4 py-2 text-sm">
                   {backLabel}
@@ -215,6 +274,7 @@ export default async function BattleArenaPage({
           playerName={userCharacter.nickname}
           enemyName={enemy.name}
           nomesAliados={nomesAliados}
+          nomesInimigos={nomesInimigos}
           falas={falas}
           corJogador={corJogador}
           corInimigo={corInimigo}
@@ -222,7 +282,7 @@ export default async function BattleArenaPage({
 
         <CartaAnimada impacto={impactoDe(impacto, 'ENEMY')} rodada={ultimaRodada}>
           <FighterCard
-            name={enemy.name}
+            name={nomesInimigos[0]}
             imageUrl={enemy.imageUrl}
             cor={corInimigo}
             levelBadge={vilao(state).nivel}
@@ -234,24 +294,47 @@ export default async function BattleArenaPage({
 
       {/* A PARTY, em faixas logo abaixo das cartas: os aliados jogam sozinhos,
           então o que importa deles é quem está de pé e quanto aguenta. */}
-      {party.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {party.map((p) => {
-            const combatente = state.aliados[p.posicao]
-            if (!combatente) return null
-            return (
-              <CartaAnimada key={p.id} impacto={impactoDe(impacto, 'PLAYER', p.posicao)} rodada={ultimaRodada}>
-                <FaixaDeAliado
-                  nome={p.character.name}
-                  imageUrl={p.character.imageUrl}
-                  nivel={p.nivel}
-                  cor={p.character.corDestaque}
-                  formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
-                  combatente={combatente}
-                />
-              </CartaAnimada>
-            )
-          })}
+      {participantes.length > 0 && (
+        // Aliados à esquerda, inimigos à direita: o mesmo lado da carta grande
+        // de cada um.
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          <div className="space-y-4">
+            {party.map((p) => {
+              const combatente = state.aliados[p.posicao]
+              if (!combatente) return null
+              return (
+                <CartaAnimada key={p.id} impacto={impactoDe(impacto, 'PLAYER', p.posicao)} rodada={ultimaRodada}>
+                  <FaixaDeAliado
+                    nome={nomesAliados[p.posicao]}
+                    imageUrl={p.character?.imageUrl ?? null}
+                    nivel={p.nivel}
+                    cor={p.character?.corDestaque}
+                    formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
+                    combatente={combatente}
+                  />
+                </CartaAnimada>
+              )
+            })}
+          </div>
+          <div className="space-y-4">
+            {inimigosExtras.map((p) => {
+              const combatente = state.inimigos[p.posicao]
+              if (!combatente) return null
+              return (
+                <CartaAnimada key={p.id} impacto={impactoDe(impacto, 'ENEMY', p.posicao)} rodada={ultimaRodada}>
+                  <FaixaDeAliado
+                    nome={nomesInimigos[p.posicao]}
+                    imageUrl={p.character?.imageUrl ?? p.monster?.imageUrl ?? null}
+                    nivel={p.nivel}
+                    cor={p.character?.corDestaque ?? corInimigo}
+                    formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
+                    combatente={combatente}
+                    rotulo="Inimigo"
+                  />
+                </CartaAnimada>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -286,23 +369,38 @@ export default async function BattleArenaPage({
             <TituloDeSecao icone={<Swords className="h-5 w-5" style={{ color: corJogador }} />}>Ações</TituloDeSecao>
             {/* A chave é a rodada: o seletor volta para a Neutra a cada uma —
                 ver SeletorDePostura. */}
-            <ComPostura key={ultimaRodada} opcoes={posturas} stamina={heroi(state).currentStamina ?? 0} cor={corJogador}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch mt-4">
-                <form action={takeTurn.bind(null, battleId, null)} className="h-full">
-                  <CampoDePostura />
-                  <BotaoDeAtaqueBasico />
-                </form>
-                {Object.values(playerSkills).map((skill) => (
-                  <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
+            {/* Sem chave de rodada, ao contrário da postura: o alvo escolhido
+                continua o mesmo de uma rodada para a outra (focar um inimigo é
+                o normal), e se ele cair o seletor passa para o próximo de pé. */}
+            <ComAlvo
+              cor={corInimigo}
+              opcoes={state.inimigos.map((c, posicao) => ({
+                posicao,
+                nome: nomesInimigos[posicao] ?? enemy.name,
+                vida: c.currentHp,
+                vidaMaxima: c.maxHp,
+              }))}
+            >
+              <ComPostura key={ultimaRodada} opcoes={posturas} stamina={heroi(state).currentStamina ?? 0} cor={corJogador}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch mt-4">
+                  <form action={takeTurn.bind(null, battleId, null)} className="h-full">
                     <CampoDePostura />
-                    <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
+                    <CampoDeAlvo />
+                    <BotaoDeAtaqueBasico />
                   </form>
-                ))}
-                <form action={blockTurn.bind(null, battleId)} className="h-full">
-                  <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
-                </form>
-              </div>
-            </ComPostura>
+                  {Object.values(playerSkills).map((skill) => (
+                    <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
+                      <CampoDePostura />
+                      <CampoDeAlvo />
+                      <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
+                    </form>
+                  ))}
+                  <form action={blockTurn.bind(null, battleId)} className="h-full">
+                    <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
+                  </form>
+                </div>
+              </ComPostura>
+            </ComAlvo>
           </div>
         </PainelChanfrado>
       )}

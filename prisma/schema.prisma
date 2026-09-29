@@ -365,6 +365,7 @@ model Monster {
   stamina Int @default(80)
   monsterSkills MonsterSkill[]
   battles       Battle[]
+  participacoes BattleParticipant[]
   storyStages   StoryStage[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -433,6 +434,7 @@ model User {
   updatedAt            DateTime            @updatedAt
   characters           UserCharacter[]
   battles              Battle[]
+  raidRuns             RaidRun[]
   role                 UserRole            @default(USER)
   // Currently selected character for dashboard
   selectedCharacter    UserCharacter?      @relation("SelectedCharacter", fields: [selectedCharacterId], references: [id])
@@ -507,6 +509,7 @@ model UserCharacter {
   pvpQueue              PvpQueue[]
   pvpBattlesAsOpponent  Battle[]                      @relation("OpponentCharacter")
   storyProgress         UserStoryProgress[]
+  raidRuns              RaidRun[]
 
   @@unique([userId, characterId])
 }
@@ -559,6 +562,47 @@ enum ActorSide {
   ENEMY
 }
 
+/// Como vai uma incursão de raid.
+enum StatusDaRaid {
+  ATIVA
+  VENCIDA
+  PERDIDA
+}
+
+/// Uma incursão numa raid: os andares em sequência, com a party que entrou.
+///
+/// A RAID NÃO RESETA ENTRE ANDARES. A party sai de um andar com a vida, a
+/// energia e a stamina com que terminou, e entra assim no seguinte; quem caiu
+/// continua caído. É o que faz a raid exigir preparo em vez de ser uma fila de
+/// lutas avulsas. O que a party carrega fica em `reservas`.
+///
+/// O CONTRATO VALE A INCURSÃO INTEIRA: é pago uma vez, na entrada, e os
+/// contratados entram em cada andar a partir de `contratados`.
+///
+/// O conteúdo de cada raid (andares, inimigos, chefe) mora em
+/// app/lib/raid/catalogo.ts, pelo slug em `raid`.
+model RaidRun {
+  id              String        @id @default(cuid())
+  user            User          @relation(fields: [userId], references: [id])
+  userId          String
+  userCharacter   UserCharacter @relation(fields: [userCharacterId], references: [id])
+  userCharacterId String
+  raid            String
+  /// Índice do andar em que a party está (0 é o primeiro).
+  andar           Int           @default(0)
+  status          StatusDaRaid  @default(ATIVA)
+  /// [{ characterId, nivel, custo }], na ordem das vagas.
+  contratados     Json
+  /// [{ hp, energia, stamina }] por posição, ao fim do último andar vencido.
+  /// Nulo antes do primeiro andar terminar: aí todo mundo entra inteiro.
+  reservas        Json?
+  battles         Battle[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([userCharacterId, status])
+}
+
 /// Um lutador da batalha que NÃO é o principal do seu lado.
 ///
 /// O principal de cada lado continua no próprio Battle (playerCharacter e
@@ -575,8 +619,12 @@ model BattleParticipant {
   battleId    String
   lado        ActorSide
   posicao     Int
-  character   Character @relation(fields: [characterId], references: [id])
-  characterId String
+  /// Exatamente um dos dois: personagem do elenco ou monstro (garantido no
+  /// código, como character/monster no próprio Battle).
+  character   Character? @relation(fields: [characterId], references: [id])
+  characterId String?
+  monster     Monster?   @relation(fields: [monsterId], references: [id])
+  monsterId   String?
   /// Nível com que entrou: decide stats, golpes liberados e formas.
   nivel       Int
   /// Moedas pagas pelo contrato. Zero para quem não foi contratado.
@@ -627,6 +675,13 @@ model Battle {
   turns Turn[]
   /// Quem luta além do principal de cada lado. Ver BattleParticipant.
   participantes BattleParticipant[]
+  /// A incursão de raid de que esta batalha é um andar. Nulo fora da raid.
+  raidRun   RaidRun? @relation(fields: [raidRunId], references: [id])
+  raidRunId String?
+  /// O índice do andar na raid (0 é o primeiro).
+  andar     Int?
+
+  @@index([raidRunId])
 }
 
 model Turn {

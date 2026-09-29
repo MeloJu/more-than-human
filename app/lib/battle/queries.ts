@@ -1,5 +1,5 @@
 import { prisma } from '@/app/lib/prisma'
-import { SEM_BONUS, computeBaseStats, hasBattleValue } from './engine'
+import { SEM_BONUS, computeBaseStats, hasBattleValue, migrarEstado } from './engine'
 import { getEquipmentGrantedSkills } from '@/app/lib/equipment/queries'
 import { NORMAL_BATTLE_XP_MULTIPLIER } from './constants'
 import { escolherLoadoutPadrao } from './ai'
@@ -253,13 +253,19 @@ export async function getEquippedSkills(userCharacterId: string): Promise<Record
  * Nível em que o inimigo desta batalha luta.
  *
  * História dita o nível no próprio estágio; batalha contra IA escala o inimigo
- * pelo nível do jogador (ver startAiBattle). Sem isto, getEnemySkills não teria
- * como filtrar o arsenal.
+ * pelo nível do jogador (ver startAiBattle). Na raid, o nível é o do andar, e
+ * já está gravado no estado — o chefe entra no dele, não no do jogador. Sem
+ * isto, getEnemySkills não teria como filtrar o arsenal.
  */
 async function enemyLevelFor(battle: {
   storyStageId?: string | null
   playerCharacterId?: string | null
+  raidRunId?: string | null
+  state?: unknown
 }): Promise<number> {
+  if (battle.raidRunId && battle.state) {
+    return migrarEstado(battle.state as Parameters<typeof migrarEstado>[0]).inimigos[0]?.nivel ?? 1
+  }
   if (battle.storyStageId) {
     const stage = await prisma.storyStage.findUnique({
       where: { id: battle.storyStageId },
@@ -283,6 +289,8 @@ export async function loadEnemyProfile(
     enemyMonsterId: string | null
     storyStageId?: string | null
     playerCharacterId?: string | null
+    raidRunId?: string | null
+    state?: unknown
   }
 ): Promise<{ name: string; imageUrl: string | null; corDestaque: string | null; corSecundaria: string | null; stats: BaseStats; skills: Record<string, SkillDef>; xpMultiplier: number } | null> {
   if (battle.enemyCharacterId) {

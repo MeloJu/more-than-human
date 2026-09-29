@@ -10,7 +10,8 @@ import type { CombatantState } from '@/app/lib/battle/types'
 const FOCO = FOCO_DOS_RETRATOS as Record<string, string>
 
 /**
- * Um aliado da party, em faixa: retrato pequeno, nome, vida e energia.
+ * Um lutador que não é o principal do seu lado — aliado da party ou inimigo
+ * extra de um andar —, em faixa: retrato pequeno, nome, vida e energia.
  *
  * FAIXA E NÃO CARTA. O foco da tela é o seu personagem e o adversário; os
  * aliados jogam sozinhos (IA), então o que o jogador precisa deles é saber se
@@ -27,6 +28,7 @@ export function FaixaDeAliado({
   cor,
   formaAtiva,
   combatente,
+  rotulo = 'Aliado · IA',
 }: {
   nome: string
   imageUrl: string | null
@@ -34,6 +36,8 @@ export function FaixaDeAliado({
   cor?: string | null
   formaAtiva?: string
   combatente: CombatantState
+  /** O que a faixa é: aliado da party ou inimigo do andar. */
+  rotulo?: string
 }) {
   const c = cor ?? 'var(--accent)'
   const foco = (imageUrl && FOCO[imageUrl]) || '50% 20%'
@@ -58,7 +62,7 @@ export function FaixaDeAliado({
                 {formaAtiva}
               </span>
             )}
-            <span className="ml-auto text-xs uppercase tracking-wider opacity-60">{caido ? 'Caído' : 'Aliado · IA'}</span>
+            <span className="ml-auto text-xs uppercase tracking-wider opacity-60">{caido ? 'Caído' : rotulo}</span>
           </div>
           <StatBar
             label="HP"

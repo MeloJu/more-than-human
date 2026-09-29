@@ -1,18 +1,14 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { getBonusDeAtributos } from '@/app/lib/progression/queries'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/app/lib/prisma'
 import { requireUser } from '@/app/lib/session'
 import {
   SEM_BONUS,
-  applyTraits,
   ativarForma,
   comHeroi,
-  comLutadores,
-  computeBaseStats,
   computeFighterStats,
   createInitialState,
   faltaParaAtivar,
@@ -21,17 +17,15 @@ import {
   migrarEstado,
   podeBloquear,
   resolveRound,
-  sumStatBonuses,
-  traitEnergyCostModifier,
   vilao,
 } from './engine'
 import { acaoDaIa, alvoDaIa } from './ai'
-import { tierLiberado } from './raid'
-import { precoDoContrato, validarContratos } from './party'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
-import { getCharacterTraits, getEnemySkills, getEquippedSkills, getPlayerTransformations, getTreeBonus, loadEnemyProfile } from './queries'
-import { getEquipmentBonus } from '@/app/lib/equipment/queries'
+import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransformations, loadEnemyProfile } from './queries'
+import { fichaDoJogador } from './montagem'
+import { raidPorSlug } from '@/app/lib/raid/catalogo'
+import { avancar, recompensaDaRaid, reservasDoTime } from '@/app/lib/raid/andares'
 import { autoFillLoadout } from '@/app/lib/progression/actions'
 import { recordStoryProgress } from '@/app/lib/story/actions'
 import { MAX_ROUNDS, NPC_WINS_ON_WIN } from './constants'
@@ -66,14 +60,22 @@ async function loadActiveBattleContext(battleId: string) {
   // As formas do inimigo, pelo nível com que ele entrou na luta. Monstro de
   // raid ainda não tem forma nenhuma; batalha gravada antes de o nível ir
   // para o estado lê nível 1, que também não libera nenhuma.
-  const [playerSkills, playerTransformations, enemyTransformations, aliados] = await Promise.all([
+  const [playerSkills, playerTransformations, enemyTransformations, participantes, raidRun] = await Promise.all([
     getEquippedSkills(userCharacter.id),
     getPlayerTransformations(userCharacter.characterId, userCharacter.level),
     battle.enemyCharacterId
       ? getPlayerTransformations(battle.enemyCharacterId, vilao(state).nivel ?? 1)
       : Promise.resolve({}),
-    carregarAliados(battle.id),
+    carregarParticipantes(battle.id),
+    battle.raidRunId ? prisma.raidRun.findUnique({ where: { id: battle.raidRunId }, select: { id: true, raid: true } }) : null,
   ])
+
+  // O andar de raid que esta luta é, para o fim dela fazer a incursão andar.
+  const raidDaBatalha = raidRun ? raidPorSlug(raidRun.raid) : undefined
+  const raid =
+    raidRun && raidDaBatalha
+      ? { runId: raidRun.id, andar: battle.andar ?? 0, totalDeAndares: raidDaBatalha.andares.length }
+      : null
 
   // Estágio de história dita o próprio XP (xpReward), que é o número exibido
   // ao jogador na tela do estágio. Sem isso ele receberia o XP genérico de
@@ -109,82 +111,112 @@ async function loadActiveBattleContext(battleId: string) {
     playerSkills,
     playerTransformations,
     enemyTransformations,
-    aliados,
+    aliados: participantes.aliados,
+    inimigosExtras: participantes.inimigos,
+    raid,
     state,
   }
 }
 
 type ContextoDeBatalha = Awaited<ReturnType<typeof loadActiveBattleContext>>
 
+type Participante = {
+  posicao: number
+  nome: string
+  skills: Record<string, SkillDef>
+  formas: Record<string, TransformationDef>
+}
+
 /**
- * Os aliados da party (os contratados), com o que a IA precisa para jogar
- * por eles: golpes e formas no nível com que entraram. Batalha sem party
- * devolve lista vazia, e a rodada sai igual à de sempre.
+ * Quem luta além do principal de cada lado: os aliados da party e os demais
+ * inimigos de um andar de raid, com o que a IA precisa para jogar por eles —
+ * golpes e formas no nível com que entraram. Batalha sem ninguém a mais
+ * devolve listas vazias, e a rodada sai igual à de sempre.
  */
-async function carregarAliados(battleId: string): Promise<
-  { posicao: number; nome: string; skills: Record<string, SkillDef>; formas: Record<string, TransformationDef> }[]
-> {
+async function carregarParticipantes(battleId: string): Promise<{ aliados: Participante[]; inimigos: Participante[] }> {
   const linhas = await prisma.battleParticipant.findMany({
-    where: { battleId, lado: 'PLAYER' },
+    where: { battleId },
     orderBy: { posicao: 'asc' },
-    include: { character: { select: { name: true } } },
+    include: { character: { select: { name: true } }, monster: { select: { name: true } } },
   })
-  return Promise.all(
+  const fichas = await Promise.all(
     linhas.map(async (p) => ({
+      lado: p.lado,
       posicao: p.posicao,
-      nome: p.character.name,
-      skills: await getEnemySkills(p.characterId, p.nivel),
-      formas: await getPlayerTransformations(p.characterId, p.nivel),
+      nome: p.character?.name ?? p.monster?.name ?? 'Lutador',
+      skills: p.monsterId
+        ? await getMonsterSkills(p.monsterId)
+        : p.characterId
+          ? await getEnemySkills(p.characterId, p.nivel)
+          : {},
+      formas: p.characterId ? await getPlayerTransformations(p.characterId, p.nivel) : {},
     }))
   )
+  return {
+    aliados: fichas.filter((f) => f.lado === 'PLAYER'),
+    inimigos: fichas.filter((f) => f.lado === 'ENEMY'),
+  }
 }
 
 /**
  * Resolve uma rodada com a ação do jogador contra a da IA. A IA decide por
  * acaoDaIa — bloquear, transformar ou atacar —, a mesma decisão que o
- * simulador de balanceamento usa. Ela joga também pelos aliados da party.
+ * simulador de balanceamento usa. Ela joga também pelos aliados da party e
+ * por cada inimigo do andar.
  */
 function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
   const golpesDoInimigo = Object.values(ctx.enemySkills)
+  const primeiroInimigoDePe = ctx.state.inimigos.find((c) => c.currentHp > 0) ?? vilao(ctx.state)
 
-  // Os aliados decidem como a IA decide pelo inimigo, lendo o chefe.
+  // Os aliados decidem como a IA decide pelo inimigo, lendo quem está de pé.
   const aliadas: AcaoDeCombate[] = [acaoDoJogador]
   for (const a of ctx.aliados) {
     const eu = ctx.state.aliados[a.posicao]
     // Caído tem a ação ignorada pelo motor; o ataque básico só preenche a vaga.
     aliadas[a.posicao] =
       eu && eu.currentHp > 0
-        ? acaoDaIa(eu, Object.values(a.skills), vilao(ctx.state), a.formas, { skillsDoOponente: golpesDoInimigo })
+        ? acaoDaIa(eu, Object.values(a.skills), primeiroInimigoDePe, a.formas, { skillsDoOponente: golpesDoInimigo })
         : { kind: 'ATTACK', skillId: null }
   }
 
-  // O inimigo escolhe o alvo ANTES do golpe, para ler o arsenal de quem vai
+  // Cada inimigo escolhe o alvo ANTES do golpe, para ler o arsenal de quem vai
   // apanhar ao decidir a postura.
-  const alvo = alvoDaIa(ctx.state.aliados)
-  const presa = ctx.state.aliados[alvo ?? 0]
-  const skillsDaPresa = alvo ? ctx.aliados.find((a) => a.posicao === alvo)?.skills ?? {} : ctx.playerSkills
-  const doInimigo = acaoDaIa(vilao(ctx.state), golpesDoInimigo, presa, ctx.enemyTransformations, {
-    skillsDoOponente: Object.values(skillsDaPresa),
-  })
+  const fichasInimigas: Omit<Participante, 'nome'>[] = [
+    { posicao: 0, skills: ctx.enemySkills, formas: ctx.enemyTransformations },
+    ...ctx.inimigosExtras,
+  ]
+  const inimigas: AcaoDeCombate[] = []
+  for (const f of fichasInimigas) {
+    const eu = ctx.state.inimigos[f.posicao]
+    if (!eu || eu.currentHp <= 0) {
+      inimigas[f.posicao] = { kind: 'ATTACK', skillId: null }
+      continue
+    }
+    const alvo = alvoDaIa(ctx.state.aliados)
+    const presa = ctx.state.aliados[alvo ?? 0]
+    const skillsDaPresa = alvo ? ctx.aliados.find((a) => a.posicao === alvo)?.skills ?? {} : ctx.playerSkills
+    const acao = acaoDaIa(eu, Object.values(f.skills), presa, f.formas, { skillsDoOponente: Object.values(skillsDaPresa) })
+    inimigas[f.posicao] = acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
+  }
 
-  // O mapa de golpes é por LADO: o motor procura pelo id. Os do jogador vêm
+  // O mapa de golpes é por LADO: o motor procura pelo id. Os do principal vêm
   // por último para vencer uma colisão — é a ficha dele que a tela mostra.
-  const golpesDoLado: Record<string, SkillDef> = Object.assign({}, ...ctx.aliados.map((a) => a.skills), ctx.playerSkills)
+  const golpesAliados: Record<string, SkillDef> = Object.assign({}, ...ctx.aliados.map((a) => a.skills), ctx.playerSkills)
+  const golpesInimigos: Record<string, SkillDef> = Object.assign({}, ...ctx.inimigosExtras.map((i) => i.skills), ctx.enemySkills)
   const formasDosAliados: Record<string, TransformationDef>[] = [ctx.playerTransformations]
   for (const a of ctx.aliados) formasDosAliados[a.posicao] = a.formas
+  const formasDosInimigos: Record<string, TransformationDef>[] = [ctx.enemyTransformations]
+  for (const i of ctx.inimigosExtras) formasDosInimigos[i.posicao] = i.formas
 
   return resolveRound(
     ctx.state,
+    { aliadas, inimigas },
     {
-      aliadas,
-      inimigas: [doInimigo.kind === 'ATTACK' && alvo !== undefined ? { ...doInimigo, alvo } : doInimigo],
-    },
-    {
-      playerSkills: golpesDoLado,
-      enemySkills: ctx.enemySkills,
+      playerSkills: golpesAliados,
+      enemySkills: golpesInimigos,
       playerTransformations: ctx.playerTransformations,
       enemyTransformations: ctx.enemyTransformations,
-      formasPorPosicao: { PLAYER: formasDosAliados },
+      formasPorPosicao: { PLAYER: formasDosAliados, ENEMY: formasDosInimigos },
     }
   )
 }
@@ -226,7 +258,9 @@ async function persistRound(
   storyXpReward: number | null,
   isFirstStoryClear: boolean,
   ehBatalhaContraIa: boolean,
-  userId: string
+  userId: string,
+  /** O andar de raid que esta luta é, ou null fora da raid. */
+  raid: { runId: string; andar: number; totalDeAndares: number } | null
 ): Promise<{ finalState: BattleState; isFinished: boolean; reward: Reward | null; moedas: number }> {
   const nextTurnNumber = expectedTurnNumber + 1
   const forcedEnd = newState.outcome === null && nextTurnNumber > MAX_ROUNDS
@@ -265,6 +299,23 @@ async function persistRound(
       },
     })
     if (updateResult.count === 0) throw new Error('CONCURRENT_UPDATE')
+
+    // FIM DE ANDAR: a incursão anda na MESMA transação da rodada final. Fora
+    // dela, uma queda no meio deixaria a luta terminada e a raid parada no
+    // mesmo andar, sem botão para seguir. A party sai como terminou — é isso
+    // que o próximo andar herda (ver app/lib/raid/andares.ts).
+    if (isFinished && raid) {
+      const passo = avancar(raid.andar, raid.totalDeAndares, finalState.outcome)
+      const andou = await tx.raidRun.updateMany({
+        where: { id: raid.runId, status: 'ATIVA', andar: raid.andar },
+        data: {
+          status: passo.status,
+          andar: passo.andar,
+          reservas: reservasDoTime(finalState.aliados) as unknown as Prisma.InputJsonValue,
+        },
+      })
+      if (andou.count > 0 && passo.status === 'VENCIDA') moedas += recompensaDaRaid(userCharacterLevel)
+    }
 
     const existingTurnCount = await tx.turn.count({ where: { battleId } })
     let actionNumber = existingTurnCount + 1
@@ -351,6 +402,7 @@ async function applyPostBattleEffects(
     revalidatePath('/dashboard')
     revalidatePath('/status')
     revalidatePath('/story')
+    revalidatePath('/battle/raid')
   }
 }
 
@@ -378,11 +430,13 @@ async function finalizeRound(
       ctx.storyXpReward,
       ctx.isFirstStoryClear,
       // Batalha contra IA é a que tem inimigo do catálogo e nada mais:
-      // história tem estágio, raid tem monstro, PvP tem oponente humano.
+      // história tem estágio, raid tem incursão, PvP tem oponente humano.
       ctx.battle.enemyCharacterId !== null &&
         ctx.battle.storyStageId === null &&
-        ctx.battle.opponentUserId === null,
-      ctx.battle.userId
+        ctx.battle.opponentUserId === null &&
+        ctx.battle.raidRunId === null,
+      ctx.battle.userId,
+      ctx.raid
     )
     await applyPostBattleEffects(battleId, ctx.userCharacter.id, ctx.userCharacter.characterId, ctx.userCharacter.level, result)
   } catch (e) {
@@ -414,81 +468,26 @@ export async function createBattleAndRedirect(params: {
   userCharacter: { id: string; level: number; character: { hp: number; attack: number; defense: number; speed: number; energy: number; stamina: number } }
   enemy: EnemyRef
   storyStageId?: string
-  /**
-   * Aliados contratados no mercado, na ordem das vagas. A cobrança sai na
-   * MESMA transação que cria a batalha: sem moedas não há batalha, e não há
-   * como pagar e ficar sem a luta.
-   */
-  contratados?: { characterId: string; nome: string; nivel: number; base: BaseStats; custo: number }[]
 }): Promise<never> {
-  const [treeBonus, equipmentBonus, atributos, traits] = await Promise.all([
-    getTreeBonus(params.userCharacter.id),
-    getEquipmentBonus(params.userCharacter.id),
-    getBonusDeAtributos(params.userCharacter.id),
-    getCharacterTraits(params.userCharacter.id, params.userCharacter.level),
-  ])
-  // Traço entra DEPOIS de nível, árvore e equipamento: é o que o personagem é,
-  // aplicado sobre tudo que ele conquistou.
-  const playerBase = applyTraits(
-    computeFighterStats(
-      params.userCharacter.character,
-      params.userCharacter.level,
-      sumStatBonuses(treeBonus, equipmentBonus, atributos)
-    ),
-    traits
+  const jogador = await fichaDoJogador(params.userCharacter)
+  const state = createInitialState(
+    jogador.base,
+    params.enemy.base,
+    { player: jogador.energyCostModifier },
+    { player: params.userCharacter.level, enemy: params.enemy.level }
   )
-  const contratados = params.contratados ?? []
-  const state = comLutadores(
-    createInitialState(
-      playerBase,
-      params.enemy.base,
-      { player: traitEnergyCostModifier(traits) },
-      { player: params.userCharacter.level, enemy: params.enemy.level }
-    ),
-    'PLAYER',
-    contratados
-  )
-  const custoTotal = contratados.reduce((s, c) => s + c.custo, 0)
 
-  const battle = await prisma
-    .$transaction(async (tx) => {
-      if (custoTotal > 0) {
-        // Débito condicional: dois cliques ao mesmo tempo não pagam com o
-        // mesmo saldo, porque a condição é conferida na própria escrita.
-        const pago = await tx.user.updateMany({
-          where: { id: params.userId, coins: { gte: custoTotal } },
-          data: { coins: { decrement: custoTotal } },
-        })
-        if (pago.count === 0) throw new Error('SEM_MOEDAS')
-      }
-      return tx.battle.create({
-        data: {
-          userId: params.userId,
-          playerCharacterId: params.userCharacter.id,
-          ...(params.enemy.kind === 'character' ? { enemyCharacterId: params.enemy.characterId } : { enemyMonsterId: params.enemy.monsterId }),
-          ...(params.storyStageId ? { storyStageId: params.storyStageId } : {}),
-          status: 'ACTIVE',
-          turnNumber: 1,
-          state: state as unknown as Prisma.InputJsonValue,
-          participantes: {
-            create: contratados.map((c, i) => ({
-              lado: 'PLAYER' as const,
-              posicao: i + 1,
-              characterId: c.characterId,
-              nivel: c.nivel,
-              custo: c.custo,
-            })),
-          },
-        },
-      })
-    })
-    .catch((e: unknown) => {
-      if (e instanceof Error && e.message === 'SEM_MOEDAS') return null
-      throw e
-    })
-  // O redirect fica FORA da transação: ele lança para interromper a action,
-  // e dentro dela seria lido como falha e desfaria a gravação.
-  if (!battle) redirect('/battle/raid?error=sem_moedas')
+  const battle = await prisma.battle.create({
+    data: {
+      userId: params.userId,
+      playerCharacterId: params.userCharacter.id,
+      ...(params.enemy.kind === 'character' ? { enemyCharacterId: params.enemy.characterId } : { enemyMonsterId: params.enemy.monsterId }),
+      ...(params.storyStageId ? { storyStageId: params.storyStageId } : {}),
+      status: 'ACTIVE',
+      turnNumber: 1,
+      state: state as unknown as Prisma.InputJsonValue,
+    },
+  })
 
   redirect(`/battle/ai/${battle.id}`)
 }
@@ -501,7 +500,7 @@ export async function startAiBattle(userCharacterId: string): Promise<never> {
   if (!userCharacter) redirect('/select')
 
   const existing = await prisma.battle.findFirst({
-    where: { userId, playerCharacterId: userCharacterId, status: 'ACTIVE', enemyCharacterId: { not: null } },
+    where: { userId, playerCharacterId: userCharacterId, status: 'ACTIVE', enemyCharacterId: { not: null }, raidRunId: null },
     select: { id: true },
   })
   if (existing) redirect(`/battle/ai/${existing.id}`)
@@ -520,63 +519,6 @@ export async function startAiBattle(userCharacterId: string): Promise<never> {
   })
 }
 
-export async function startRaidBattle(userCharacterId: string, monsterId: string, dados?: FormData): Promise<never> {
-  const user = await requireUser()
-  const userId = user.id
-
-  const userCharacter = await prisma.userCharacter.findFirst({ where: { id: userCharacterId, userId }, include: { character: true } })
-  if (!userCharacter) redirect('/select')
-
-  const existing = await prisma.battle.findFirst({
-    where: { userId, playerCharacterId: userCharacterId, status: 'ACTIVE', enemyMonsterId: { not: null } },
-    select: { id: true },
-  })
-  if (existing) redirect(`/battle/ai/${existing.id}`)
-
-  const monster = await prisma.monster.findUnique({ where: { id: monsterId } })
-  if (!monster) redirect('/battle/raid?error=not_found')
-
-  // O PORTÃO É REVALIDADO AQUI, e não só na tela. A tela desabilita o botão
-  // do tier trancado, mas quem posta o form direto passaria por cima dela —
-  // server action é fronteira de confiança, o botão desabilitado é conforto.
-  if (!tierLiberado(monster.tier, userCharacter.level)) redirect('/battle/raid?error=tier_locked')
-
-  // STATS FIXOS, SEM ESCALA POR NÍVEL — é o que faz o tier ser uma escada em
-  // vez de decoração. Ver app/lib/battle/raid.ts para a medição que mostrou
-  // que escalar o monstro junto com o jogador congela a dificuldade relativa.
-  const enemyBase = computeBaseStats(monster, SEM_BONUS)
-
-  // A party, contratada no mercado. Revalidada aqui: o formulário vem do
-  // navegador, e a cobrança depende do que ele disser.
-  const pedidos = (dados?.getAll('aliado') ?? []).filter((v): v is string => typeof v === 'string')
-  const mercado = await prisma.character.findMany({ select: { id: true } })
-  const conferido = validarContratos(pedidos, {
-    disponiveis: new Set(mercado.map((c) => c.id)),
-    proprioCharacterId: userCharacter.characterId,
-  })
-  if (!conferido.ok) redirect(`/battle/raid?error=${conferido.erro}`)
-
-  const personagens = await prisma.character.findMany({ where: { id: { in: conferido.ids } } })
-  const contratados = conferido.ids.map((id) => {
-    const c = personagens.find((p) => p.id === id)!
-    return {
-      characterId: c.id,
-      nome: c.name,
-      // No nível do jogador — ver app/lib/battle/party.ts.
-      nivel: userCharacter.level,
-      base: computeFighterStats(c, userCharacter.level, SEM_BONUS),
-      custo: precoDoContrato(userCharacter.level),
-    }
-  })
-
-  return createBattleAndRedirect({
-    userId,
-    userCharacter,
-    enemy: { kind: 'monster', monsterId: monster.id, base: enemyBase, level: 1 },
-    contratados,
-  })
-}
-
 const POSTURAS: readonly Postura[] = ['NEUTRA', 'ESQUIVA', 'APARAR', 'GUARDA', 'IMPETO']
 
 /** A postura enviada com o golpe. Valor desconhecido vira a neutra: o campo vem do navegador. */
@@ -585,13 +527,29 @@ function posturaDoFormulario(dados?: FormData): Postura {
   return POSTURAS.find((p) => p === valor) ?? 'NEUTRA'
 }
 
+/**
+ * O alvo enviado com o golpe, como índice no lado inimigo. Fora do intervalo
+ * ou ausente vira undefined, e o motor manda o golpe para o primeiro de pé.
+ */
+function alvoDoFormulario(dados: FormData | undefined, state: BattleState): number | undefined {
+  const valor = dados?.get('alvo')
+  if (typeof valor !== 'string') return undefined
+  const n = Number(valor)
+  return Number.isInteger(n) && n >= 0 && n < state.inimigos.length ? n : undefined
+}
+
 export async function takeTurn(battleId: string, skillId: string | null, dados?: FormData): Promise<void> {
   const ctx = await loadActiveBattleContext(battleId)
   const chosenSkill = skillId ? ctx.playerSkills[skillId] ?? null : null
   if (skillId && !chosenSkill) redirect(`/battle/ai/${battleId}?error=invalid_skill`)
   if (!isLegalMove(heroi(ctx.state), chosenSkill)) redirect(`/battle/ai/${battleId}?error=illegal_move`)
 
-  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'ATTACK', skillId, postura: posturaDoFormulario(dados) })
+  const { state: newState, turnResults } = rodadaContraIa(ctx, {
+    kind: 'ATTACK',
+    skillId,
+    postura: posturaDoFormulario(dados),
+    alvo: alvoDoFormulario(dados, ctx.state),
+  })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
 }
