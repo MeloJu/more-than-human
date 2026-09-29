@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
     <main className="mx-auto max-w-md p-6">
       <h1 className="text-2xl font-semibold mb-4">Sign in</h1>
       {errorMessage && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
+        <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
       <form action={loginAction} className="card p-6 space-y-4">
         <input type="hidden" name="redirectTo" value={redirectTo} />

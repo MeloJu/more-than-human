@@ -107,7 +107,7 @@ export default async function StatusPage({
       )}
 
       {errorMessage && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
 
       <div className="card p-4 space-y-3">

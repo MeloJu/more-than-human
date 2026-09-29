@@ -53,7 +53,7 @@ export default async function StoryPage({ searchParams }: { searchParams: Promis
       </div>
 
       {errorMessage && (
-        <div className="mb-4 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{errorMessage}</div>
+        <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
 
       {chapters.length === 0 && <div className="card p-6 opacity-70">Nenhum capítulo disponível ainda.</div>}
@@ -76,7 +76,7 @@ export default async function StoryPage({ searchParams }: { searchParams: Promis
                   <div className="flex items-center gap-2">
                     <span className="text-xs opacity-50 tabular-nums">{String(stage.order).padStart(2, '0')}</span>
                     <span className="font-medium">{stage.locked ? '???' : stage.title}</span>
-                    {stage.completed && <span className="text-xs text-green-700">✔ concluído</span>}
+                    {stage.completed && <span className="text-xs text-green-400">✔ concluído</span>}
                   </div>
                   <div className="text-sm opacity-70 mt-0.5">
                     {stage.locked ? 'Bloqueado' : `vs ${enemyName} · Lv ${stage.enemyLevel}`}

@@ -4,10 +4,22 @@
   Tema visual: shinigami.
   A paleta sai do preto do shihakushō com o laranja do reiatsu do Ichigo por
   cima — o contraste alto é o que dá a leitura de anime, em vez do azul suave
-  de dashboard que estava aqui antes. Fundo escuro é o padrão do tema; o modo
-  claro existe, mas é o secundário.
+  de dashboard que estava aqui antes.
+
+  SÓ ESCURO, por decisão do dono do projeto. Havia um modo claro secundário,
+  ligado pelo sistema do visitante, e era nele que a tela quebrava: o topo da
+  página inicial tem fundo sempre escuro, e o título seguia o tema e sumia.
+  Manter os dois temas dobrava o trabalho de cada tela nova.
 */
+
+/* A variante dark: do Tailwind seguia o sistema do visitante. Com um tema
+   só, ela passa a valer sempre (o <html> leva a classe dark), senão quem usa
+   o sistema no modo claro veria as cores de texto pensadas para fundo claro
+   em cima do fundo escuro. */
+@custom-variant dark (&:where(.dark, .dark *));
 :root {
+  /* Controles nativos (select, scrollbar, input de data) no escuro também. */
+  color-scheme: dark;
   --background: #0a0a0f;
   --background-alt: #12121a;
   --foreground: #f4f4f5;
@@ -28,23 +40,6 @@
   --rarity-raro: #38bdf8;
   --rarity-epico: #a855f7;
   --rarity-lendario: #fbbf24;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --background: #f4f4f5;
-    --background-alt: #ffffff;
-    --foreground: #18181b;
-    --muted: #52525b;
-    --surface: #ffffff;
-    --surface-raised: #fafafa;
-    --border: #e4e4e7;
-    --accent: #e55510;
-    --accent-600: #c2410c;
-    --accent-glow: rgba(229, 85, 16, 0.2);
-    --spirit: #0891b2;
-    --ring: rgba(229, 85, 16, 0.4);
-  }
 }
 
 @theme inline {

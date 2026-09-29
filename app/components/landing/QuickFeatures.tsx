@@ -1,37 +1,39 @@
 import Link from 'next/link'
-import { Swords, GitBranch, BookOpen, Shield } from 'lucide-react'
+import { Swords, Castle, BookOpen, Shield } from 'lucide-react'
 
 /**
  * Só entra aqui o que já existe e é jogável hoje.
  *
- * A versão anterior anunciava "Global Rankings" e "leaderboards competitivos"
- * — PvP nem começou. Prometer o que não existe é o jeito mais rápido de
- * frustrar quem clica.
+ * A versão anterior anunciava "Global Rankings" e "leaderboards competitivos",
+ * que nunca existiram. Depois foi o contrário: dizia que PvP "ainda não
+ * existe" com o PvP no ar, e prometia árvore de habilidades para todo mundo
+ * quando só 13 dos 62 personagens têm uma. Prometer o que não existe, ou
+ * esconder o que existe, frustra do mesmo jeito.
  */
 const features = [
   {
     icon: Swords,
     title: 'Combate por turnos',
     description:
-      'Energia, cooldown, crítico por velocidade, escudo, contra-ataque, dano ao longo do tempo e atordoamento.',
+      'Energia e stamina, posturas (esquivar, aparar, guarda), transformações que cobram para se manter, choque de golpes e domínios.',
   },
   {
-    icon: GitBranch,
-    title: 'Árvore de habilidades',
+    icon: Castle,
+    title: 'Raid em grupo',
     description:
-      'Cada personagem tem sua própria árvore. Suba de nível, ganhe pontos e escolha o que desbloquear.',
+      'Las Noches em cinco andares sem recuperar vida entre eles, com aliados contratados no mercado e o Grimmjow esperando na torre.',
   },
   {
     icon: BookOpen,
     title: 'Modo História',
     description:
-      'O Arco Soul Society, tenente por tenente até Aizen. Progressão travada: cada estágio libera o próximo.',
+      'O Arco Soul Society, tenente por tenente até Aizen, e o Incidente de Shibuya. Cada estágio libera o próximo.',
   },
   {
     icon: Shield,
     title: 'Equipamentos',
     description:
-      'Compre Zanpakutō, trajes e acessórios com as moedas da história. Os melhores concedem habilidades próprias.',
+      'Compre Zanpakutō, trajes e acessórios com as moedas que a luta rende. Os melhores concedem habilidades próprias.',
   },
 ]
 
@@ -63,9 +65,9 @@ export default function QuickFeatures({ authed }: { authed: boolean }) {
 
         <div className="mt-8 card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="heading text-lg">Em construção</div>
+            <div className="heading text-lg">E PvP de verdade</div>
             <p className="text-sm text-muted mt-1">
-              PvP entre jogadores e novos arcos de história ainda não existem — o resto acima já funciona.
+              Contra outro jogador, com a rodada simultânea: os dois escolhem ao mesmo tempo, e ninguém joga vendo a escolha do outro.
             </p>
           </div>
           {!authed && (

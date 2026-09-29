@@ -60,7 +60,7 @@ export default function Hero({ authed, stats }: HeroProps) {
             </h1>
             <p className="max-w-lg text-base text-muted sm:text-lg leading-relaxed">
               Combate por turnos com energia, cooldown, efeitos de status e transformações.
-              Atravesse o Arco Soul Society, evolua sua árvore de habilidades e equipe
+              Atravesse o Arco Soul Society, suba a torre de Las Noches com a sua party e equipe
               Zanpakutō de verdade.
             </p>
           </div>

@@ -12,7 +12,9 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
   if (!c) return notFound()
 
   return (
-    <main className="relative mx-auto max-w-6xl p-6 space-y-6">
+    // overflow-x-clip: as manchas de cor ficam de propósito fora da caixa, e
+    // sem o corte elas alargavam a página no celular (470px numa tela de 390).
+    <main className="relative mx-auto max-w-6xl p-6 space-y-6 overflow-x-clip">
       <div className="pointer-events-none absolute -top-10 -left-14 h-56 w-56 rounded-full bg-gradient-to-br from-[#4f46e5]/40 via-[#60a5fa]/30 to-transparent blur-3xl" />
       <div className="pointer-events-none absolute top-1/3 -right-20 h-64 w-64 rounded-full bg-gradient-to-br from-[#0ea5e9]/30 via-[#818cf8]/30 to-transparent blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/3 h-48 w-48 rounded-full bg-gradient-to-br from-[#facc15]/20 via-[#fb7185]/20 to-transparent blur-3xl" />
@@ -21,7 +23,7 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
           <h1 className="text-3xl font-bold">{c.name}</h1>
           <div className="text-sm opacity-70">{c.anime.name}{c.affiliation ? ` • ${c.affiliation.name}` : ''}</div>
         </div>
-        <Link href="/characters" className="text-sm underline">Back to list</Link>
+        <Link href="/characters" className="text-sm underline">Voltar à lista</Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -33,23 +35,20 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
             containerClassName="relative w-full aspect-[4/3] rounded-md overflow-hidden bg-background-alt"
             placeholderClassName="h-full w-full flex items-center justify-center text-muted"
           />
-          {c.imageUrl && (
-            <div className="text-xs opacity-60 mt-2">Image source: {c.imageUrl}</div>
-          )}
         </div>
 
         {/* Stats */}
         <div className="md:col-span-2 card p-6">
-          <h2 className="text-lg font-semibold mb-3">Stats</h2>
+          <h2 className="text-lg font-semibold mb-3">Atributos</h2>
           <StatGrid
             gridClassName="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 text-sm"
             itemClassName="rounded-md border border-border p-3 bg-surface-raised"
             stats={[
-              { label: 'HP', value: c.hp },
-              { label: 'ATK', value: c.attack },
-              { label: 'DEF', value: c.defense },
-              { label: 'SPD', value: c.speed },
-              { label: 'EN', value: c.energy },
+              { label: 'Vida', value: c.hp },
+              { label: 'Ataque', value: c.attack },
+              { label: 'Defesa', value: c.defense },
+              { label: 'Velocidade', value: c.speed },
+              { label: 'Energia', value: c.energy },
             ]}
           />
         </div>
@@ -58,26 +57,20 @@ export default async function CharacterDetailPage({ params }: { params: Promise<
       {/* Skills */}
       <div className="card p-6">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Skills</h2>
+          <h2 className="text-lg font-semibold">Habilidades</h2>
         </div>
         {c.characterSkills.length === 0 ? (
-          <div className="text-sm opacity-70">No skills linked yet.</div>
+          <div className="text-sm opacity-70">Nenhuma habilidade ainda.</div>
         ) : (
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {c.characterSkills.map(cs => (
               <li key={cs.skillId} className="rounded-md border border-border p-3 bg-surface-raised">
                 <div className="font-medium">{cs.skill.name}</div>
-                <div className="text-xs opacity-70 mt-0.5">Power {cs.skill.power} • Cost {cs.skill.energyCost} • CD {cs.skill.cooldown}</div>
+                <div className="text-xs opacity-70 mt-0.5">Poder {cs.skill.power} • Energia {cs.skill.energyCost} • Recarga {cs.skill.cooldown}</div>
               </li>
             ))}
           </ul>
         )}
-      </div>
-
-      {/* Placeholder for future sections */}
-      <div className="card p-6">
-        <h2 className="text-lg font-semibold mb-2">Skill Tree (coming soon)</h2>
-        <p className="text-sm opacity-70">We will render the full tree here with unlock previews and prerequisites.</p>
       </div>
     </main>
   )

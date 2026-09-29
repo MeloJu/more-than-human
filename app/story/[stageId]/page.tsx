@@ -66,9 +66,9 @@ export default async function StoryStagePage({ params }: { params: Promise<{ sta
 
         {completed ? (
           <>
-            <div className="rounded-md border border-green-300 bg-green-50 p-4">
-              <div className="text-xs uppercase tracking-wide text-green-800 opacity-70">Concluído</div>
-              <p className="whitespace-pre-line leading-relaxed mt-1 text-green-900">{stage.outroText}</p>
+            <div className="rounded-md border border-green-500/40 bg-green-500/10 p-4">
+              <div className="text-xs uppercase tracking-wide text-green-300 opacity-80">Concluído</div>
+              <p className="whitespace-pre-line leading-relaxed mt-1 text-green-100">{stage.outroText}</p>
             </div>
             <CenaDeDialogo falas={falas} retratos={retratos} rotuloAbrir="Rejogar">
               <form action={startStoryBattle.bind(null, stage.id)}>
