@@ -62,7 +62,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className="dark">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${pincel.variable} ${titulo.variable} ${kanji.variable} antialiased`}
+        // pb-16 no celular: a barra de seções fica presa embaixo e cobriria o rodapé.
+        className={`${geistSans.variable} ${geistMono.variable} ${pincel.variable} ${titulo.variable} ${kanji.variable} antialiased pb-16 md:pb-0`}
       >
         <AppNav />
         <div className="min-h-[calc(100vh-56px)]">

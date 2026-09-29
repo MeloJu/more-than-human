@@ -5,6 +5,8 @@ import { equipItem, unequipItem } from '@/app/lib/equipment/actions'
 import { getSelectedCharacter } from '@/app/lib/progression/queries'
 import { EquipmentCard } from '@/app/components/equipment/EquipmentCard'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
+import { AbasDaSecao } from '@/app/components/AbasDaSecao'
+import { ABAS_DO_PERSONAGEM } from '@/app/lib/navegacao'
 
 const EQUIP_ERRORS: Record<string, string> = {
   not_owned: 'Você não possui este item.',
@@ -47,6 +49,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
+      <AbasDaSecao abas={ABAS_DO_PERSONAGEM} className="mb-6" />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <div className="kicker">Equipando · {selected.nickname}</div>
@@ -78,7 +81,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
                 />
               ) : (
                 <div className="card p-6 text-center text-sm text-muted border-dashed">
-                  Slot vazio
+                  Espaço vazio
                 </div>
               )}
             </div>

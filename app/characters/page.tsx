@@ -2,6 +2,8 @@ import Image from 'next/image'
 import { CharacterMonogram } from '@/app/components/CharacterImage'
 import Link from 'next/link'
 import { listCharacters } from '@/app/lib/characters/queries'
+import { AbasDaSecao } from '@/app/components/AbasDaSecao'
+import { ABAS_DO_CATALOGO } from '@/app/lib/navegacao'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,6 +12,7 @@ export default async function CharactersPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
+      <AbasDaSecao abas={ABAS_DO_CATALOGO} className="mb-6" />
       <h1 className="text-3xl font-bold mb-6">Personagens</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {characters.map((c) => (

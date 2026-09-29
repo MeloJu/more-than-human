@@ -3,6 +3,8 @@ import { prisma } from '@/app/lib/prisma'
 import { custaStamina, hasBattleValue } from '@/app/lib/battle/engine'
 import { toSkillDef } from '@/app/lib/battle/queries'
 import { CartaoDeHabilidade, CATEGORIA_LABEL } from '@/app/components/skills/CartaoDeHabilidade'
+import { AbasDaSecao } from '@/app/components/AbasDaSecao'
+import { ABAS_DO_CATALOGO } from '@/app/lib/navegacao'
 
 /**
  * Catálogo de habilidades.
@@ -45,6 +47,7 @@ export default async function SkillsPage({
 
   return (
     <main className="mx-auto max-w-5xl p-6">
+      <AbasDaSecao abas={ABAS_DO_CATALOGO} className="mb-6" />
       <div className="flex items-baseline justify-between gap-4 mb-1">
         <h1 className="text-2xl font-semibold">Habilidades</h1>
         <span className="text-sm opacity-60 shrink-0 tabular-nums">{uteis.length} exibidas</span>

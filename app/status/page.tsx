@@ -14,6 +14,8 @@ import { XP_PER_LEVEL } from '@/app/lib/battle/constants'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
 import { PainelDeAtributos } from '@/app/components/progression/PainelDeAtributos'
 import { PainelDeTransformacoes } from '@/app/components/progression/PainelDeTransformacoes'
+import { AbasDaSecao } from '@/app/components/AbasDaSecao'
+import { ABAS_DO_PERSONAGEM } from '@/app/lib/navegacao'
 
 const STATUS_ERROR_MESSAGES: Record<string, string> = {
   not_found: 'Personagem não encontrado.',
@@ -88,6 +90,7 @@ export default async function StatusPage({
 
   return (
     <main className="mx-auto max-w-3xl p-6 space-y-6">
+      <AbasDaSecao abas={ABAS_DO_PERSONAGEM} className="mb-6" />
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Status — {selected.nickname}</h1>
         <div className="text-sm opacity-70">

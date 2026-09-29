@@ -16,6 +16,8 @@ import { computeFighterStats, sumStatBonuses } from '@/app/lib/battle/engine'
 import { getTreeBonus } from '@/app/lib/battle/queries'
 import { getEquipmentBonus } from '@/app/lib/equipment/queries'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
+import { AbasDaSecao } from '@/app/components/AbasDaSecao'
+import { ABAS_DO_PERSONAGEM } from '@/app/lib/navegacao'
 
 const TREINO_ERRORS: Record<string, string> = {
   invalid_attribute: 'Atributo inválido.',
@@ -79,6 +81,7 @@ export default async function TreinoPage({
 
   return (
     <main className="mx-auto max-w-3xl p-6">
+      <AbasDaSecao abas={ABAS_DO_PERSONAGEM} className="mb-6" />
       <div className="flex items-baseline justify-between gap-4 mb-1">
         <h1 className="text-2xl font-semibold">Treino</h1>
         <span className="text-sm opacity-70 shrink-0 tabular-nums">{moedas} moedas</span>
