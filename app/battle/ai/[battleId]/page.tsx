@@ -8,6 +8,7 @@ import { getRetratosDosFalantes, getStageOutro, parseDialogo } from '@/app/lib/s
 import { CenaDeDialogo } from '@/app/components/story/CenaDeDialogo'
 import { battleErrorMessage } from '@/app/lib/battle/presentation'
 import { FighterCard } from '@/app/components/battle/FighterCard'
+import { FaixaDeAliado } from '@/app/components/battle/FaixaDeAliado'
 import { BotaoDeForma } from '@/app/components/battle/BotaoDeForma'
 import { BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
@@ -22,7 +23,7 @@ import { coresDoConfronto } from '@/app/lib/battle/cores'
 import { Swords } from 'lucide-react'
 import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
-import { impactoDaRodada } from '@/app/lib/battle/rodada'
+import { impactoDe, impactoPorLutador } from '@/app/lib/battle/rodada'
 import type { BattleStateGravado, TurnResult } from '@/app/lib/battle/types'
 
 export default async function BattleArenaPage({
@@ -77,9 +78,25 @@ export default async function BattleArenaPage({
   // ordem decrescente, então a primeira rodada que aparece é a última que
   // aconteceu. Ver app/lib/battle/rodada.ts.
   const ultimaRodada = turns[0]?.round ?? 0
-  const impacto = impactoDaRodada(
+  const impacto = impactoPorLutador(
     turns.filter((t) => t.round === ultimaRodada).map((t) => t.result as unknown as TurnResult)
   )
+
+  // A party (os contratados), na ordem das vagas. A posição é o índice no
+  // estado; o 0 é o próprio jogador e não está nesta tabela.
+  const party = await prisma.battleParticipant.findMany({
+    where: { battleId: battle.id, lado: 'PLAYER' },
+    orderBy: { posicao: 'asc' },
+    include: { character: { select: { name: true, imageUrl: true, corDestaque: true } } },
+  })
+  const nomesAliados: string[] = [userCharacter.nickname]
+  for (const p of party) nomesAliados[p.posicao] = p.character.name
+  const idsDeFormaDaParty = party
+    .map((p) => state.aliados[p.posicao]?.activeTransformationId)
+    .filter((id): id is string => Boolean(id))
+  const formasDaParty = idsDeFormaDaParty.length
+    ? await prisma.transformation.findMany({ where: { id: { in: idsDeFormaDaParty } }, select: { id: true, name: true } })
+    : []
 
   // Desfecho do estágio, encenado no momento em que o inimigo cai. Só é
   // buscado numa VITÓRIA de história: perder não tem desfecho, e ler o
@@ -182,7 +199,7 @@ export default async function BattleArenaPage({
           aconteceu, adversário. A decisão da rodada se toma olhando as duas
           barras de vida, então elas ficam lado a lado e acima das ações. */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch">
-        <CartaAnimada impacto={impacto.PLAYER} rodada={ultimaRodada}>
+        <CartaAnimada impacto={impactoDe(impacto, 'PLAYER')} rodada={ultimaRodada}>
           <FighterCard
             name={userCharacter.nickname}
             imageUrl={userCharacter.character.imageUrl}
@@ -197,12 +214,13 @@ export default async function BattleArenaPage({
           turns={turns.map((t) => ({ id: t.id, round: t.round, result: t.result as unknown as TurnResult }))}
           playerName={userCharacter.nickname}
           enemyName={enemy.name}
+          nomesAliados={nomesAliados}
           falas={falas}
           corJogador={corJogador}
           corInimigo={corInimigo}
         />
 
-        <CartaAnimada impacto={impacto.ENEMY} rodada={ultimaRodada}>
+        <CartaAnimada impacto={impactoDe(impacto, 'ENEMY')} rodada={ultimaRodada}>
           <FighterCard
             name={enemy.name}
             imageUrl={enemy.imageUrl}
@@ -213,6 +231,29 @@ export default async function BattleArenaPage({
           />
         </CartaAnimada>
       </div>
+
+      {/* A PARTY, em faixas logo abaixo das cartas: os aliados jogam sozinhos,
+          então o que importa deles é quem está de pé e quanto aguenta. */}
+      {party.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {party.map((p) => {
+            const combatente = state.aliados[p.posicao]
+            if (!combatente) return null
+            return (
+              <CartaAnimada key={p.id} impacto={impactoDe(impacto, 'PLAYER', p.posicao)} rodada={ultimaRodada}>
+                <FaixaDeAliado
+                  nome={p.character.name}
+                  imageUrl={p.character.imageUrl}
+                  nivel={p.nivel}
+                  cor={p.character.corDestaque}
+                  formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
+                  combatente={combatente}
+                />
+              </CartaAnimada>
+            )
+          })}
+        </div>
+      )}
 
       {/* FORMAS EM FAIXA PRÓPRIA, abaixo dos cards. Antes moravam na coluna
           do jogador; com a tira que rola para o lado elas cabem para qualquer

@@ -238,6 +238,7 @@ model Character {
   treeNodes       SkillTreeNode[]
   userCharacters  UserCharacter[]
   enemyBattles    Battle[]         @relation("EnemyCharacter")
+  participacoes   BattleParticipant[]
   transformations Transformation[]
   traits          Trait[]
   storyStages     StoryStage[]
@@ -558,6 +559,34 @@ enum ActorSide {
   ENEMY
 }
 
+/// Um lutador da batalha que NÃO é o principal do seu lado.
+///
+/// O principal de cada lado continua no próprio Battle (playerCharacter e
+/// enemyCharacter/enemyMonster): toda batalha tem os dois, e mover isso para
+/// cá mudaria cada consulta do jogo sem ganho. Aqui entram os demais — hoje,
+/// os aliados contratados no mercado para a raid; depois, amigos e colegas de
+/// guilda (userCharacterId) e os vários inimigos de um andar.
+///
+/// `posicao` é o índice no array daquele lado no estado da batalha
+/// (`aliados`/`inimigos`), então começa em 1: o 0 é o principal.
+model BattleParticipant {
+  id          String    @id @default(cuid())
+  battle      Battle    @relation(fields: [battleId], references: [id], onDelete: Cascade)
+  battleId    String
+  lado        ActorSide
+  posicao     Int
+  character   Character @relation(fields: [characterId], references: [id])
+  characterId String
+  /// Nível com que entrou: decide stats, golpes liberados e formas.
+  nivel       Int
+  /// Moedas pagas pelo contrato. Zero para quem não foi contratado.
+  custo       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@unique([battleId, lado, posicao])
+  @@index([characterId])
+}
+
 model Battle {
   id                    String         @id @default(cuid())
   user                  User           @relation(fields: [userId], references: [id])
@@ -596,6 +625,8 @@ model Battle {
   updatedAt             DateTime       @updatedAt
 
   turns Turn[]
+  /// Quem luta além do principal de cada lado. Ver BattleParticipant.
+  participantes BattleParticipant[]
 }
 
 model Turn {

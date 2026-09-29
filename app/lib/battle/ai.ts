@@ -308,6 +308,24 @@ export function acaoDaIa(
 }
 
 /**
+ * Em quem a IA bate quando há mais de um do outro lado.
+ *
+ * SORTEIO entre quem está de pé, por enquanto. Sem isso o motor manda o golpe
+ * para o primeiro vivo — na party, o jogador apanharia sozinho a luta inteira
+ * enquanto os aliados assistem de graça. O chefe com critério próprio (o
+ * Grimmjow persegue quem mais bateu nele) sobrepõe esta escolha.
+ *
+ * Com um só do outro lado não sorteia nada e devolve undefined: o 1x1 não
+ * gasta a fonte de sorte, e toda batalha e simulação antiga sai igual.
+ */
+export function alvoDaIa(outroLado: CombatantState[], rand: () => number = Math.random): number | undefined {
+  if (outroLado.length <= 1) return undefined
+  const dePe = outroLado.map((c, i) => (c.currentHp > 0 ? i : -1)).filter((i) => i >= 0)
+  if (dePe.length === 0) return undefined
+  return dePe[Math.min(dePe.length - 1, Math.floor(rand() * dePe.length))]
+}
+
+/**
  * Abaixo de quanto da stamina máxima a IA para de se posicionar e fica na
  * neutra para recuperar. Sem esse piso ela gastaria a reserva inteira em
  * postura e não teria como sustentar forma nem erguer guarda quando precisa.

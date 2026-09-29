@@ -337,6 +337,27 @@ export function createInitialState(
 }
 
 /**
+ * Soma lutadores ao fim de um lado, depois do principal.
+ *
+ * Cada um entra como entraria sozinho (makeCombatant): energia inicial,
+ * stamina cheia, sem forma. O nome vai junto porque o log e a ressurreição
+ * precisam dele, e o estado é a única coisa que viaja entre as rodadas.
+ */
+export function comLutadores(
+  state: BattleState,
+  lado: Side,
+  lutadores: { base: BaseStats; nivel: number; nome: string; energyCostModifier?: number }[]
+): BattleState {
+  const novos = lutadores.map((l) => ({
+    ...makeCombatant(l.base, l.energyCostModifier ?? 0, l.nivel),
+    nome: l.nome,
+  }))
+  return lado === 'PLAYER'
+    ? { ...state, aliados: [...state.aliados, ...novos] }
+    : { ...state, inimigos: [...state.inimigos, ...novos] }
+}
+
+/**
  * O principal de cada lado — o índice 0.
  *
  * Existem porque a maior parte do jogo continua sendo 1x1, e escrever

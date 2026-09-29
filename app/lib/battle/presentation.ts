@@ -91,6 +91,11 @@ const BATTLE_ERROR_MESSAGES: Record<string, string> = {
   insufficient_energy: 'Energia insuficiente para liberar essa forma.',
   insufficient_stamina: 'Stamina insuficiente para liberar essa forma.',
   tier_locked: 'Seu personagem ainda não tem nível para encarar esse inimigo.',
+  party_cheia: 'A party só tem duas vagas de contrato.',
+  contrato_repetido: 'O mesmo personagem foi contratado duas vezes.',
+  contrato_proprio: 'Você não pode contratar o próprio personagem.',
+  contrato_indisponivel: 'Esse personagem não está no mercado.',
+  sem_moedas: 'Moedas insuficientes para esses contratos.',
 }
 
 export function battleErrorMessage(code: string | undefined): string | null {

@@ -64,14 +64,27 @@ export function TurnLogEntry({
   playerName,
   enemyName,
   falas,
+  nomesAliados,
+  nomesInimigos,
 }: {
   turn: TurnResult
   playerName: string
   enemyName: string
   falas?: Record<string, string>
+  /**
+   * Os nomes da party, por posição (ver TurnResult.posicao). O índice 0 é
+   * sempre playerName/enemyName; sem a lista, todo mundo de um lado leva o
+   * nome do principal, que é o certo no 1x1.
+   */
+  nomesAliados?: string[]
+  nomesInimigos?: string[]
 }) {
-  const actorName = turn.side === 'PLAYER' ? playerName : enemyName
-  const alvoName = turn.side === 'PLAYER' ? enemyName : playerName
+  const nomeEm = (side: TurnResult['side'], posicao = 0) =>
+    side === 'PLAYER'
+      ? (posicao > 0 ? nomesAliados?.[posicao] : undefined) ?? playerName
+      : (posicao > 0 ? nomesInimigos?.[posicao] : undefined) ?? enemyName
+  const actorName = nomeEm(turn.side, turn.posicao)
+  const alvoName = nomeEm(turn.side === 'PLAYER' ? 'ENEMY' : 'PLAYER', turn.posicaoDoAlvo)
 
   if (turn.kind === 'TRANSFORM') {
     return (
