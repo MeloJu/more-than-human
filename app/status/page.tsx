@@ -7,14 +7,13 @@ import { custoDaRedistribuicao, pontosAlocados } from '@/app/lib/progression/red
 import { getLoadoutSlotCount } from '@/app/lib/progression/constants'
 import { computeFighterStats, sumStatBonuses } from '@/app/lib/battle/engine'
 import { getEquipmentBonus } from '@/app/lib/equipment/queries'
-import { getEligiblePlayerSkills, getTreeBonus } from '@/app/lib/battle/queries'
+import { getEligiblePlayerSkills, getTreeBonus, toSkillDef } from '@/app/lib/battle/queries'
+import { MontagemDoLoadout } from '@/app/components/progression/MontagemDoLoadout'
 import { getEquippedSkillRows, getSelectedCharacter, getSkillTree, getUnlockedNodeIds } from '@/app/lib/progression/queries'
-import { describeEffect } from '@/app/lib/battle/presentation'
 import { XP_PER_LEVEL } from '@/app/lib/battle/constants'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
 import { PainelDeAtributos } from '@/app/components/progression/PainelDeAtributos'
 import { PainelDeTransformacoes } from '@/app/components/progression/PainelDeTransformacoes'
-import type { SkillEffect } from '@/app/lib/battle/types'
 
 const STATUS_ERROR_MESSAGES: Record<string, string> = {
   not_found: 'Personagem não encontrado.',
@@ -26,10 +25,6 @@ const STATUS_ERROR_MESSAGES: Record<string, string> = {
   invalid_attribute: 'Atributo inválido.',
   nothing_to_redistribute: 'Não há pontos investidos para redistribuir.',
   insufficient_coins: 'Moedas insuficientes para redistribuir.',
-}
-
-function parseEffects(json: unknown): SkillEffect[] {
-  return Array.isArray(json) ? (json as SkillEffect[]) : []
 }
 
 export default async function StatusPage({
@@ -175,45 +170,19 @@ export default async function StatusPage({
         <PainelDeTransformacoes transformacoes={transformacoes} nivel={selected.level} />
       </div>
 
-      <div className="card p-4 space-y-3">
-        <h2 className="font-semibold">Loadout ({equippedRows.length}/{slotCount})</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {Array.from({ length: slotCount }, (_, slot) => {
+      <div className="card p-4">
+        <MontagemDoLoadout
+          espacos={slotCount}
+          equipadas={Array.from({ length: slotCount }, (_, slot) => {
             const row = equippedBySlot.get(slot)
-            if (row) {
-              const effects = parseEffects(row.skill.effects)
-              return (
-                <div key={slot} className="rounded-md border border-accent/40 bg-accent/5 p-3">
-                  <div className="font-medium">{row.skill.name}</div>
-                  {effects.length > 0 && <div className="text-xs opacity-70 mt-0.5">{effects.map(describeEffect).join(' · ')}</div>}
-                  <form action={unequipSkill.bind(null, selected.id, slot)} className="mt-2">
-                    <button type="submit" className="rounded-md px-3 py-1.5 text-xs border border-border hover:bg-surface-raised">Desequipar</button>
-                  </form>
-                </div>
-              )
-            }
-            return (
-              <div key={slot} className="rounded-md border border-dashed border-border p-3">
-                <div className="text-sm opacity-60 mb-2">Slot vazio</div>
-                {unequippedEligible.length > 0 ? (
-                  <form action={equipSkill.bind(null, selected.id, slot)} className="flex gap-2">
-                    <select name="skillId" className="flex-1 rounded-md border border-border px-2 py-1 text-sm bg-surface">
-                      {unequippedEligible.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                          {s.requerFormaNome ? ` (só com ${s.requerFormaNome})` : ''}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="submit" className="rounded-md px-3 py-1.5 text-xs border border-border hover:bg-surface-raised">Equipar</button>
-                  </form>
-                ) : (
-                  <div className="text-xs opacity-50">Nenhuma skill disponível pra equipar</div>
-                )}
-              </div>
-            )
+            // A ficha da lista de elegíveis vem marcada com a forma que a
+            // habilidade exige; a linha crua do banco é só o fallback.
+            return row ? eligibleSkills[row.skillId] ?? toSkillDef(row.skill) : null
           })}
-        </div>
+          disponiveis={unequippedEligible}
+          equipar={Array.from({ length: slotCount }, (_, slot) => equipSkill.bind(null, selected.id, slot))}
+          tirar={Array.from({ length: slotCount }, (_, slot) => unequipSkill.bind(null, selected.id, slot))}
+        />
       </div>
 
       {nodes.length === 0 && <div className="card p-6 opacity-70">Esse personagem ainda não tem árvore de habilidades.</div>}
