@@ -19,6 +19,15 @@ on:
     types: [completed]
     branches: [master]
 
+# UM DEPLOY POR VEZ. Dois pushes seguidos terminam o CI com segundos de
+# diferença, e os dois deploys puxavam a imagem na VM ao mesmo tempo: o
+# containerd de lá falhou ao gravar a mesma camada duas vezes ("failed commit
+# on ref layer-sha256..."). Na fila, o seguinte espera o anterior terminar;
+# sem cancelar o que já está rodando, para nunca derrubar um deploy no meio.
+concurrency:
+  group: deploy-producao
+  cancel-in-progress: false
+
 # Em workflow_run, github.sha aponta para o commit do ramo padrão, NÃO para o
 # que o CI validou. Usar head_sha garante que se publica exatamente o que
 # passou nos testes; no disparo manual, github.sha já é o certo.
