@@ -10,7 +10,6 @@ import {
   ativarForma,
   comHeroi,
   computeFighterStats,
-  createInitialState,
   faltaParaAtivar,
   heroi,
   isLegalMove,
@@ -23,15 +22,14 @@ import { acaoDaIa, acaoDoChefe, alvoDaIa } from './ai'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
 import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransformations, loadEnemyProfile } from './queries'
-import { fichaDoJogador } from './montagem'
+import { createBattleAndRedirect } from './montagem'
 import { raidPorSlug } from '@/app/lib/raid/catalogo'
 import { avancar, recompensaDaRaid, reservasDoTime } from '@/app/lib/raid/andares'
-import { autoFillLoadout } from '@/app/lib/progression/actions'
-import { recordStoryProgress } from '@/app/lib/story/actions'
+import { autoFillLoadout } from '@/app/lib/progression/loadout'
+import { recordStoryProgress } from '@/app/lib/story/progresso'
 import { MAX_ROUNDS, NPC_WINS_ON_WIN } from './constants'
 import type {
   AcaoDeCombate,
-  BaseStats,
   BattleState,
   Outcome,
   PlayerAction,
@@ -460,53 +458,6 @@ async function finalizeRound(
     if (e instanceof Error && e.message === 'CONCURRENT_UPDATE') redirect(`/battle/ai/${battleId}?error=conflict`)
     throw e
   }
-}
-
-/**
- * `level` é o nível com que o inimigo entra na luta: decide quanto as
- * habilidades dele custam (ver energyCostFor) e quais formas ele tem.
- * Monstro de raid usa 1 — os stats dele são fixos, sem escala por nível.
- */
-type EnemyRef =
-  | { kind: 'character'; characterId: string; base: BaseStats; level: number }
-  | { kind: 'monster'; monsterId: string; base: BaseStats; level: number }
-
-// The one truly identical tail shared by startAiBattle/startRaidBattle/
-// startStoryBattle: compute the player's stats, seed the battle state,
-// insert the Battle row, redirect into it.
-//
-// Deliberately NOT shared: the "already has an active battle?" check (AI
-// filters by enemyCharacterId, raid by enemyMonsterId, story has no type
-// filter at all — it blocks on ANY active battle), fetching/validating the
-// userCharacter, and picking/scaling the enemy. Those differ enough between
-// the 3 callers that folding them in here would silently change behavior.
-export async function createBattleAndRedirect(params: {
-  userId: string
-  userCharacter: { id: string; level: number; character: { hp: number; attack: number; defense: number; speed: number; energy: number; stamina: number } }
-  enemy: EnemyRef
-  storyStageId?: string
-}): Promise<never> {
-  const jogador = await fichaDoJogador(params.userCharacter)
-  const state = createInitialState(
-    jogador.base,
-    params.enemy.base,
-    { player: jogador.energyCostModifier },
-    { player: params.userCharacter.level, enemy: params.enemy.level }
-  )
-
-  const battle = await prisma.battle.create({
-    data: {
-      userId: params.userId,
-      playerCharacterId: params.userCharacter.id,
-      ...(params.enemy.kind === 'character' ? { enemyCharacterId: params.enemy.characterId } : { enemyMonsterId: params.enemy.monsterId }),
-      ...(params.storyStageId ? { storyStageId: params.storyStageId } : {}),
-      status: 'ACTIVE',
-      turnNumber: 1,
-      state: state as unknown as Prisma.InputJsonValue,
-    },
-  })
-
-  redirect(`/battle/ai/${battle.id}`)
 }
 
 export async function startAiBattle(userCharacterId: string): Promise<never> {
