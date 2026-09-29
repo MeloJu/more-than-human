@@ -70,43 +70,48 @@ export const RAIDS: Raid[] = [
     nome: 'Las Noches',
     descricao:
       'A fortaleza de Aizen no deserto de Hueco Mundo. Hollows no caminho, Menos na floresta de cristal, e a Sexta Espada esperando na torre.',
-    // Medido com parties de três sorteadas do elenco, a IA jogando por todos
-    // (o Grimmjow pelo perfil de chefe) e a vida passando de andar em andar:
-    // vence 40% no nível 10, 87% no 12 e 100% no 14. Quase tudo que perde,
-    // perde no Grimmjow — chega machucado. Difícil na entrada e confortável
-    // dois níveis depois; quem lê o aviso e escolhe a postura certa vai melhor
-    // que a IA, então na mão o número é maior. A luta com ele dura uns 14
-    // rodadas; os andares, de 4 a 11.
-    nivelMinimo: 10,
+    // META DO DONO DO PROJETO: nunca 100% antes do nível 20. Medido com
+    // parties de três sorteadas do elenco, a IA jogando por todos (o Grimmjow
+    // pelo perfil de chefe) e a vida passando de andar em andar:
+    //
+    //   nível   12    14    16    18    19    20
+    //   vence  12%   52%   86%   90%   92%  100%
+    //
+    // Quase tudo que perde, perde no Grimmjow: chega machucado. A luta com
+    // ele dura de 11 a 16 rodadas. No nível 10 ninguém vencia, por isso a
+    // entrada é no 12. Quem lê o aviso e escolhe a postura certa vai melhor
+    // que a IA, então na mão o número é maior.
+    nivelMinimo: 12,
     andares: [
       {
         nome: 'Deserto de Hueco Mundo',
         descricao: 'Areia branca, lua parada. Três Hollows farejam a party antes de ela ver a fortaleza.',
-        inimigos: [{ monstro: 'Hollow', nivel: 8 }, { monstro: 'Hollow', nivel: 8 }, { monstro: 'Hollow', nivel: 8 }],
+        inimigos: [{ monstro: 'Hollow', nivel: 11 }, { monstro: 'Hollow', nivel: 11 }, { monstro: 'Hollow', nivel: 11 }],
       },
       {
         nome: 'Floresta de Menos',
         descricao: 'Árvores de quartzo sob a areia. Um Menos Grande se ergue, e um Hollow vem atrás dele.',
-        inimigos: [{ monstro: 'Menos Grande', nivel: 8 }, { monstro: 'Hollow', nivel: 8 }],
+        inimigos: [{ monstro: 'Menos Grande', nivel: 11 }, { monstro: 'Hollow', nivel: 11 }],
       },
       {
         nome: 'Corredores de Las Noches',
         descricao: 'Dentro da fortaleza, o céu é pintado. Dois Adjuchas guardam o caminho.',
-        inimigos: [{ monstro: 'Adjuchas', nivel: 8 }, { monstro: 'Adjuchas', nivel: 8 }],
+        inimigos: [{ monstro: 'Adjuchas', nivel: 11 }, { monstro: 'Adjuchas', nivel: 11 }],
       },
       {
         nome: 'Portão da Sexta Torre',
         descricao: 'Um Vasto Lorde guarda a torre. Quase um Espada.',
-        inimigos: [{ monstro: 'Vasto Lorde', nivel: 9 }],
+        inimigos: [{ monstro: 'Vasto Lorde', nivel: 12 }],
       },
       {
         nome: 'Sexta Torre',
         descricao: 'Grimmjow Jaegerjaquez, a Sexta Espada. Ele estava esperando alguém que valesse a pena.',
-        // Nível 12 é o mínimo em que a Pantera está liberada — a fase 2 dele.
+        // Nível 18: acima de quem entra, e acima da Pantera (12), que é a
+        // fase 2 dele. É o chefe que segura a raid até perto do nível 20.
         inimigos: [
           {
             personagem: 'Grimmjow Jaegerjaquez',
-            nivel: 12,
+            nivel: 18,
             // x3,5 e não x2: com o perfil de chefe ele ficou MAIS FÁCIL (75% de
             // vitória no nível 10 com x2). Ele gasta rodadas carregando, fica
             // exposto depois, e só solta a Pantera na metade — antes liberava
