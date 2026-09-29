@@ -173,6 +173,25 @@ export type CombatantState = {
    * declarado ainda, nem quebrado por uma ação diferente no meio.
    */
   comboPreparado?: string
+  /**
+   * O golpe que este combatente está CARREGANDO, anunciado uma rodada antes
+   * (ver a ação CARREGAR). Na rodada seguinte ele sai sozinho, mais forte e
+   * no alvo marcado — é a janela que o jogador tem para escolher a postura
+   * certa. Atordoado no meio, a carga se perde.
+   */
+  carregando?: { skillId: string; alvo?: number }
+  /**
+   * Rodadas em que este combatente está EXPOSTO: leva dano a mais. Abre
+   * depois de soltar um golpe carregado — a recompensa de quem sobreviveu ao
+   * aviso. Ver EXPOSTO_DANO.
+   */
+  exposto?: number
+  /**
+   * Quem, do lado oposto, mais causou dano a este combatente na última
+   * rodada (a posição no array daquele lado). Ausente se ninguém o feriu. É o
+   * que o chefe predador lê para escolher a presa.
+   */
+  maiorAgressor?: number
   cooldowns: Record<string, number> // skillId -> rounds remaining
   activeTransformationId: string | null
   /**
@@ -279,6 +298,11 @@ export type TurnResult = {
     | 'BLOCK'
     | 'GUARD_BREAK'
     | 'REVIVE'
+    | 'CHARGE'
+  /** CHARGE: a carga foi perdida (atordoado no meio) em vez de começar. */
+  cargaPerdida?: boolean
+  /** ATTACK: este é o golpe carregado, saindo na rodada seguinte ao aviso. */
+  carregado?: boolean
   /** CLASH: a natureza do choque ('beam', 'espada', 'fisico'). */
   clashTag?: string
   skillId: string | null // null = Basic Attack (synthesized, not a DB row)
@@ -495,6 +519,13 @@ export type AcaoDeCombate =
    * Não tem alvo nem habilidade: é uma postura, não um golpe.
    */
   | { kind: 'BLOCK' }
+  /**
+   * Gasta a rodada preparando um golpe, que sai sozinho na rodada seguinte,
+   * mais forte, no alvo marcado. O aviso é o ponto: o outro lado vê o que
+   * vem e escolhe a postura. Nada é pago agora — o custo sai quando o golpe
+   * sair.
+   */
+  | { kind: 'CARREGAR'; skillId: string; alvo?: number }
 
 /** O mesmo tipo, com o nome que o lado do jogador já usava. */
 export type PlayerAction = AcaoDeCombate

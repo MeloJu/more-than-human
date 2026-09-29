@@ -12,6 +12,8 @@
  * Character.name), os mesmos nomes que o seed e o sync usam.
  */
 
+import type { PerfilDeChefe } from '@/app/lib/battle/ai'
+
 export type InimigoDoAndar =
   | {
       monstro: string
@@ -38,6 +40,10 @@ export type InimigoDoAndar =
        * party inteira: com a vida de um lutador comum, cairia em duas rodadas.
        */
       vidaDeChefe?: number
+      /** As particularidades de chefe — ver PerfilDeChefe. */
+      perfil?: PerfilDeChefe
+      /** O que ele diz na virada para a fase 2. Nunca cita o personagem de quem joga. */
+      falaDaFaseDois?: string
     }
 
 export type Andar = {
@@ -65,10 +71,12 @@ export const RAIDS: Raid[] = [
     descricao:
       'A fortaleza de Aizen no deserto de Hueco Mundo. Hollows no caminho, Menos na floresta de cristal, e a Sexta Espada esperando na torre.',
     // Medido com parties de três sorteadas do elenco, a IA jogando por todos
-    // e a vida passando de andar em andar: vence 33% no nível 10, 75% no 12 e
-    // 93% no 14. Quase tudo que perde, perde no Grimmjow — chega machucado.
-    // Difícil na entrada e confortável dois níveis depois; quem joga escolhe
-    // postura e golpe melhor que a IA, então na mão o número é maior.
+    // (o Grimmjow pelo perfil de chefe) e a vida passando de andar em andar:
+    // vence 40% no nível 10, 87% no 12 e 100% no 14. Quase tudo que perde,
+    // perde no Grimmjow — chega machucado. Difícil na entrada e confortável
+    // dois níveis depois; quem lê o aviso e escolhe a postura certa vai melhor
+    // que a IA, então na mão o número é maior. A luta com ele dura uns 14
+    // rodadas; os andares, de 4 a 11.
     nivelMinimo: 10,
     andares: [
       {
@@ -95,7 +103,27 @@ export const RAIDS: Raid[] = [
         nome: 'Sexta Torre',
         descricao: 'Grimmjow Jaegerjaquez, a Sexta Espada. Ele estava esperando alguém que valesse a pena.',
         // Nível 12 é o mínimo em que a Pantera está liberada — a fase 2 dele.
-        inimigos: [{ personagem: 'Grimmjow Jaegerjaquez', nivel: 12, vidaDeChefe: 2 }],
+        inimigos: [
+          {
+            personagem: 'Grimmjow Jaegerjaquez',
+            nivel: 12,
+            // x3,5 e não x2: com o perfil de chefe ele ficou MAIS FÁCIL (75% de
+            // vitória no nível 10 com x2). Ele gasta rodadas carregando, fica
+            // exposto depois, e só solta a Pantera na metade — antes liberava
+            // no começo e lutava transformado a luta inteira.
+            vidaDeChefe: 3.5,
+            // Estilo souls, confirmado com o dono do projeto: persegue quem
+            // mais bate, anuncia o Gran Rey Cero (e fica exposto depois), e
+            // solta a Pantera na metade da vida — quando o Desgarrón passa a
+            // preparar o Cero.
+            perfil: {
+              predador: true,
+              golpeCarregado: 'Gran Rey Cero',
+              faseDois: { vida: 0.5, forma: 'Resurrección: Pantera' },
+            },
+            falaDaFaseDois: 'Kishire, Pantera!',
+          },
+        ],
         chefe: true,
       },
     ],

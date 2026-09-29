@@ -326,6 +326,99 @@ export function alvoDaIa(outroLado: CombatantState[], rand: () => number = Math.
 }
 
 /**
+ * O que faz um chefe ser ELE, e não um lutador comum com mais vida.
+ *
+ * Cada chefe tem particularidades, no espírito dos chefes de souls: um padrão
+ * que se aprende e se pune. Mora no catálogo da raid, junto do chefe, e é
+ * lido só por acaoDoChefe — o motor não sabe o que é chefe, ele só executa
+ * ações (carregar, liberar forma, bater em alguém).
+ */
+export type PerfilDeChefe = {
+  /**
+   * Persegue quem mais bateu nele na rodada anterior (maiorAgressor). Quem
+   * bate forte vira alvo; suporte fica mais seguro.
+   */
+  predador?: boolean
+  /** O golpe que ele anuncia uma rodada antes e solta mais forte (nome no catálogo). */
+  golpeCarregado?: string
+  /**
+   * Segunda fase: a forma que ele solta quando a vida cai para `vida` (fração
+   * da máxima) — e nunca antes. A IA comum libera forma assim que pode pagar;
+   * o chefe guarda para a virada.
+   */
+  faseDois?: { vida: number; forma: string }
+}
+
+/**
+ * Chance de carregar o golpe anunciado numa rodada em que poderia. Fora dela,
+ * ele luta normalmente — carregar toda rodada seria previsível demais e
+ * deixaria o chefe parado metade da luta.
+ */
+export const CHEFE_CHANCE_DE_CARREGAR = 0.45
+
+/**
+ * A ação de um chefe numa rodada.
+ *
+ * A ORDEM É A PRIORIDADE: virar de fase > soltar a carga preparada pelo combo
+ * > carregar > lutar como qualquer IA. Qualquer passo que não se aplica cai
+ * no seguinte, e o último é acaoDaIa — o chefe nunca fica sem jogada.
+ *
+ * O golpe carregado nunca sai "solto" pela IA comum: é tirado da lista dela.
+ * Quando o Gran Rey Cero vem, vem anunciado.
+ */
+export function acaoDoChefe(
+  self: CombatantState,
+  skills: SkillDef[],
+  formas: Record<string, TransformationDef>,
+  outroLado: CombatantState[],
+  perfil: PerfilDeChefe,
+  leitura: { skillsDe?: (posicao: number) => SkillDef[]; rand?: () => number } = {}
+): AcaoDeCombate {
+  const rand = leitura.rand ?? Math.random
+
+  // A presa: quem mais bateu nele, se ainda está de pé. Senão, sorteio.
+  const agressor = self.maiorAgressor
+  const alvo =
+    perfil.predador && agressor !== undefined && (outroLado[agressor]?.currentHp ?? 0) > 0
+      ? agressor
+      : alvoDaIa(outroLado, rand)
+  const presa = outroLado[alvo ?? 0]
+  const comAlvo = (acao: AcaoDeCombate): AcaoDeCombate =>
+    acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
+
+  // Fase 2: a forma sai na virada da vida, junto do golpe (não gasta a rodada).
+  const formaDaFase = perfil.faseDois
+    ? Object.values(formas).find((t) => t.name === perfil.faseDois?.forma)
+    : undefined
+  const vida = self.maxHp > 0 ? self.currentHp / self.maxHp : 0
+  const naFaseDois = !!perfil.faseDois && vida <= perfil.faseDois.vida
+  // Antes da virada ele não tem forma nenhuma para a IA comum escolher. Já
+  // transformado, ela precisa ver a forma para reservar a manutenção.
+  const formasPermitidas: Record<string, TransformationDef> =
+    !perfil.faseDois || self.activeTransformationId ? formas : {}
+
+  const carregavel = perfil.golpeCarregado ? skills.find((s) => s.name === perfil.golpeCarregado) : undefined
+  const comuns = carregavel ? skills.filter((s) => s.id !== carregavel.id) : skills
+
+  if (formaDaFase && naFaseDois && !self.activeTransformationId && podeAtivar(self, formaDaFase)) {
+    const transformado = ativarForma(self, formaDaFase)
+    const golpe = acaoDaIa(transformado, comuns, presa, {}, { skillsDoOponente: leitura.skillsDe?.(alvo ?? 0), rand })
+    if (golpe.kind === 'ATTACK') return comAlvo({ ...golpe, liberar: formaDaFase.id })
+  }
+
+  if (carregavel && !self.carregando && isLegalMove(self, carregavel)) {
+    // Depois de uma sequência preparada (Desgarrón → Gran Rey Cero), carrega
+    // sempre: é o padrão da fase 2 que o aviso ensina a reconhecer.
+    const comboPronto = self.comboPreparado !== undefined
+    if (comboPronto || rand() < CHEFE_CHANCE_DE_CARREGAR) {
+      return { kind: 'CARREGAR', skillId: carregavel.id, ...(alvo !== undefined ? { alvo } : {}) }
+    }
+  }
+
+  return comAlvo(acaoDaIa(self, comuns, presa, formasPermitidas, { skillsDoOponente: leitura.skillsDe?.(alvo ?? 0), rand }))
+}
+
+/**
  * Abaixo de quanto da stamina máxima a IA para de se posicionar e fica na
  * neutra para recuperar. Sem esse piso ela gastaria a reserva inteira em
  * postura e não teria como sustentar forma nem erguer guarda quando precisa.

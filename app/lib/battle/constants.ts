@@ -372,3 +372,24 @@ export const GUARDA_POSTURA_REDUCAO = 0.3
 /** Ímpeto: quanto o golpe de quem avança bate a mais, e quanto ele toma a mais. */
 export const IMPETO_DANO = 0.25
 export const IMPETO_EXPOSTO = 0.2
+
+/**
+ * Quanto o golpe CARREGADO bate a mais que o mesmo golpe solto.
+ *
+ * Carregar custa a rodada inteira e avisa o outro lado, que tem uma rodada
+ * para escolher a postura certa. Sem um ganho grande, carregar seria só
+ * perder uma rodada; com +60%, errar a postura contra ele é o erro mais caro
+ * da luta — que é o papel do golpe anunciado de chefe.
+ */
+export const CARGA_BONUS = 0.6
+
+/**
+ * A janela de punição: dano a mais que quem acabou de soltar um golpe
+ * carregado leva, e por quantas rodadas depois dela.
+ *
+ * É a recompensa de sobreviver ao aviso, como a abertura depois do golpe
+ * grande de um chefe de souls. Dura a rodada seguinte inteira: quem escolheu
+ * esquivar em vez de atacar ainda tem a vez de punir.
+ */
+export const EXPOSTO_DANO = 0.3
+export const EXPOSTO_RODADAS = 1

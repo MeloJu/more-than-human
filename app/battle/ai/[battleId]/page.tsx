@@ -24,6 +24,9 @@ import { Swords } from 'lucide-react'
 import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
 import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
+import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
+import { alcanceDe } from '@/app/lib/battle/alcance'
+import { toSkillDef } from '@/app/lib/battle/queries'
 import { raidPorSlug } from '@/app/lib/raid/catalogo'
 import { recompensaDaRaid } from '@/app/lib/raid/andares'
 import { seguirNaRaid } from '@/app/lib/raid/actions'
@@ -126,6 +129,24 @@ export default async function BattleArenaPage({
   const idsDeFormaDaParty = participantes
     .map((p) => state[p.lado === 'PLAYER' ? 'aliados' : 'inimigos'][p.posicao]?.activeTransformationId)
     .filter((id): id is string => Boolean(id))
+  // O chefe do andar: o que ele carrega, quem ele persegue, se está exposto,
+  // e se acabou de virar de fase. Tudo lido do estado — o aviso diz o que o
+  // motor VAI fazer, não um palpite da tela.
+  const inimigoDoAndar = andarDaLuta?.inimigos[0]
+  const chefe = inimigoDoAndar && 'personagem' in inimigoDoAndar && inimigoDoAndar.perfil ? inimigoDoAndar : undefined
+  const carga = chefe ? vilao(state).carregando : undefined
+  const golpeCarregado = carga ? await prisma.skill.findUnique({ where: { id: carga.skillId } }) : null
+  const agressorDoChefe = vilao(state).maiorAgressor
+  const virouDeFase =
+    chefe?.perfil?.faseDois &&
+    turns.some(
+      (t) =>
+        t.round === ultimaRodada &&
+        (t.result as unknown as TurnResult).kind === 'TRANSFORM' &&
+        (t.result as unknown as TurnResult).side === 'ENEMY' &&
+        ((t.result as unknown as TurnResult).posicao ?? 0) === 0
+    )
+
   const formasDaParty = idsDeFormaDaParty.length
     ? await prisma.transformation.findMany({ where: { id: { in: idsDeFormaDaParty } }, select: { id: true, name: true } })
     : []
@@ -336,6 +357,32 @@ export default async function BattleArenaPage({
             })}
           </div>
         </div>
+      )}
+
+      {isActive && chefe && (
+        <AvisoDoChefe
+          nome={nomesInimigos[0]}
+          carga={
+            carga && golpeCarregado
+              ? {
+                  golpe: golpeCarregado.name,
+                  alcance: alcanceDe(toSkillDef(golpeCarregado)),
+                  alvo: carga.alvo !== undefined ? nomesAliados[carga.alvo] : undefined,
+                }
+              : undefined
+          }
+          presa={
+            chefe.perfil?.predador && agressorDoChefe !== undefined && (state.aliados[agressorDoChefe]?.currentHp ?? 0) > 0
+              ? nomesAliados[agressorDoChefe]
+              : undefined
+          }
+          exposto={(vilao(state).exposto ?? 0) > 0}
+          faseDois={
+            virouDeFase && chefe.perfil?.faseDois
+              ? { forma: chefe.perfil.faseDois.forma, fala: chefe.falaDaFaseDois }
+              : undefined
+          }
+        />
       )}
 
       {/* FORMAS EM FAIXA PRÓPRIA, abaixo dos cards. Antes moravam na coluna

@@ -19,7 +19,7 @@ import {
   resolveRound,
   vilao,
 } from './engine'
-import { acaoDaIa, alvoDaIa } from './ai'
+import { acaoDaIa, acaoDoChefe, alvoDaIa } from './ai'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
 import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransformations, loadEnemyProfile } from './queries'
@@ -77,6 +77,14 @@ async function loadActiveBattleContext(battleId: string) {
       ? { runId: raidRun.id, andar: battle.andar ?? 0, totalDeAndares: raidDaBatalha.andares.length }
       : null
 
+  // O chefe do andar, se houver: as particularidades dele e o arsenal inteiro.
+  const principalDoAndar = raidDaBatalha?.andares[battle.andar ?? 0]?.inimigos[0]
+  const perfilDoChefe = principalDoAndar && 'personagem' in principalDoAndar ? principalDoAndar.perfil : undefined
+  const enemySkills =
+    perfilDoChefe && battle.enemyCharacterId
+      ? await getEnemySkills(battle.enemyCharacterId, vilao(state).nivel ?? 1, { semTeto: true })
+      : enemy.skills
+
   // Estágio de história dita o próprio XP (xpReward), que é o número exibido
   // ao jogador na tela do estágio. Sem isso ele receberia o XP genérico de
   // batalha e a tela estaria prometendo uma recompensa que não é paga.
@@ -104,7 +112,8 @@ async function loadActiveBattleContext(battleId: string) {
   return {
     battle: battle as NonNullable<BattleRow>,
     userCharacter,
-    enemySkills: enemy.skills,
+    enemySkills,
+    perfilDoChefe,
     xpMultiplier: enemy.xpMultiplier,
     storyXpReward,
     isFirstStoryClear,
@@ -192,10 +201,18 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
       inimigas[f.posicao] = { kind: 'ATTACK', skillId: null }
       continue
     }
+    const skillsDe = (posicao: number) =>
+      Object.values(posicao > 0 ? ctx.aliados.find((a) => a.posicao === posicao)?.skills ?? {} : ctx.playerSkills)
+
+    // O chefe joga pelo perfil dele (presa, carga, fase 2) — ver acaoDoChefe.
+    if (f.posicao === 0 && ctx.perfilDoChefe) {
+      inimigas[0] = acaoDoChefe(eu, Object.values(f.skills), f.formas, ctx.state.aliados, ctx.perfilDoChefe, { skillsDe })
+      continue
+    }
+
     const alvo = alvoDaIa(ctx.state.aliados)
     const presa = ctx.state.aliados[alvo ?? 0]
-    const skillsDaPresa = alvo ? ctx.aliados.find((a) => a.posicao === alvo)?.skills ?? {} : ctx.playerSkills
-    const acao = acaoDaIa(eu, Object.values(f.skills), presa, f.formas, { skillsDoOponente: Object.values(skillsDaPresa) })
+    const acao = acaoDaIa(eu, Object.values(f.skills), presa, f.formas, { skillsDoOponente: skillsDe(alvo ?? 0) })
     inimigas[f.posicao] = acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
   }
 

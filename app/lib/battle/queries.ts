@@ -198,14 +198,25 @@ export async function getEligiblePlayerSkills(userCharacterId: string, character
  * O teto usa a MESMA regra de slots do jogador, aplicada ao nível do inimigo:
  * ninguém entra em campo com mais opções do que o outro lado poderia levar.
  */
-export async function getEnemySkills(characterId: string, level: number): Promise<Record<string, SkillDef>> {
+export async function getEnemySkills(
+  characterId: string,
+  level: number,
+  /**
+   * Chefe de raid entra com o arsenal INTEIRO do nível, sem o teto de slots:
+   * o padrão dele (Desgarrón preparando o Gran Rey Cero) depende de golpes
+   * que o loadout padrão pode deixar de fora. É chefe — não precisa caber no
+   * que o outro lado leva.
+   */
+  opcoes: { semTeto?: boolean } = {}
+): Promise<Record<string, SkillDef>> {
   const rows = await prisma.characterSkill.findMany({
     where: { characterId, requiredLevel: { lte: level } },
     include: { skill: true },
   })
   const usaveis = rows.map((cs) => cs.skill).filter(hasBattleValue).map(toSkillDef)
   const skills: Record<string, SkillDef> = {}
-  for (const s of escolherLoadoutPadrao(usaveis, getLoadoutSlotCount(level))) skills[s.id] = s
+  const escolhidas = opcoes.semTeto ? usaveis : escolherLoadoutPadrao(usaveis, getLoadoutSlotCount(level))
+  for (const s of escolhidas) skills[s.id] = s
   return marcarGolpesDeForma(characterId, skills)
 }
 

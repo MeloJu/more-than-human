@@ -177,6 +177,30 @@ export function TurnLogEntry({
       </>
     )
   }
+  if (turn.kind === 'CHARGE') {
+    if (turn.cargaPerdida) {
+      return (
+        <>
+          <span className="font-medium">{actorName}</span> foi interrompido e perdeu a carga de{' '}
+          <span className="font-medium">{turn.skillName}</span>.
+        </>
+      )
+    }
+    // A mira só aparece se foi declarada: sem ela, o golpe vai no primeiro
+    // de pé, e dar um nome aqui seria prometer um alvo que não existe.
+    return (
+      <>
+        <span className="font-medium">{actorName}</span> começou a carregar{' '}
+        <span className="font-medium text-red-500">{turn.skillName}</span>
+        {turn.posicaoDoAlvo !== undefined && (
+          <>
+            , mirando <span className="font-medium">{alvoName}</span>
+          </>
+        )}
+        .
+      </>
+    )
+  }
   if (turn.kind === 'DOT_TICK') {
     return (
       <>
@@ -192,7 +216,9 @@ export function TurnLogEntry({
 
   return (
     <>
-      <span className="font-medium">{actorName}</span> usou <span className="font-medium">{turn.skillName}</span>
+      <span className="font-medium">{actorName}</span> {turn.carregado ? 'soltou' : 'usou'}{' '}
+      <span className="font-medium">{turn.skillName}</span>
+      {turn.carregado && <span className="text-red-500"> carregado</span>}
       {turn.postura && <span className="opacity-70"> {FRASE_DA_POSTURA[turn.postura]}</span>}
       {turn.errou && (turn.esquivou ? <>, mas {alvoName} esquivou</> : <> e o golpe passou longe</>)}
       {turn.countered &&
@@ -224,6 +250,7 @@ export function TurnLogEntry({
         <> <span className="opacity-70">({turn.effectsApplied.map(describeEffect).join(', ')})</span></>
       )}
       .
+      {turn.carregado && <span className="opacity-70"> {actorName} ficou exposto.</span>}
       {fala && <div className="italic opacity-70 text-xs mt-0.5">&ldquo;{fala}&rdquo;</div>}
     </>
   )

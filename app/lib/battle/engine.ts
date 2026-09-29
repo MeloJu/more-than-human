@@ -14,6 +14,9 @@ import {
   GUARDA_POSTURA_REDUCAO,
   IMPETO_DANO,
   IMPETO_EXPOSTO,
+  CARGA_BONUS,
+  EXPOSTO_DANO,
+  EXPOSTO_RODADAS,
   POSTURA_CUSTO,
   POSTURA_NEUTRA_REGEN,
   STAMINA_DE_REFERENCIA,
@@ -1117,7 +1120,9 @@ function performSkillUse(
     // ÍMPETO: quem avança bate mais forte, e quem está avançando apanha mais.
     const impeto =
       (defesa.posturaAtacante === 'IMPETO' ? 1 + IMPETO_DANO : 1) *
-      (defesa.posturaDefensor === 'IMPETO' ? 1 + IMPETO_EXPOSTO : 1)
+      (defesa.posturaDefensor === 'IMPETO' ? 1 + IMPETO_EXPOSTO : 1) *
+      // A janela de punição depois do golpe carregado — ver EXPOSTO_DANO.
+      ((defender.exposto ?? 0) > 0 ? 1 + EXPOSTO_DANO : 1)
     const computed = { ...bruto, damage: Math.max(1, Math.round(bruto.damage * impeto)) }
     // APARAR: só contra quem veio de perto. É a aposta da postura — contra
     // golpe à distância, a stamina foi gasta à toa.
@@ -1305,6 +1310,23 @@ function manterDominio(side: Side, c: CombatantState): { combatant: CombatantSta
     },
     results: [],
   }
+}
+
+/** A janela de punição anda uma rodada — ver EXPOSTO_RODADAS. */
+function baixarExposicao(c: CombatantState): CombatantState {
+  if (!c.exposto) return c
+  const resta = c.exposto - 1
+  return { ...c, exposto: resta > 0 ? resta : undefined }
+}
+
+/**
+ * O golpe carregado saiu: a carga acaba e a janela de punição abre.
+ *
+ * +1 porque o início da próxima rodada já desconta uma (baixarExposicao):
+ * assim a exposição vale o resto desta rodada E a rodada seguinte inteira.
+ */
+function soltarCarga(c: CombatantState): CombatantState {
+  return { ...c, carregando: undefined, exposto: EXPOSTO_RODADAS + 1 }
 }
 
 function tickCooldowns(c: CombatantState): CombatantState {
@@ -1795,6 +1817,18 @@ export function resolveRound(
   // um combatente solto.
   const em = (r: TurnResult, posicao: number): TurnResult => ({ ...r, posicao })
 
+  // O GOLPE CARREGADO SAI SOZINHO: quem anunciou uma carga na rodada passada
+  // não escolhe de novo — a ação dele é o golpe anunciado, no alvo marcado.
+  // Sem isso o aviso seria blefe, e o jogador não teria no que confiar para
+  // escolher a postura.
+  const acaoDaVez = (p: EmCampo): AcaoDeCombate | undefined => {
+    const carga = combatenteEm(atual, p).carregando
+    if (carga) return { kind: 'ATTACK', skillId: carga.skillId, alvo: carga.alvo }
+    return acaoDe(input, p)
+  }
+  const golpeDoLado = (p: EmCampo, skillId: string): SkillDef | undefined =>
+    (p.lado === LADO_ALIADO ? ctx.playerSkills : ctx.enemySkills)[skillId]
+
   const formasDe = (p: EmCampo): Record<string, TransformationDef> => {
     const propria = ctx.formasPorPosicao?.[p.lado]?.[p.indice]
     if (propria) return propria
@@ -1810,7 +1844,7 @@ export function resolveRound(
   //    três de cada combatente juntas: é a ordem em que o log saía antes, e
   //    mudá-la mudaria a leitura de toda batalha antiga sem nenhum ganho.
   for (const p of vivos()) {
-    atual = comCombatenteEm(atual, p, tickCooldowns(regenEnergy(combatenteEm(atual, p))))
+    atual = comCombatenteEm(atual, p, baixarExposicao(tickCooldowns(regenEnergy(combatenteEm(atual, p)))))
   }
   for (const p of vivos()) {
     const r = manterDominio(p.lado, combatenteEm(atual, p))
@@ -1842,7 +1876,7 @@ export function resolveRound(
 
   for (const p of vivos()) {
     const c = combatenteEm(atual, p)
-    if (acaoDe(input, p)?.kind !== 'BLOCK') continue
+    if (acaoDaVez(p)?.kind !== 'BLOCK') continue
     if (isStunned(c) || !podeBloquear(c)) continue
 
     const custo = custoDeErguerGuarda(c)
@@ -1867,7 +1901,7 @@ export function resolveRound(
   //     intenção de atacar continua valendo. Atordoado não se posiciona.
   const posturas = new Map<string, Postura>()
   for (const p of vivos()) {
-    const acao = acaoDe(input, p)
+    const acao = acaoDaVez(p)
     if (acao?.kind !== 'ATTACK' || bloqueando.has(chave(p))) continue
     const c = combatenteEm(atual, p)
     const pedida = acao.postura ?? 'NEUTRA'
@@ -1889,14 +1923,15 @@ export function resolveRound(
   //    isso não existiria se cada um fosse escolhido na sua vez.
   const golpes = new Map<string, { skill: SkillDef | null; alvo: EmCampo | null }>()
   for (const p of vivos()) {
-    const acao = acaoDe(input, p)
+    const acao = acaoDaVez(p)
     if (!acao || acao.kind !== 'ATTACK' || bloqueando.has(chave(p))) continue
 
-    const catalogo = p.lado === LADO_ALIADO ? ctx.playerSkills : ctx.enemySkills
-    golpes.set(chave(p), {
-      skill: acao.skillId ? catalogo[acao.skillId] ?? null : null,
-      alvo: alvoDe(atual, p, acao.alvo),
-    })
+    let skill = acao.skillId ? golpeDoLado(p, acao.skillId) ?? null : null
+    // O golpe carregado sai mais forte — ver CARGA_BONUS.
+    if (skill && combatenteEm(atual, p).carregando) {
+      skill = { ...skill, power: Math.round(skill.power * (1 + CARGA_BONUS)) }
+    }
+    golpes.set(chave(p), { skill, alvo: alvoDe(atual, p, acao.alvo) })
   }
 
   // 5. CHOQUE DE GOLPES, entre dois que escolheram UM AO OUTRO.
@@ -1977,10 +2012,49 @@ export function resolveRound(
       // Ficar atordoado não foi uma escolha, mas a janela da sequência
       // passou do mesmo jeito — o combo quebra aqui também.
       if (c.comboPreparado !== undefined) atual = comCombatenteEm(atual, p, { ...c, comboPreparado: undefined })
+      // ATORDOAR QUEM CARREGA DESFAZ A CARGA. É a outra resposta ao aviso,
+      // além da postura: interromper. Dá ao controle (Bakudō, Nue, raio) um
+      // papel contra chefe que ele não teria de outro jeito.
+      if (c.carregando) {
+        const perdido = golpeDoLado(p, c.carregando.skillId)
+        atual = comCombatenteEm(atual, p, { ...combatenteEm(atual, p), carregando: undefined })
+        turnResults.push(
+          em(
+            {
+              version: 1,
+              side: p.lado,
+              kind: 'CHARGE',
+              cargaPerdida: true,
+              skillId: c.carregando.skillId,
+              skillName: perdido?.name ?? 'Golpe carregado',
+            },
+            p.indice
+          )
+        )
+      }
       continue
     }
 
-    const acao = acaoDe(input, p)
+    const acao = acaoDaVez(p)
+
+    if (acao?.kind === 'CARREGAR') {
+      const skill = golpeDoLado(p, acao.skillId)
+      // Só carrega o que poderia usar agora: sem energia ou em recarga, a
+      // rodada passa sem carga — a tela e a IA já filtram isso antes.
+      if (skill && isLegalMove(c, skill)) {
+        atual = comCombatenteEm(atual, p, { ...c, carregando: { skillId: skill.id, alvo: acao.alvo } })
+        turnResults.push({
+          version: 1,
+          side: p.lado,
+          posicao: p.indice,
+          posicaoDoAlvo: acao.alvo,
+          kind: 'CHARGE',
+          skillId: skill.id,
+          skillName: skill.name,
+        })
+      }
+      continue
+    }
 
     if (acao?.kind === 'TRANSFORM') {
       const t = formasDe(p)[acao.transformationId]
@@ -2006,6 +2080,9 @@ export function resolveRound(
     if (anulados.has(chave(p))) {
       const anulado = golpes.get(chave(p))
       if (anulado?.skill) atual = comCombatenteEm(atual, p, { ...pagarGolpe(c, anulado.skill), comboPreparado: undefined })
+      // O golpe carregado que perde o choque também foi solto: a carga acaba
+      // e a janela de punição abre do mesmo jeito.
+      if (c.carregando) atual = comCombatenteEm(atual, p, soltarCarga(combatenteEm(atual, p)))
       continue
     }
 
@@ -2036,6 +2113,7 @@ export function resolveRound(
     const atacante = combatenteEm(atual, p)
 
     const hpAntes = atacante.currentHp
+    const eraCarregado = Boolean(atacante.carregando)
     const r = performSkillUse(
       p.lado,
       atacante,
@@ -2048,12 +2126,12 @@ export function resolveRound(
         posturaDefensor: posturas.get(chave(mira)),
       }
     )
-    atual = comCombatenteEm(atual, p, r.attacker)
+    atual = comCombatenteEm(atual, p, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
     atual = comCombatenteEm(atual, mira, r.defender)
     // Os eventos do golpe (choque de domínio, guarda partida) dizem em `side`
     // de quem é a linha; a posição sai de quem daquele lado estava na troca.
     turnResults.push(
-      { ...r.turnResult, posicao: p.indice, posicaoDoAlvo: mira.indice },
+      { ...r.turnResult, posicao: p.indice, posicaoDoAlvo: mira.indice, ...(eraCarregado ? { carregado: true } : {}) },
       ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? p.indice : mira.indice))
     )
 
@@ -2097,6 +2175,27 @@ export function resolveRound(
     const max = c.maxStamina ?? 0
     const extra = Math.round(max * POSTURA_NEUTRA_REGEN)
     atual = comCombatenteEm(atual, p, { ...c, currentStamina: Math.min(max, (c.currentStamina ?? 0) + extra) })
+  }
+
+  // 7c. Quem mais bateu em quem nesta rodada — o que o chefe predador lê na
+  //     próxima para escolher a presa. Refeito toda rodada: é a ameaça de
+  //     AGORA, e não o acumulado da luta.
+  const agressao = new Map<string, Map<number, number>>()
+  for (const t of turnResults) {
+    if (t.kind !== 'ATTACK' || t.countered || !t.damage || t.damage <= 0) continue
+    const alvo = chave({ lado: t.side === LADO_ALIADO ? 'ENEMY' : LADO_ALIADO, indice: t.posicaoDoAlvo ?? 0 })
+    const porAgressor = agressao.get(alvo) ?? new Map<number, number>()
+    porAgressor.set(t.posicao ?? 0, (porAgressor.get(t.posicao ?? 0) ?? 0) + t.damage)
+    agressao.set(alvo, porAgressor)
+  }
+  for (const p of posicoes) {
+    const porAgressor = agressao.get(chave(p))
+    let maior: number | undefined
+    for (const [agressor, dano] of porAgressor ?? []) {
+      if (maior === undefined || dano > (porAgressor?.get(maior) ?? 0)) maior = agressor
+    }
+    const c = combatenteEm(atual, p)
+    if (c.maiorAgressor !== maior) atual = comCombatenteEm(atual, p, { ...c, maiorAgressor: maior })
   }
 
   // 8. Desfecho: um lado perde quando TODOS caem, não quando o primeiro cai.
