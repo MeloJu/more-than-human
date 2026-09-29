@@ -10,7 +10,7 @@ export default async function CharactersPage() {
 
   return (
     <main className="mx-auto max-w-6xl p-6">
-      <h1 className="text-3xl font-bold mb-6">Characters</h1>
+      <h1 className="text-3xl font-bold mb-6">Personagens</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {characters.map((c) => (
           <div key={c.id} className="rounded-lg border bg-surface-raised p-4 shadow">
@@ -37,15 +37,15 @@ export default async function CharactersPage() {
             </div>
             <div className="mt-3 text-sm">
               <div className="flex gap-3 text-muted">
-                <span>HP {c.hp}</span>
-                <span>ATK {c.attack}</span>
+                <span>Vida {c.hp}</span>
+                <span>ATQ {c.attack}</span>
                 <span>DEF {c.defense}</span>
-                <span>SPD {c.speed}</span>
+                <span>VEL {c.speed}</span>
                 <span>EN {c.energy}</span>
               </div>
               {c.characterSkills.length > 0 && (
                 <div className="mt-2">
-                  <div className="text-xs font-medium text-muted">Skills</div>
+                  <div className="text-xs font-medium text-muted">Habilidades</div>
                   <div className="flex flex-wrap gap-2 mt-1">
                     {c.characterSkills.map((cs) => (
                       <span key={cs.skillId} className="text-xs bg-background-alt px-2 py-0.5 rounded">
@@ -57,7 +57,7 @@ export default async function CharactersPage() {
               )}
             </div>
             <div className="mt-4">
-              <Link href={`/characters/${c.id}`} className="text-accent hover:underline text-sm">View details</Link>
+              <Link href={`/characters/${c.id}`} className="text-accent hover:underline text-sm">Ver detalhes</Link>
             </div>
           </div>
         ))}

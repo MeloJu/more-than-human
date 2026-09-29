@@ -21,25 +21,25 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
 
   return (
     <main className="mx-auto max-w-md p-6">
-      <h1 className="text-2xl font-semibold mb-4">Create your account</h1>
+      <h1 className="text-2xl font-semibold mb-4">Criar conta</h1>
       {errorMessage && (
         <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
       <form action={registerAction} className="card p-6 space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Username</label>
-          <input name="username" className="w-full rounded-md border border-border px-3 py-2 bg-surface" placeholder="yourname" />
+          <label className="block text-sm font-medium mb-1">Usuário</label>
+          <input name="username" className="w-full rounded-md border border-border px-3 py-2 bg-surface" placeholder="seunome" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Email</label>
-          <input type="email" name="email" className="w-full rounded-md border border-border px-3 py-2 bg-surface" placeholder="you@example.com" />
+          <label className="block text-sm font-medium mb-1">E-mail</label>
+          <input type="email" name="email" className="w-full rounded-md border border-border px-3 py-2 bg-surface" placeholder="voce@exemplo.com" />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Password</label>
+          <label className="block text-sm font-medium mb-1">Senha</label>
           <input type="password" name="password" minLength={MIN_PASSWORD_LENGTH} className="w-full rounded-md border border-border px-3 py-2 bg-surface" />
         </div>
         <div className="pt-2">
-          <button type="submit" className="btn-primary rounded-md px-4 py-2 text-sm">Register</button>
+          <button type="submit" className="btn-primary rounded-md px-4 py-2 text-sm">Criar conta</button>
         </div>
       </form>
     </main>

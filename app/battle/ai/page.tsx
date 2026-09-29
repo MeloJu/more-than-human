@@ -16,7 +16,7 @@ export default async function BattleAiPage({ searchParams }: { searchParams: Pro
   if (!selected) {
     return (
       <main className="mx-auto max-w-3xl p-6">
-        <h1 className="text-2xl font-semibold mb-4">Battle VS AI</h1>
+        <h1 className="text-2xl font-semibold mb-4">Treino contra a IA</h1>
         <div className="card p-6 space-y-3">
           <p className="opacity-70">Você precisa selecionar um personagem antes de batalhar.</p>
           <Link href="/select" className="btn-primary inline-block rounded-md px-4 py-2 text-sm">Selecionar Personagem</Link>
@@ -32,7 +32,7 @@ export default async function BattleAiPage({ searchParams }: { searchParams: Pro
 
   return (
     <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-2xl font-semibold mb-4">Battle VS AI</h1>
+      <h1 className="text-2xl font-semibold mb-4">Treino contra a IA</h1>
       {errorMessage && (
         <div className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
       )}
