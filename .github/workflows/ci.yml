@@ -78,7 +78,7 @@ jobs:
       # Build nativo amd64, só pra validar o Dockerfile rápido. O artefato que
       # vai pra produção é buildado e publicado no deploy.yml.
       - name: Build image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: false
