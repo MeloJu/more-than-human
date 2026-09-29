@@ -60,6 +60,8 @@ export type Andar = {
 export type Raid = {
   slug: string
   nome: string
+  /** Onde fica, para o rótulo da tela ("Raid · Hueco Mundo"). */
+  regiao: string
   descricao: string
   /** Abaixo disso a raid não abre: é guarda-corpo, não ajuste fino. */
   nivelMinimo: number
@@ -70,6 +72,7 @@ export const RAIDS: Raid[] = [
   {
     slug: 'las-noches',
     nome: 'Las Noches',
+    regiao: 'Hueco Mundo',
     descricao:
       'A fortaleza de Aizen no deserto de Hueco Mundo. Hollows no caminho, Menos na floresta de cristal, e a Sexta Espada esperando na torre.',
     // META DO DONO DO PROJETO: nunca 100% antes do nível 20. Medido com

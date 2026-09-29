@@ -30,12 +30,15 @@ export function MercadoDeContratos({
   precoPorContrato,
   moedas,
   nivel,
+  compacto = false,
 }: {
   contrataveis: Contratavel[]
   vagas: number
   precoPorContrato: number
   moedas: number
   nivel: number
+  /** Numa coluna estreita (ao lado da torre): duas colunas de personagens. */
+  compacto?: boolean
 }) {
   const [escolhidos, setEscolhidos] = useState<string[]>([])
   const [busca, setBusca] = useState('')
@@ -102,7 +105,7 @@ export function MercadoDeContratos({
         />
       </label>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 max-h-80 overflow-y-auto pr-1">
+      <div className={`grid gap-2 overflow-y-auto pr-1 ${compacto ? 'grid-cols-2 max-h-96' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 max-h-80'}`}>
         {visiveis.map((c) => {
           const marcado = escolhidos.includes(c.id)
           const bloqueado = !marcado && cheia

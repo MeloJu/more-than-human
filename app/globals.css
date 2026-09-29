@@ -415,3 +415,9 @@ body {
   .versus-nomes, .versus-fala, .versus-lutar, .versus-linhas { animation: none !important; }
   .versus-clarao { display: none; }
 }
+
+/* O andar aceso da torre da raid pulsa de leve (ver TorreDaRaid). */
+@keyframes pulsar-marco {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 26, 0); }
+  50% { box-shadow: 0 0 0 4px rgba(255, 107, 26, .25); }
+}
