@@ -25,6 +25,7 @@ import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from 
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
 import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
+import { TelaDeVersus } from '@/app/components/battle/TelaDeVersus'
 import { alcanceDe } from '@/app/lib/battle/alcance'
 import { toSkillDef } from '@/app/lib/battle/queries'
 import { raidPorSlug } from '@/app/lib/raid/catalogo'
@@ -200,6 +201,35 @@ export default async function BattleArenaPage({
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
       <FundoDoConfronto corJogador={corJogador} corInimigo={corInimigo} />
+      {/* A entrada, só na luta recém-criada (e uma vez por navegador). */}
+      {isActive && battle.turnNumber === 1 && turns.length === 0 && (
+        <TelaDeVersus
+          chave={battle.id}
+          local={modeLabel.replace(/^Modo: /, '')}
+          esquerda={[
+            {
+              nome: userCharacter.nickname,
+              imagem: userCharacter.character.imageUrl,
+              cor: corJogador ?? '#ff6b1a',
+              linha: `Nível ${userCharacter.level} · ${userCharacter.character.name}`,
+            },
+            ...party.map((p) => ({
+              nome: nomesAliados[p.posicao] ?? 'Aliado',
+              imagem: p.character?.imageUrl ?? null,
+              cor: p.character?.corDestaque ?? '#a1a1aa',
+              linha: `Nível ${p.nivel} · aliado`,
+            })),
+          ]}
+          direita={{
+            nome: nomesInimigos[0],
+            imagem: enemy.imageUrl,
+            cor: corInimigo ?? '#4dd0e1',
+            linha: `Nível ${vilao(state).nivel ?? 1}${inimigosExtras.length ? ` · e mais ${inimigosExtras.length}` : ''}`,
+          }}
+          rotuloDaDireita={chefe ? 'Chefe do andar' : undefined}
+          fala={chefe?.falaDeEntrada}
+        />
+      )}
       <CabecalhoDeBatalha
         nomeJogador={userCharacter.nickname}
         nomeInimigo={enemy.name}

@@ -44,6 +44,8 @@ export type InimigoDoAndar =
       perfil?: PerfilDeChefe
       /** O que ele diz na virada para a fase 2. Nunca cita o personagem de quem joga. */
       falaDaFaseDois?: string
+      /** O que ele diz na tela de versus, antes da luta. Mesma regra da fase 2. */
+      falaDeEntrada?: string
     }
 
 export type Andar = {
@@ -127,6 +129,8 @@ export const RAIDS: Raid[] = [
               faseDois: { vida: 0.5, forma: 'Resurrección: Pantera' },
             },
             falaDaFaseDois: 'Kishire, Pantera!',
+            // A fala do protótipo aprovado no canvas da raid.
+            falaDeEntrada: 'Vieram em bando? Melhor. Assim a caçada não acaba rápido.',
           },
         ],
         chefe: true,

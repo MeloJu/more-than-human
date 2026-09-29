@@ -369,3 +369,49 @@ body {
     animation: none !important;
   }
 }
+
+/* ---------- Tela de versus ----------
+   A sequência do protótipo aprovado (canvas da raid): os lados entram, o VS
+   bate com um clarão e a tela treme, os nomes sobem, o oponente fala, e o
+   botão aparece. Tudo pela classe .versus-* em TelaDeVersus.tsx. */
+@keyframes versus-entra-esq { from { transform: translateX(-105%); } to { transform: none; } }
+@keyframes versus-entra-dir { from { transform: translateX(105%); } to { transform: none; } }
+@keyframes versus-batida {
+  0% { opacity: 0; transform: scale(2.6) rotate(-8deg); }
+  55% { opacity: 1; transform: scale(.92) rotate(0); }
+  75% { transform: scale(1.06); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes versus-clarao { 0% { opacity: 0; } 15% { opacity: .75; } 100% { opacity: 0; } }
+@keyframes versus-tremor {
+  0%, 100% { transform: translate(0, 0); }
+  12% { transform: translate(-14px, 7px); }
+  26% { transform: translate(12px, -8px); }
+  40% { transform: translate(-9px, 5px); }
+  56% { transform: translate(7px, -4px); }
+  72% { transform: translate(-4px, 2px); }
+  86% { transform: translate(2px, -1px); }
+}
+@keyframes versus-sobe { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes versus-aparece { from { opacity: 0; } to { opacity: 1; } }
+@keyframes versus-linhas { from { background-position: 0 0; } to { background-position: 240px 0; } }
+
+.versus-palco { animation: versus-tremor .5s ease-out .86s both; }
+.versus-esq { animation: versus-entra-esq .5s cubic-bezier(.2, .9, .3, 1) .05s both; }
+.versus-dir { animation: versus-entra-dir .5s cubic-bezier(.2, .9, .3, 1) .2s both; }
+.versus-vs { animation: versus-batida .42s cubic-bezier(.3, 1.4, .5, 1) .7s both; }
+.versus-clarao { animation: versus-clarao .45s ease-out .86s both; opacity: 0; }
+.versus-costura { animation: versus-aparece .3s ease-out .62s both; }
+.versus-local { animation: versus-aparece .4s ease 1s both; }
+.versus-nomes { animation: versus-sobe .45s cubic-bezier(.2, .9, .3, 1) 1.05s both; }
+.versus-fala { animation: versus-sobe .4s ease 1.45s both; }
+.versus-lutar { animation: versus-sobe .4s ease 1.75s both; }
+.versus-linhas { animation: versus-linhas 3s linear infinite; }
+
+/* Com o sistema pedindo menos movimento, tudo aparece já no estado final:
+   a tela continua dizendo quem enfrenta quem, só sem a coreografia. */
+@media (prefers-reduced-motion: reduce) {
+  .versus-palco, .versus-esq, .versus-dir, .versus-vs, .versus-costura, .versus-local,
+  .versus-nomes, .versus-fala, .versus-lutar, .versus-linhas { animation: none !important; }
+  .versus-clarao { display: none; }
+}
