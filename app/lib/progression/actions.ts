@@ -64,7 +64,12 @@ export async function autoFillLoadout(userCharacterId: string, characterId: stri
 export async function selectCharacter(formData: FormData): Promise<void> {
   const user = await requireUser()
   const userCharacterId = String(formData.get('userCharacterId'))
-  await prisma.user.update({ where: { id: user.id }, data: { selectedCharacterId: userCharacterId } })
+  // O personagem tem que ser DESTE usuário. Sem a conferência, um POST com o
+  // id de outro jogador selecionava o personagem dele: a Central e o Status
+  // passavam a mostrar a ficha de outra conta.
+  const meu = await prisma.userCharacter.findFirst({ where: { id: userCharacterId, userId: user.id }, select: { id: true } })
+  if (!meu) redirect('/select')
+  await prisma.user.update({ where: { id: user.id }, data: { selectedCharacterId: meu.id } })
   redirect('/dashboard')
 }
 
