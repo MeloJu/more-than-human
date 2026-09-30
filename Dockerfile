@@ -9,7 +9,7 @@
 # `next dev` com o código montado por bind mount.
 
 # ---- deps: todas as dependências, devDependencies incluídas (o build precisa)
-FROM node:20-alpine AS deps
+FROM node:26-alpine AS deps
 # Prisma precisa de openssl pra escolher/carregar o query engine; a imagem
 # alpine não traz. libc6-compat cobre binários que esperam glibc.
 RUN apk add --no-cache openssl libc6-compat
@@ -41,7 +41,7 @@ RUN npm run build
 RUN rm -rf .next/cache
 
 # ---- prod-deps: node_modules sem devDependencies
-FROM node:20-alpine AS prod-deps
+FROM node:26-alpine AS prod-deps
 RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -58,7 +58,7 @@ RUN npx prisma generate
 # pratica isso significa que "a mudanca nao apareceu" e uma pergunta sem
 # resposta — pode ser deploy pendente, cache do navegador ou bug de verdade, e
 # as tres se parecem. Com o SHA no healthcheck, um curl decide.
-FROM node:20-alpine AS runner
+FROM node:26-alpine AS runner
 ARG GIT_SHA=desconhecido
 ENV GIT_SHA=$GIT_SHA
 RUN apk add --no-cache openssl libc6-compat
