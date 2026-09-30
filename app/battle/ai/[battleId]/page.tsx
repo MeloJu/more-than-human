@@ -26,6 +26,8 @@ import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/component
 import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
 import { FaixaDeInvocacao, FaixaDeTroca, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import { COR_DA_RARIDADE } from '@/app/components/itens/CartaDeItem'
+import type { Recompensa } from '@/app/lib/raid/loot'
 import {
   comandoDoGolpe,
   emCampo,
@@ -179,6 +181,13 @@ export default async function BattleArenaPage({
         ((t.result as unknown as TurnResult).posicao ?? 0) === 0
     )
 
+  // O ESPÓLIO do andar vencido (ver sortearLoot), com o kanji e a raridade de
+  // cada material para o painel de fim de andar.
+  const espolio = battle.recompensas as unknown as Recompensa | null
+  const itensDoEspolio = espolio?.itens.length
+    ? await prisma.item.findMany({ where: { nome: { in: espolio.itens.map((i) => i.nome) } }, select: { nome: true, marca: true, raridade: true } })
+    : []
+
   const formasDaParty = idsDeFormaDaParty.length
     ? await prisma.transformation.findMany({ where: { id: { in: idsDeFormaDaParty } }, select: { id: true, name: true } })
     : []
@@ -294,6 +303,40 @@ export default async function BattleArenaPage({
             {raid ? (
               // FIM DE ANDAR: o que vem agora depende de como a incursão ficou.
               <div className="space-y-3">
+                {espolio && (espolio.itens.length > 0 || espolio.equipamento) && (
+                  <div className="space-y-2">
+                    <div className="kicker">Espólio</div>
+                    <div className="flex flex-wrap gap-2">
+                      {espolio.equipamento && (
+                        <span
+                          className="inline-flex items-center gap-2 border px-2.5 py-1 text-sm font-semibold"
+                          style={{ borderColor: COR_DA_RARIDADE.EPICO, borderRadius: '2px 8px 2px 8px', boxShadow: `0 0 14px ${COR_DA_RARIDADE.EPICO}` }}
+                        >
+                          ★ {espolio.equipamento}
+                        </span>
+                      )}
+                      {espolio.itens.map((i) => {
+                        const def = itensDoEspolio.find((d) => d.nome === i.nome)
+                        const cor = COR_DA_RARIDADE[def?.raridade ?? 'COMUM']
+                        return (
+                          <span
+                            key={i.nome}
+                            className="inline-flex items-center gap-2 border px-2.5 py-1 text-sm"
+                            style={{ borderColor: `color-mix(in srgb, ${cor} 60%, var(--border))`, borderRadius: '2px 8px 2px 8px' }}
+                          >
+                            <span aria-hidden className="font-kanji" style={{ color: cor }}>
+                              {def?.marca}
+                            </span>
+                            {i.nome} <span className="tabular-nums text-muted">×{i.quantidade}</span>
+                          </span>
+                        )
+                      })}
+                    </div>
+                    {espolio.equipamento && (
+                      <p className="text-sm opacity-80">{espolio.equipamento} foi para o seu inventário. Equipe em Equipamento.</p>
+                    )}
+                  </div>
+                )}
                 {raidRun?.status === 'ATIVA' && proximoAndar && (
                   <>
                     <p className="text-sm opacity-80">

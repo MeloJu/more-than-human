@@ -686,6 +686,10 @@ model Battle {
   raidRunId String?
   /// O índice do andar na raid (0 é o primeiro).
   andar     Int?
+  /// O que o andar deixou ao ser vencido: { itens: [{ nome, quantidade }],
+  /// equipamento? } — ver app/lib/raid/loot.ts. Gravado na mesma transação da
+  /// rodada final, e lido pelo painel de fim de andar.
+  recompensas Json?
 
   @@index([raidRunId])
 }

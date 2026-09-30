@@ -55,6 +55,16 @@ export type Andar = {
   /** O primeiro é o principal: a carta grande da tela. */
   inimigos: InimigoDoAndar[]
   chefe?: boolean
+  /**
+   * O que o andar deixa ao ser vencido: material do catálogo de itens
+   * (prisma/catalog/itens.js), por nome, de `min` a `max`. Ver sortearLoot.
+   */
+  loot?: { item: string; min: number; max: number }[]
+  /**
+   * Chefe: o equipamento temático que ele pode deixar (Equipment.name), com a
+   * chance. Na primeira vitória na raid vem garantido.
+   */
+  equipamento?: { nome: string; chance: number }
 }
 
 export type Raid = {
@@ -92,21 +102,28 @@ export const RAIDS: Raid[] = [
         nome: 'Deserto de Hueco Mundo',
         descricao: 'Areia branca, lua parada. Três Hollows farejam a party antes de ela ver a fortaleza.',
         inimigos: [{ monstro: 'Hollow', nivel: 10 }, { monstro: 'Hollow', nivel: 10 }, { monstro: 'Hollow', nivel: 10 }],
+        loot: [{ item: 'Fragmento de Máscara', min: 2, max: 3 }],
       },
       {
         nome: 'Floresta de Menos',
         descricao: 'Árvores de quartzo sob a areia. Um Menos Grande se ergue, e um Hollow vem atrás dele.',
         inimigos: [{ monstro: 'Menos Grande', nivel: 10 }, { monstro: 'Hollow', nivel: 10 }],
+        loot: [
+          { item: 'Resíduo de Cero', min: 1, max: 2 },
+          { item: 'Fragmento de Máscara', min: 1, max: 1 },
+        ],
       },
       {
         nome: 'Corredores de Las Noches',
         descricao: 'Dentro da fortaleza, o céu é pintado. Dois Adjuchas guardam o caminho.',
         inimigos: [{ monstro: 'Adjuchas', nivel: 9 }, { monstro: 'Adjuchas', nivel: 9 }],
+        loot: [{ item: 'Garra de Adjuchas', min: 1, max: 2 }],
       },
       {
         nome: 'Portão da Sexta Torre',
         descricao: 'Um Vasto Lorde guarda a torre. Quase um Espada.',
         inimigos: [{ monstro: 'Vasto Lorde', nivel: 10 }],
+        loot: [{ item: 'Núcleo de Vasto Lorde', min: 1, max: 1 }],
       },
       {
         nome: 'Sexta Torre',
@@ -137,6 +154,8 @@ export const RAIDS: Raid[] = [
           },
         ],
         chefe: true,
+        loot: [{ item: 'Osso da Pantera', min: 1, max: 1 }],
+        equipamento: { nome: 'Garra da Pantera', chance: 0.3 },
       },
     ],
   },

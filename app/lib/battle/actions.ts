@@ -37,6 +37,8 @@ import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransform
 import { createBattleAndRedirect } from './montagem'
 import { raidPorSlug } from '@/app/lib/raid/catalogo'
 import { avancar, recompensaDaRaid, reservasDoTime } from '@/app/lib/raid/andares'
+import { sortearLoot } from '@/app/lib/raid/loot'
+import { darItens } from '@/app/lib/itens/queries'
 import { autoFillLoadout } from '@/app/lib/progression/loadout'
 import { recordStoryProgress } from '@/app/lib/story/progresso'
 import { MAX_ROUNDS, NPC_WINS_ON_WIN } from './constants'
@@ -84,7 +86,7 @@ async function loadActiveBattleContext(battleId: string) {
   const raidDaBatalha = raidRun ? raidPorSlug(raidRun.raid) : undefined
   const raid =
     raidRun && raidDaBatalha
-      ? { runId: raidRun.id, andar: battle.andar ?? 0, totalDeAndares: raidDaBatalha.andares.length }
+      ? { runId: raidRun.id, slug: raidRun.raid, andar: battle.andar ?? 0, totalDeAndares: raidDaBatalha.andares.length }
       : null
 
   // O chefe do andar, se houver: as particularidades dele e o arsenal inteiro.
@@ -301,7 +303,7 @@ async function persistRound(
   ehBatalhaContraIa: boolean,
   userId: string,
   /** O andar de raid que esta luta é, ou null fora da raid. */
-  raid: { runId: string; andar: number; totalDeAndares: number } | null
+  raid: { runId: string; slug: string; andar: number; totalDeAndares: number } | null
 ): Promise<{ finalState: BattleState; isFinished: boolean; reward: Reward | null; moedas: number }> {
   const nextTurnNumber = expectedTurnNumber + 1
   const forcedEnd = newState.outcome === null && nextTurnNumber > MAX_ROUNDS
@@ -356,6 +358,34 @@ async function persistRound(
         },
       })
       if (andou.count > 0 && passo.status === 'VENCIDA') moedas += recompensaDaRaid(userCharacterLevel)
+
+      // O LOOT do andar vencido, na mesma transação: o drop e a vitória são
+      // gravados juntos ou não são. `andou` garante que é a primeira vez que
+      // este andar desta incursão é fechado — reenviar a rodada não paga duas.
+      if (andou.count > 0 && finalState.outcome === 'PLAYER_WIN') {
+        const andarDaRaid = raidPorSlug(raid.slug)?.andares[raid.andar]
+        if (andarDaRaid) {
+          const peca = andarDaRaid.equipamento
+            ? await tx.equipment.findUnique({ where: { name: andarDaRaid.equipamento.nome }, select: { id: true, slot: true } })
+            : null
+          const jaTem = peca
+            ? (await tx.userEquipment.count({ where: { userId, equipmentId: peca.id } })) > 0
+            : true
+          // Primeira vitória NA RAID: nenhuma outra incursão dela vencida antes.
+          const primeiraVitoria =
+            passo.status === 'VENCIDA' &&
+            (await tx.raidRun.count({ where: { userId, raid: raid.slug, status: 'VENCIDA', id: { not: raid.runId } } })) === 0
+          const recompensa = sortearLoot(andarDaRaid, Math.random, { primeiraVitoria, jaTemEquipamento: jaTem })
+          await darItens(tx, userId, recompensa.itens)
+          if (recompensa.equipamento && peca) {
+            await tx.userEquipment.create({ data: { userId, equipmentId: peca.id, slot: peca.slot } })
+          }
+          await tx.battle.update({
+            where: { id: battleId },
+            data: { recompensas: recompensa as unknown as Prisma.InputJsonValue },
+          })
+        }
+      }
     }
 
     const existingTurnCount = await tx.turn.count({ where: { battleId } })
