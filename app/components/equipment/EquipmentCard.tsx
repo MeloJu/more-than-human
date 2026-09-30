@@ -1,6 +1,7 @@
 import { describeEffect, type EffectLike } from '@/app/lib/battle/presentation'
 import type { EquipmentRarity, EquipmentSlot } from '@prisma/client'
 import { SLOT_LABEL } from '@/app/lib/equipment/queries'
+import { bonusRefinado } from '@/app/lib/forja/receitas'
 
 type GrantedSkill = { name: string; power: number; energyCost: number; effects: unknown } | null
 
@@ -18,12 +19,12 @@ export type EquipmentView = {
 }
 
 /** Um bônus só aparece se existir — item com 0 de DEF não exibe "DEF +0". */
-function bonusList(e: EquipmentView): { label: string; value: number }[] {
+function bonusList(e: EquipmentView, refino = 0): { label: string; value: number }[] {
   return [
-    { label: 'HP', value: e.flatHpBonus },
-    { label: 'ATQ', value: e.flatAttackBonus },
-    { label: 'DEF', value: e.flatDefenseBonus },
-    { label: 'VEL', value: e.flatSpeedBonus },
+    { label: 'HP', value: bonusRefinado(e.flatHpBonus, refino) },
+    { label: 'ATQ', value: bonusRefinado(e.flatAttackBonus, refino) },
+    { label: 'DEF', value: bonusRefinado(e.flatDefenseBonus, refino) },
+    { label: 'VEL', value: bonusRefinado(e.flatSpeedBonus, refino) },
   ].filter((b) => b.value !== 0)
 }
 
@@ -40,12 +41,15 @@ export function EquipmentCard({
   item,
   footer,
   dimmed = false,
+  refino = 0,
 }: {
   item: EquipmentView
   footer?: React.ReactNode
   dimmed?: boolean
+  /** O refino da cópia do jogador (forja): os bônus já aparecem refinados. */
+  refino?: number
 }) {
-  const bonuses = bonusList(item)
+  const bonuses = bonusList(item, refino)
   const effects = parseEffects(item.grantedSkill?.effects)
 
   return (
@@ -55,7 +59,10 @@ export function EquipmentCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="kicker">{SLOT_LABEL[item.slot]}</div>
-          <h3 className="heading text-base leading-tight mt-0.5">{item.name}</h3>
+          <h3 className="heading text-base leading-tight mt-0.5">
+            {item.name}
+            {refino > 0 && <span className="ml-1.5 text-accent">+{refino}</span>}
+          </h3>
         </div>
         <span className="rarity-chip shrink-0">{item.rarity}</span>
       </div>

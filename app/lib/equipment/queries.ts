@@ -1,6 +1,7 @@
 import { prisma } from '@/app/lib/prisma'
 import type { EquipmentSlot } from '@prisma/client'
 import type { StatBonus } from '@/app/lib/battle/types'
+import { bonusRefinado } from '@/app/lib/forja/receitas'
 
 /** Ordem em que os slots aparecem na UI — do mais definidor pro acessório. */
 export const SLOT_ORDER: EquipmentSlot[] = ['ARMA', 'TRAJE', 'ACESSORIO']
@@ -71,18 +72,20 @@ export async function getEquipmentBonus(userCharacterId: string): Promise<StatBo
   const rows = await prisma.userEquipment.findMany({
     where: { equippedOnId: userCharacterId },
     select: {
+      refino: true,
       equipment: {
         select: { flatHpBonus: true, flatAttackBonus: true, flatDefenseBonus: true, flatSpeedBonus: true },
       },
     },
   })
+  // O refino da forja é da cópia do jogador: soma uma fração de cada bônus.
   return rows.reduce<StatBonus>(
     (acc, r) => ({
       ...acc,
-      hp: acc.hp + r.equipment.flatHpBonus,
-      attack: acc.attack + r.equipment.flatAttackBonus,
-      defense: acc.defense + r.equipment.flatDefenseBonus,
-      speed: acc.speed + r.equipment.flatSpeedBonus,
+      hp: acc.hp + bonusRefinado(r.equipment.flatHpBonus, r.refino),
+      attack: acc.attack + bonusRefinado(r.equipment.flatAttackBonus, r.refino),
+      defense: acc.defense + bonusRefinado(r.equipment.flatDefenseBonus, r.refino),
+      speed: acc.speed + bonusRefinado(r.equipment.flatSpeedBonus, r.refino),
     }),
     { hp: 0, attack: 0, defense: 0, speed: 0, energy: 0, stamina: 0 }
   )

@@ -132,6 +132,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
                   key={row.id}
                   item={row.equipment}
                   dimmed={equippedHere}
+                  refino={row.refino}
                   footer={
                     equippedHere ? (
                       <div className="text-xs font-bold text-spirit">✔ Equipado</div>

@@ -5,6 +5,8 @@ import { EquipmentCard } from '@/app/components/equipment/EquipmentCard'
 import { CartaDeItem } from '@/app/components/itens/CartaDeItem'
 import { getItensDaLoja } from '@/app/lib/itens/queries'
 import { comprarItem } from '@/app/lib/itens/actions'
+import { AbasDaSecao } from '@/app/components/AbasDaSecao'
+import { ABAS_DA_LOJA } from '@/app/lib/navegacao'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
 
 const SHOP_ERRORS: Record<string, string> = {
@@ -22,6 +24,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
 
   return (
     <main className="mx-auto max-w-6xl p-6 space-y-6">
+      <AbasDaSecao abas={ABAS_DA_LOJA} />
       <div className="flex items-end justify-between gap-4 flex-wrap">
         <div>
           <div className="kicker">Distrito Comercial · Seireitei</div>
@@ -71,7 +74,7 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
       )}
 
       <p className="text-sm text-muted">
-        Peças épicas e lendárias não se compram: caem da raid ou saem da forja, com os materiais que ela deixa.
+        Peças épicas e lendárias não se compram: caem da raid ou saem da forja da Lisbeth, com os materiais que ela deixa.
       </p>
 
       {SLOT_ORDER.map((slot) => {

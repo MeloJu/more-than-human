@@ -31,7 +31,7 @@ export const SECOES_LOGADO: Secao[] = [
     caminhos: ['/status', '/equipment', '/treino', '/select', '/create'],
     noCelular: true,
   },
-  { href: '/shop', rotulo: 'Loja', caminhos: ['/shop'], noCelular: true },
+  { href: '/shop', rotulo: 'Loja', caminhos: ['/shop', '/forja'], noCelular: true },
   { href: '/characters', rotulo: 'Catálogo', caminhos: ['/characters', '/skills'], noCelular: false },
 ]
 
@@ -51,6 +51,12 @@ export const ABAS_DO_PERSONAGEM = [
   { href: '/status', rotulo: 'Status' },
   { href: '/equipment', rotulo: 'Equipamento' },
   { href: '/treino', rotulo: 'Treino' },
+]
+
+/** A loja compra; a forja da Lisbeth faz com o que a raid deixa cair. */
+export const ABAS_DA_LOJA = [
+  { href: '/shop', rotulo: 'Loja' },
+  { href: '/forja', rotulo: 'Forja' },
 ]
 
 export const ABAS_DO_CATALOGO = [
