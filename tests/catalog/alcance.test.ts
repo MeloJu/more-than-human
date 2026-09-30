@@ -38,7 +38,7 @@ describe('catálogo de alcance', () => {
   it('invocação vale pelo jeito que ataca, não por ser invocação', () => {
     expect(alcanceDe('Shikigami: Cães Divinos')).toBe('CORPO') // mordem
     expect(alcanceDe('Shikigami: Nue')).toBe('CORPO') // choque no contato
-    expect(alcanceDe('Shikigami: Touro Máximo')).toBe('AREA') // inunda o campo
+    expect(alcanceDe('Shikigami: Max Elephant')).toBe('AREA') // inunda o campo
     expect(alcanceDe('Uzumaki: Redemoinho de Maldições')).toBe('DISTANCIA') // disparo
   })
 

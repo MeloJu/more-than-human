@@ -239,6 +239,12 @@ const renomeacoes = [
     nomeNovo: 'Benihime: Muralha Carmesim',
     fonte: 'correção — "Kageyoshi" pertence ao Byakuya (Senbonzakura Kageyoshi), não ao Urahara; Benihime é a zanpakutō real dele.',
   },
+  {
+    nomeAntigo: 'Shikigami: Touro Máximo',
+    categoria: 'OTHER',
+    nomeNovo: 'Shikigami: Max Elephant',
+    fonte: 'anime/mangá — o shikigami é o Max Elephant (満象, elefante), que inunda o campo; "Touro" era erro de tradução.',
+  },
 ];
 
 module.exports = { renomeacoes };

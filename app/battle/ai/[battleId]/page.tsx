@@ -2,7 +2,7 @@ import { prisma } from '@/app/lib/prisma'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/app/lib/session'
-import { activateTransformation, takeTurn, blockTurn} from '@/app/lib/battle/actions'
+import { activateTransformation, takeTurn, blockTurn, darOrdem } from '@/app/lib/battle/actions'
 import { getBattleView, getEquippedSkills, getPlayerTransformations } from '@/app/lib/battle/queries'
 import { getRetratosDosFalantes, getStageOutro, parseDialogo } from '@/app/lib/story/queries'
 import { CenaDeDialogo } from '@/app/components/story/CenaDeDialogo'
@@ -26,7 +26,7 @@ import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/component
 import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
 import { FaixaDeInvocacao, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
-import { emCampo } from '@/app/lib/battle/invocacoes'
+import { emCampo, golpeDeOrdem, ordensDisponiveis } from '@/app/lib/battle/invocacoes'
 import { TelaDeVersus } from '@/app/components/battle/TelaDeVersus'
 import { alcanceDe } from '@/app/lib/battle/alcance'
 import { toSkillDef } from '@/app/lib/battle/queries'
@@ -511,6 +511,19 @@ export default async function BattleArenaPage({
                       <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
                     </form>
                   ))}
+                  {/* A ORDEM para a invocação em campo: o especial dela no
+                      lugar do ataque sozinho. Só aparece quando há quem obedeça. */}
+                  {ordensDisponiveis(state.aliados, 0).map(({ posicao, def }) => {
+                    const golpe = golpeDeOrdem(def, posicao)
+                    if (!golpe) return null
+                    return (
+                      <form key={golpe.id} action={darOrdem.bind(null, battleId, posicao)} className="h-full">
+                        <CampoDePostura />
+                        <CampoDeAlvo />
+                        <BotaoDeHabilidade skill={golpe} combatente={heroi(state)} />
+                      </form>
+                    )
+                  })}
                   <form action={blockTurn.bind(null, battleId)} className="h-full">
                     <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
                   </form>

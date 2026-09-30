@@ -1,6 +1,6 @@
 import { createInitialState, heroi, resolveRound, vilao } from '@/app/lib/battle/engine'
 import { acaoDaIa, alvoDaIa } from '@/app/lib/battle/ai'
-import { invocacoesEmCampo } from '@/app/lib/battle/invocacoes'
+import { invocacoesEmCampo, ordensDisponiveis } from '@/app/lib/battle/invocacoes'
 import { MAX_ROUNDS } from '@/app/lib/battle/constants'
 import type { BaseStats, Outcome, SkillDef, TransformationDef } from '@/app/lib/battle/types'
 
@@ -79,7 +79,7 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
     // lados têm um só lutador, alvoDaIa não sorteia nada e a simulação sai
     // igual à de antes.
     const comAlvo = (acao: ReturnType<typeof acaoDaIa>, alvo: number | undefined) =>
-      acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
+      (acao.kind === 'ATTACK' || acao.kind === 'ORDEM') && alvo !== undefined ? { ...acao, alvo } : acao
     const alvoDoJogador = alvoDaIa(state.inimigos, rand)
     const alvoDoInimigo = alvoDaIa(state.aliados, rand)
     const r = resolveRound(
@@ -91,6 +91,7 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
               skillsDoOponente: inimigo.skills,
               rand,
               campo: invocacoesEmCampo(state.aliados, 0),
+              ordens: ordensDisponiveis(state.aliados, 0),
             }),
             alvoDoJogador
           ),
@@ -101,6 +102,7 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
               skillsDoOponente: jogador.skills,
               rand,
               campo: invocacoesEmCampo(state.inimigos, 0),
+              ordens: ordensDisponiveis(state.inimigos, 0),
             }),
             alvoDoInimigo
           ),

@@ -198,7 +198,8 @@ export function TurnLogEntry({
         <span className="font-medium" style={{ color: cor }}>
           {quantas > 1 ? `${quantas} × ${nome}` : nome}
         </span>{' '}
-        para o campo{def?.guarda ? ', de guarda na frente dele' : ''}.
+        para o campo{def?.guarda ? ', de guarda na frente dele' : ''}
+        {turn.substituida && <span className="opacity-70"> — {turn.substituida} volta para a sombra</span>}.
       </>
     )
   }
@@ -248,6 +249,7 @@ export function TurnLogEntry({
 
   return (
     <>
+      {turn.ordem && <span className="opacity-70">Por ordem de {nomeEm(turn.side, turn.donoDaOrdem)}, </span>}
       <span className="font-medium">{actorName}</span> {turn.carregado ? 'soltou' : 'usou'}{' '}
       <span className="font-medium">{turn.skillName}</span>
       {turn.carregado && <span className="text-red-500"> carregado</span>}

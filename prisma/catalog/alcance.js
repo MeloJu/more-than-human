@@ -199,7 +199,7 @@ const alcances = [
   ["Shikigami: Cães Divinos", 'OTHER', 'CORPO'], // mordem e rasgam
   ["Shikigami: Nue", 'OTHER', 'CORPO'], // as asas elétricas atordoam no contato
   ["Shikigami: Sapo Amaldiçoado", 'OTHER', 'DISTANCIA'], // agarra com a língua de longe
-  ["Shikigami: Touro Máximo", 'OTHER', 'AREA'], // o Max Elephant inunda o campo
+  ["Shikigami: Max Elephant", 'OTHER', 'AREA'], // o Max Elephant inunda o campo
 
   // Hanami
   ["Floração Fatal", 'OTHER', 'AREA'],

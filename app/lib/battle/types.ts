@@ -361,6 +361,12 @@ export type TurnResult = {
   invocadas?: number[]
   /** SUMMON: a invocação voltou porque o dono não pagou a manutenção. */
   recolhida?: boolean
+  /** SUMMON: o nome da invocação que voltou para dar lugar à nova (ver `substitui`). */
+  substituida?: string
+  /** ATTACK: o golpe especial da invocação, por ordem do dono. */
+  ordem?: boolean
+  /** ATTACK com `ordem`: a posição de quem mandou, no mesmo lado. */
+  donoDaOrdem?: number
   /** ATTACK: quantas invocações o golpe consumiu (ver CONSUMIR). */
   consumidas?: number
   /** ATTACK: o alvo caiu pelo ABATE, abaixo do limiar. */
@@ -594,6 +600,12 @@ export type AcaoDeCombate =
    * sair.
    */
   | { kind: 'CARREGAR'; skillId: string; alvo?: number }
+  /**
+   * A ação do invocador é mandar a invocação em campo (índice `invocacao` no
+   * mesmo lado) usar o golpe especial dela, no lugar do ataque sozinho. O
+   * dono paga a energia do especial; sem ela, a invocação ataca como sempre.
+   */
+  | { kind: 'ORDEM'; invocacao: number; alvo?: number; postura?: Postura }
 
 /** O mesmo tipo, com o nome que o lado do jogador já usava. */
 export type PlayerAction = AcaoDeCombate

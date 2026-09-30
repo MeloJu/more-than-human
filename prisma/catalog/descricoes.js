@@ -373,11 +373,12 @@ const descricoes = [
   ['Transfiguração Ociosa', 'OTHER', 'A técnica de Mahito: tocar a alma e mudar a forma do corpo junto com ela.'],
 
   // Megumi Fushiguro
-  ['Shikigami: Touro Máximo', 'OTHER', 'O maior dos shikigami de Megumi, que esmaga o alvo com o próprio peso.'],
-  ['Shikigami: Sapo Amaldiçoado', 'OTHER', 'O sapo das Dez Sombras agarra o alvo com a língua, e o golpe continua ferindo por algumas rodadas.'],
+  ['Shikigami: Max Elephant', 'OTHER', 'O maior dos shikigami de Megumi. Fica em campo, pisoteia sozinho e, por ordem, inunda a área inteira.'],
+  ['Shikigami: Mahoraga', 'OTHER', 'O General Divino, o mais forte das Dez Sombras. Não aceita ordem e cobra vida do Megumi a cada rodada em campo.'],
+  ['Shikigami: Sapo Amaldiçoado', 'OTHER', 'O sapo das Dez Sombras. Fica em campo e, por ordem, puxa o alvo com a língua, que continua ferindo.'],
   ['Expansão de Domínio: Jardim Sombrio', 'OTHER', 'Jardim das Sombras Quiméricas: Megumi inunda tudo de sombra e ataca de qualquer lado. O alvo sai enfraquecido, e dentro do domínio a técnica acerta sempre e bate mais forte.'],
-  ['Shikigami: Cães Divinos', 'OTHER', 'Os Cães Divinos, os primeiros shikigami de Megumi, atacam juntos.'],
-  ['Shikigami: Nue', 'OTHER', 'Nue, o pássaro elétrico das Dez Sombras, dá um rasante que deixa o alvo mais lento.'],
+  ['Shikigami: Cães Divinos', 'OTHER', 'Os Cães Divinos, os primeiros shikigami de Megumi. Ficam em campo e, por ordem, mordem juntos.'],
+  ['Shikigami: Nue', 'OTHER', 'Nue, o pássaro elétrico das Dez Sombras. Fica em campo e, por ordem, dá um rasante que deixa o alvo mais lento.'],
 
   // Nobara Kugisaki
   ['Prego Negro', 'OTHER', 'Um prego cravado com toda a energia amaldiçoada que Nobara tem. Arrasa a defesa do alvo.'],
@@ -568,11 +569,11 @@ const descricoes = [
   // ────────────────────────── SOLO LEVELING ─────────────────────────
 
   ['Exército das Sombras', 'OTHER', 'Jin-Woo chama o exército das sombras inteiro de uma vez. O alvo, cercado, sai enfraquecido.'],
-  ['Beru, Formiga-Rei', 'OTHER', 'Beru, o Rei Formiga que virou a sombra mais forte de Jin-Woo, rasga o alvo com as garras. O ferimento continua sangrando.'],
-  ['Igris, Cavaleiro de Sangue', 'OTHER', 'Igris, o primeiro cavaleiro das sombras, luta ao lado de Jin-Woo. O ataque sobe.'],
+  ['Beru, Formiga-Rei', 'OTHER', 'Beru, o Rei Formiga que virou a sombra mais forte de Jin-Woo. Fica em campo e rasga o alvo com as garras.'],
+  ['Igris, Cavaleiro de Sangue', 'OTHER', 'Igris, o primeiro cavaleiro das sombras. Fica em campo e luta ao lado de Jin-Woo.'],
   ['Adaga do Monarca', 'OTHER', 'Um corte rápido de adaga que deixa o alvo sangrando.'],
-  ['Erguer: Soldado das Sombras', 'OTHER', 'Arise: Jin-Woo ergue um soldado das sombras para atacar.'],
-  ['Tank, Muralha de Ossos', 'OTHER', 'Tank, o urso das sombras, se põe na frente do golpe.'],
+  ['Erguer: Soldado das Sombras', 'OTHER', 'Arise: Jin-Woo ergue um soldado das sombras, que fica em campo. Cabem três sombras, e a que cai volta rápido.'],
+  ['Tank, Muralha de Ossos', 'OTHER', 'Tank, o urso das sombras. Fica em campo e recebe no lugar de Jin-Woo os golpes de alvo único.'],
 
   // ──────────────────────── DEADPOOL E PATOLINO ────────────────────────
   // Esses dois já tinham texto, mas era a FALA deles (o que dizem no

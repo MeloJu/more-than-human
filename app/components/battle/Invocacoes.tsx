@@ -38,17 +38,24 @@ export function OrbesDeInvocacao({ grupos, time, dono }: { grupos: DefDeInvocaca
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {grupos.map((def) => {
-        const acesas = time.filter(
-          (c) => c.invocacao?.dono === dono && emCampo(c) && defDeInvocacao(c.invocacao.def)?.grupo === def.grupo
-        ).length
-        const rotulo = `${def.nome}: ${acesas} de ${def.limiteDoGrupo} em campo`
+        // Cada orbe acesa na cor de QUEM está em campo: no grupo das sombras
+        // do Jin-Woo, Igris é vermelho e Beru é verde-água.
+        const emCampoDoGrupo = time
+          .filter((c) => c.invocacao?.dono === dono && emCampo(c) && defDeInvocacao(c.invocacao.def)?.grupo === def.grupo)
+          .map((c) => defDeInvocacao(c.invocacao?.def ?? '') ?? def)
+        const acesas = emCampoDoGrupo.length
+        const rotulo = `${def.nomeDoGrupo ?? def.nome}: ${acesas} de ${def.limiteDoGrupo} em campo`
+        // O kanji do grupo é o de quem está em campo agora (o 象 do Max
+        // Elephant, não o 輪 do Mahoraga que só está no kit).
+        const marca = emCampoDoGrupo[0] ?? def
         return (
           <span key={def.grupo} className="inline-flex items-center gap-1.5" title={rotulo} aria-label={rotulo} role="img">
-            <span aria-hidden className="font-kanji text-sm leading-none" style={{ color: def.cor, textShadow: `0 0 8px ${def.cor}` }}>
-              {def.marca}
+            <span aria-hidden className="font-kanji text-sm leading-none" style={{ color: marca.cor, textShadow: `0 0 8px ${marca.cor}` }}>
+              {marca.marca}
             </span>
             {Array.from({ length: def.limiteDoGrupo }, (_, i) => {
               const acesa = i < acesas
+              const cor = emCampoDoGrupo[i]?.cor ?? def.cor
               return (
                 <span
                   key={i}
@@ -57,8 +64,8 @@ export function OrbesDeInvocacao({ grupos, time, dono }: { grupos: DefDeInvocaca
                   style={
                     acesa
                       ? {
-                          background: `radial-gradient(circle at 35% 30%, #fff 0%, ${def.cor} 45%, color-mix(in srgb, ${def.cor} 60%, #000) 100%)`,
-                          boxShadow: `0 0 8px ${def.cor}`,
+                          background: `radial-gradient(circle at 35% 30%, #fff 0%, ${cor} 45%, color-mix(in srgb, ${cor} 60%, #000) 100%)`,
+                          boxShadow: `0 0 8px ${cor}`,
                         }
                       : { border: `1.5px solid color-mix(in srgb, ${def.cor} 55%, transparent)`, background: 'rgba(10,10,15,.6)' }
                   }
@@ -80,7 +87,6 @@ export function OrbesDeInvocacao({ grupos, time, dono }: { grupos: DefDeInvocaca
 export function FaixaDeInvocacao({ combatente, dono }: { combatente: CombatantState; dono: string }) {
   const def = combatente.invocacao ? defDeInvocacao(combatente.invocacao.def) : undefined
   if (!def) return null
-  const chegando = Boolean(combatente.invocacao?.recemChegada)
 
   return (
     <PainelChanfrado cor={def.cor} tinta corte={8}>
@@ -101,7 +107,7 @@ export function FaixaDeInvocacao({ combatente, dono }: { combatente: CombatantSt
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-semibold">{combatente.nome ?? def.nome}</span>
             <span className="ml-auto shrink-0 text-[11px] uppercase tracking-wider text-muted">
-              {chegando ? 'chegou' : def.guarda ? `guarda ${dono}` : `de ${dono}`}
+              {def.guarda ? `guarda ${dono}` : `de ${dono}`}
             </span>
           </div>
           <StatBar

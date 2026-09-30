@@ -1,6 +1,6 @@
-import { ativarForma, custoDaPostura, isLegalMove, podeAtivar, podeBloquear } from './engine'
+import { ativarForma, custoDaPostura, energyCostFor, isLegalMove, podeAtivar, podeBloquear } from './engine'
 import { alcanceDe } from './alcance'
-import { invocacaoDoGolpe } from './invocacoes'
+import { invocacaoDoGolpe, type DefDeInvocacao } from './invocacoes'
 import type { AcaoDeCombate, CombatantState, Postura, SkillDef, TransformationDef } from './types'
 
 const LOW_HP_HEAL_THRESHOLD = 0.4
@@ -56,11 +56,35 @@ function jogadaDeInvocador(legal: SkillDef[], campo: CampoDaIa): string | undefi
   const grupo = consumir?.effects.find((e) => e.type === 'CONSUMIR')?.grupo
   if (consumir && grupo && (campo[grupo] ?? 0) >= IA_CONSUMIR_A_PARTIR_DE) return consumir.id
 
-  // A que chama mais de uma vez de uma vez, se couber; senão a de uma.
+  // A que chama mais de uma vez de uma vez, se couber; entre as de uma, a
+  // criatura que bate mais (o Megumi com o campo vazio chama o mais forte).
   const chamar = legal
     .filter(cabe)
-    .sort((a, b) => (invocacaoDoGolpe(b)?.quantidade ?? 0) - (invocacaoDoGolpe(a)?.quantidade ?? 0))[0]
+    .sort(
+      (a, b) =>
+        (invocacaoDoGolpe(b)?.quantidade ?? 0) - (invocacaoDoGolpe(a)?.quantidade ?? 0) ||
+        (invocacaoDoGolpe(b)?.def.golpe.power ?? 0) - (invocacaoDoGolpe(a)?.def.golpe.power ?? 0)
+    )[0]
   return chamar?.id
+}
+
+/**
+ * A ORDEM que vale mais que o golpe escolhido, se houver: o especial da
+ * invocação em campo que o dono pode pagar e que bate mais forte que a
+ * habilidade que ele usaria. Chamar ou consumir invocação não é trocado por
+ * ordem — é a jogada de montar o campo, e ela vem primeiro.
+ */
+function ordemQueVale(
+  self: CombatantState,
+  escolhida: SkillDef | null,
+  ordens: { posicao: number; def: DefDeInvocacao }[]
+): number | undefined {
+  if (escolhida && (invocacaoDoGolpe(escolhida) || escolhida.effects.some((e) => e.type === 'CONSUMIR'))) return undefined
+  const poderDaEscolhida = escolhida ? danoEsperado(escolhida) : 12
+  const melhor = ordens
+    .filter((o) => o.def.especial && self.currentEnergy >= energyCostFor(self, o.def.especial.custo))
+    .sort((a, b) => (b.def.especial?.power ?? 0) - (a.def.especial?.power ?? 0))[0]
+  return melhor && (melhor.def.especial?.power ?? 0) > poderDaEscolhida ? melhor.posicao : undefined
 }
 
 /**
@@ -349,7 +373,13 @@ export function acaoDaIa(
    * (não a escolha desta rodada, que ela não vê) e a fonte de sorte. Sem o
    * arsenal, ela escolhe a postura sem palpite sobre o alcance do golpe.
    */
-  leitura: { skillsDoOponente?: SkillDef[]; rand?: () => number; campo?: CampoDaIa } = {}
+  leitura: {
+    skillsDoOponente?: SkillDef[]
+    rand?: () => number
+    campo?: CampoDaIa
+    /** As invocações que aceitam ordem agora (ver ordensDisponiveis). */
+    ordens?: { posicao: number; def: DefDeInvocacao }[]
+  } = {}
 ): AcaoDeCombate {
   const forma = escolherFormaDaIa(self, formas)
   if (forma && forma.consumesTurn !== false) return { kind: 'TRANSFORM', transformationId: forma.id }
@@ -360,6 +390,8 @@ export function acaoDaIa(
   const visto = ativa ? comManutencaoReservada(base, ativa) : base
   const skillId = pickAiSkill(visto, skills, oponente, leitura.campo)
   const postura = escolherPosturaDaIa(visto, skills.find((s) => s.id === skillId) ?? null, oponente, leitura)
+  const ordem = leitura.ordens?.length ? ordemQueVale(visto, skills.find((s) => s.id === skillId) ?? null, leitura.ordens) : undefined
+  if (ordem !== undefined && !forma) return { kind: 'ORDEM', invocacao: ordem, postura }
   return { kind: 'ATTACK', skillId, postura, ...(forma ? { liberar: forma.id } : {}) }
 }
 

@@ -170,45 +170,53 @@ const yuji = {
 
 const megumi = {
   character: 'Megumi Fushiguro',
+  // EM CAMPO (29/09/2026): os shikigami viram invocações — um por vez, e
+  // chamar outro recolhe o atual (ver app/lib/battle/invocacoes.ts). A ação
+  // do Megumi é o bastão (o ataque básico) ou a ORDEM do golpe especial do
+  // shikigami em campo. O Mahoraga fecha o kit e cobra vida por rodada.
   skills: [
     {
       name: 'Shikigami: Nue',
       category: 'OTHER',
-      power: 15,
+      power: 0,
       energyCost: 13,
       cooldown: 1,
       tags: ['shikigami'],
-      effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'speed', magnitude: 10, duration: 2 }],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'nue' }],
+      substituirEfeitos: true,
       level: 1,
     },
     {
       name: 'Shikigami: Cães Divinos',
       category: 'OTHER',
-      power: 23,
+      power: 0,
       energyCost: 19,
       cooldown: 2,
       tags: ['shikigami'],
-      effects: [],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'caes-divinos' }],
+      substituirEfeitos: true,
       level: 2,
     },
     {
       name: 'Shikigami: Sapo Amaldiçoado',
       category: 'OTHER',
-      power: 30,
+      power: 0,
       energyCost: 25,
       cooldown: 3,
       tags: ['shikigami'],
-      effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 8, duration: 2 }],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'sapo' }],
+      substituirEfeitos: true,
       level: 5,
     },
     {
-      name: 'Shikigami: Touro Máximo',
+      name: 'Shikigami: Max Elephant',
       category: 'OTHER',
-      power: 42,
+      power: 0,
       energyCost: 34,
       cooldown: 5,
       tags: ['shikigami'],
-      effects: [],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'max-elephant' }],
+      substituirEfeitos: true,
       level: 9,
     },
     {
@@ -220,6 +228,17 @@ const megumi = {
       tags: ['shikigami', 'dominio', 'ultimate'],
       effects: [{ type: 'DOMAIN', target: 'SELF', magnitude: 13, duration: 3 }, { type: 'DEBUFF', target: 'ENEMY', stat: 'attack', magnitude: 20, duration: 2 }, { type: 'BUFF', target: 'SELF', stat: 'defense', magnitude: 13, duration: 3 }],
       level: 14,
+    },
+    {
+      name: 'Shikigami: Mahoraga',
+      category: 'OTHER',
+      power: 0,
+      energyCost: 40,
+      cooldown: 8,
+      tags: ['shikigami', 'ultimate'],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'mahoraga' }],
+      substituirEfeitos: true,
+      level: 16,
     },
   ],
 };

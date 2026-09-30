@@ -10,6 +10,7 @@ import {
   ativarForma,
   comHeroi,
   computeFighterStats,
+  energyCostFor,
   faltaParaAtivar,
   heroi,
   isLegalMove,
@@ -19,7 +20,7 @@ import {
   vilao,
 } from './engine'
 import { acaoDaIa, acaoDoChefe, alvoDaIa } from './ai'
-import { ehLutador, invocacoesEmCampo, skillIdDaColuna } from './invocacoes'
+import { ehLutador, invocacoesEmCampo, ordensDisponiveis, skillIdDaColuna } from './invocacoes'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
 import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransformations, loadEnemyProfile } from './queries'
@@ -186,6 +187,7 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
         ? acaoDaIa(eu, Object.values(a.skills), primeiroInimigoDePe, a.formas, {
             skillsDoOponente: golpesDoInimigo,
             campo: invocacoesEmCampo(ctx.state.aliados, a.posicao),
+            ordens: ordensDisponiveis(ctx.state.aliados, a.posicao),
           })
         : { kind: 'ATTACK', skillId: null }
   }
@@ -217,8 +219,9 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
     const acao = acaoDaIa(eu, Object.values(f.skills), presa, f.formas, {
       skillsDoOponente: skillsDe(alvo ?? 0),
       campo: invocacoesEmCampo(ctx.state.inimigos, f.posicao),
+      ordens: ordensDisponiveis(ctx.state.inimigos, f.posicao),
     })
-    inimigas[f.posicao] = acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
+    inimigas[f.posicao] = (acao.kind === 'ATTACK' || acao.kind === 'ORDEM') && alvo !== undefined ? { ...acao, alvo } : acao
   }
 
   // O mapa de golpes é por LADO: o motor procura pelo id. Os do principal vêm
@@ -526,6 +529,31 @@ export async function takeTurn(battleId: string, skillId: string | null, dados?:
   const { state: newState, turnResults } = rodadaContraIa(ctx, {
     kind: 'ATTACK',
     skillId,
+    postura: posturaDoFormulario(dados),
+    alvo: alvoDoFormulario(dados, ctx.state),
+  })
+
+  await finalizeRound(battleId, ctx, newState, turnResults)
+}
+
+/**
+ * A ação do invocador que manda a invocação em campo usar o golpe especial.
+ *
+ * Conferida aqui e não só na tela, como toda action (é alcançável por POST
+ * direto): a invocação precisa ser do jogador, estar em campo, não ter
+ * acabado de chegar, ter especial, e o jogador precisa ter a energia.
+ */
+export async function darOrdem(battleId: string, posicao: number, dados?: FormData): Promise<void> {
+  const ctx = await loadActiveBattleContext(battleId)
+  const ordem = Number.isInteger(posicao) ? ordensDisponiveis(ctx.state.aliados, 0).find((o) => o.posicao === posicao) : undefined
+  if (!ordem?.def.especial) redirect(`/battle/ai/${battleId}?error=invalid_order`)
+  if (heroi(ctx.state).currentEnergy < energyCostFor(heroi(ctx.state), ordem.def.especial.custo)) {
+    redirect(`/battle/ai/${battleId}?error=illegal_move`)
+  }
+
+  const { state: newState, turnResults } = rodadaContraIa(ctx, {
+    kind: 'ORDEM',
+    invocacao: posicao,
     postura: posturaDoFormulario(dados),
     alvo: alvoDoFormulario(dados, ctx.state),
   })

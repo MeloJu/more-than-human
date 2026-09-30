@@ -64,6 +64,7 @@ import {
   defDeInvocacao,
   ehLutador,
   emCampo,
+  especialDaInvocacao,
   golpeDaInvocacao,
   invocacaoDoGolpe,
   vagasDoGrupo,
@@ -1824,6 +1825,20 @@ function chamarInvocacoes(
 ): { state: BattleState; resultado: TurnResult } {
   const time = [...timeDoLado(state, dono.lado)]
   const quem = time[dono.indice]
+
+  // SUBSTITUI: com o grupo cheio, as outras do grupo voltam para dar lugar
+  // (o Sapo recolhe a Nue). Chamar a mesma que já está em campo não troca
+  // nada — o campo segue cheio e o golpe foi gasto.
+  let substituida: string | undefined
+  if (def.substitui && vagasDoGrupo(time, dono.indice, def) < quantidade) {
+    time.forEach((c, i) => {
+      if (c.invocacao?.dono !== dono.indice || !emCampo(c) || c.invocacao.def === def.id) return
+      if (defDeInvocacao(c.invocacao.def)?.grupo !== def.grupo) return
+      substituida = c.nome ?? defDeInvocacao(c.invocacao.def)?.nome
+      time[i] = { ...c, currentHp: 0, invocacao: { ...c.invocacao, fora: true } }
+    })
+  }
+
   const vezes = Math.min(quantidade, vagasDoGrupo(time, dono.indice, def))
   const invocadas: number[] = []
 
@@ -1852,17 +1867,17 @@ function chamarInvocacoes(
     invocadas.push(indice)
   }
 
-  // Numeradas quando cabem várias ("Maldição 2"), para o log e o alvo
-  // dizerem qual. A ordem é a do array, que é estável entre as rodadas.
-  if (def.limiteDoGrupo > 1) {
-    let k = 0
-    time.forEach((c, i) => {
-      if (c.invocacao?.dono === dono.indice && c.invocacao.def === def.id && !c.invocacao.fora) {
-        k++
-        time[i] = { ...c, nome: `${def.nome} ${k}` }
-      }
-    })
-  }
+  // Numeradas quando há mais de uma igual em campo ("Maldição 2"), para o
+  // log e o alvo dizerem qual. Uma só fica sem número: "Tank 1" sem Tank 2
+  // não diz nada. A ordem é a do array, que é estável entre as rodadas.
+  const iguais = time.filter((c) => c.invocacao?.dono === dono.indice && c.invocacao.def === def.id && !c.invocacao.fora)
+  let k = 0
+  time.forEach((c, i) => {
+    if (c.invocacao?.dono === dono.indice && c.invocacao.def === def.id && !c.invocacao.fora) {
+      k++
+      time[i] = { ...c, nome: iguais.length > 1 ? `${def.nome} ${k}` : def.nome }
+    }
+  })
 
   return {
     state: comTime(state, dono.lado, time),
@@ -1875,6 +1890,7 @@ function chamarInvocacoes(
       skillName: skill.name,
       invocacao: def.id,
       invocadas,
+      ...(substituida ? { substituida } : {}),
       energySpent: energyCostFor(quem, skill.energyCost),
     },
   }
@@ -1932,7 +1948,8 @@ function assentarInvocacoes(state: BattleState): BattleState {
       }
       if (estaDePe(c)) return
       time[i] = { ...c, invocacao: { ...c.invocacao, fora: true } }
-      const espera = Math.max(dono.cooldowns[c.invocacao.skillId] ?? 0, ESPERA_DA_INVOCACAO)
+      const esperaDoGrupo = defDeInvocacao(c.invocacao.def)?.espera ?? ESPERA_DA_INVOCACAO
+      const espera = Math.max(dono.cooldowns[c.invocacao.skillId] ?? 0, esperaDoGrupo)
       time[c.invocacao.dono] = { ...dono, cooldowns: { ...dono.cooldowns, [c.invocacao.skillId]: espera } }
       mudou = true
     })
@@ -1956,8 +1973,21 @@ function manterInvocacoes(state: BattleState): { state: BattleState; results: Tu
       const time = [...timeDoLado(atual, lado)]
       const dono = time[c.invocacao.dono]
       const custo = energyCostFor(dono, def.manutencao)
-      if (dono.currentEnergy >= custo) {
-        time[c.invocacao.dono] = { ...dono, currentEnergy: dono.currentEnergy - custo }
+      // O preço em vida nunca derruba o dono: sem vida para pagar, volta.
+      const custoDeVida = def.manutencaoVida ? Math.max(1, Math.round(dono.maxHp * def.manutencaoVida)) : 0
+      if (dono.currentEnergy >= custo && dono.currentHp > custoDeVida) {
+        time[c.invocacao.dono] = { ...dono, currentEnergy: dono.currentEnergy - custo, currentHp: dono.currentHp - custoDeVida }
+        if (custoDeVida > 0) {
+          results.push({
+            version: 1,
+            side: lado,
+            posicao: c.invocacao.dono,
+            kind: 'DOT_TICK',
+            skillId: null,
+            skillName: def.nome,
+            damage: custoDeVida,
+          })
+        }
       } else {
         time[i] = { ...c, currentHp: 0, invocacao: { ...c.invocacao, fora: true } }
         results.push({
@@ -2137,7 +2167,8 @@ export function resolveRound(
   const posturas = new Map<string, Postura>()
   for (const p of vivos()) {
     const acao = acaoDaVez(p)
-    if (acao?.kind !== 'ATTACK' || bloqueando.has(chave(p))) continue
+    // Quem dá ordem também se posiciona: está em campo do mesmo jeito.
+    if ((acao?.kind !== 'ATTACK' && acao?.kind !== 'ORDEM') || bloqueando.has(chave(p))) continue
     const c = combatenteEm(atual, p)
     const pedida = acao.postura ?? 'NEUTRA'
     if (pedida === 'NEUTRA' || isStunned(c)) {
@@ -2157,6 +2188,8 @@ export function resolveRound(
   //    Tem que ser antes: o choque compara os dois golpes partindo juntos, e
   //    isso não existiria se cada um fosse escolhido na sua vez.
   const golpes = new Map<string, { skill: SkillDef | null; alvo: EmCampo | null }>()
+  // Invocação que vai usar o especial por ordem -> o dono que paga.
+  const ordens = new Map<string, EmCampo>()
   for (const p of vivos()) {
     // A INVOCAÇÃO BATE SOZINHA, no alvo do dono: é o que ela faz na obra —
     // o Geto aponta, as maldições vão. Dono sem alvo (bloqueou, se
@@ -2165,7 +2198,16 @@ export function resolveRound(
     if (invocacao) {
       const def = defDeInvocacao(invocacao.def)
       if (!def || invocacao.recemChegada || invocacao.fora) continue
-      const doDono = golpes.get(chave({ lado: p.lado, indice: invocacao.dono }))
+      const onde = { lado: p.lado, indice: invocacao.dono }
+      // ORDEM: o dono mandou esta usar o especial. Dono atordoado não manda.
+      const acaoDoDono = acaoDaVez(onde)
+      const especial = especialDaInvocacao(def)
+      if (acaoDoDono?.kind === 'ORDEM' && acaoDoDono.invocacao === p.indice && especial && !isStunned(combatenteEm(atual, onde))) {
+        golpes.set(chave(p), { skill: especial, alvo: alvoDe(atual, p, acaoDoDono.alvo) })
+        ordens.set(chave(p), onde)
+        continue
+      }
+      const doDono = golpes.get(chave(onde))
       golpes.set(chave(p), { skill: golpeDaInvocacao(def), alvo: alvoDe(atual, p, doDono?.alvo?.indice) })
       continue
     }
@@ -2254,6 +2296,10 @@ export function resolveRound(
 
     const c = combatenteEm(atual, p)
     if (!estaDePe(c)) continue
+    // Chegou NESTA rodada: a vaga pode ter sido reaproveitada depois que os
+    // golpes foram escolhidos (o Mahoraga no lugar dos Cães), e o golpe
+    // marcado para ela era de quem estava ali antes.
+    if (c.invocacao?.recemChegada) continue
 
     if (isStunned(c)) {
       turnResults.push(em(makeStunResult(p.lado), p.indice))
@@ -2334,9 +2380,26 @@ export function resolveRound(
       continue
     }
 
-    const golpe = golpes.get(chave(p))
+    let golpe = golpes.get(chave(p))
     // Quem não declarou ataque nesta rodada não age.
     if (!golpe) continue
+
+    // A ORDEM É PAGA NA HORA do golpe, pelo dono: se ele não tem mais a
+    // energia (gastou, ou caiu no meio da rodada), a invocação ataca sozinha
+    // como sempre em vez de perder a vez.
+    let cumpriuOrdem = false
+    const donoDaOrdem = ordens.get(chave(p))
+    const defDaOrdem = c.invocacao ? defDeInvocacao(c.invocacao.def) : undefined
+    if (donoDaOrdem && defDaOrdem?.especial) {
+      const dono = combatenteEm(atual, donoDaOrdem)
+      const custo = energyCostFor(dono, defDaOrdem.especial.custo)
+      if (estaDePe(dono) && dono.currentEnergy >= custo) {
+        atual = comCombatenteEm(atual, donoDaOrdem, { ...dono, currentEnergy: dono.currentEnergy - custo })
+        cumpriuOrdem = true
+      } else {
+        golpe = { ...golpe, skill: golpeDaInvocacao(defDaOrdem) }
+      }
+    }
 
     // INVOCAR: a rodada é gasta chamando. Não bate em ninguém — quem bate é
     // a invocação, a partir da próxima rodada.
@@ -2438,6 +2501,7 @@ export function resolveRound(
         posicaoDoAlvo: mira.indice,
         ...(eraCarregado ? { carregado: true } : {}),
         ...(consumidas > 0 ? { consumidas } : {}),
+        ...(cumpriuOrdem && donoDaOrdem ? { ordem: true, donoDaOrdem: donoDaOrdem.indice } : {}),
         ...(interceptou ? { interceptou: true } : {}),
         ...(abatido ? { abatido: true, targetHpAfter: 0 } : {}),
       },
@@ -2484,6 +2548,19 @@ export function resolveRound(
   const manutencao = manterInvocacoes(atual)
   atual = manutencao.state
   turnResults.push(...manutencao.results)
+
+  // Quem chegou nesta rodada age na próxima: a marca sai AGORA, e não no
+  // começo da próxima, para o estado gravado entre as rodadas já dizer que
+  // ela pode receber ordem (a tela e a IA leem esse estado para oferecer).
+  for (const lado of [LADO_ALIADO, 'ENEMY'] as Side[]) {
+    const time = timeDoLado(atual, lado)
+    if (!time.some((c) => c.invocacao?.recemChegada)) continue
+    atual = comTime(
+      atual,
+      lado,
+      time.map((c) => (c.invocacao?.recemChegada ? { ...c, invocacao: { ...c.invocacao, recemChegada: undefined } } : c))
+    )
+  }
 
   // 7b. Quem passou a rodada na postura neutra recupera stamina a mais: é o
   //     que faz ficar parado ser uma escolha, e não só a falta de uma.

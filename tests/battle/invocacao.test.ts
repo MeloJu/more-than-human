@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createInitialState, resolveRound } from '@/app/lib/battle/engine'
 import { alvoDaIa, pickAiSkill } from '@/app/lib/battle/ai'
-import { ESPERA_DA_INVOCACAO, INVOCACOES, invocacoesEmCampo, skillIdDaColuna } from '@/app/lib/battle/invocacoes'
+import { ESPERA_DA_INVOCACAO, INVOCACOES, invocacoesEmCampo, ordensDisponiveis, skillIdDaColuna } from '@/app/lib/battle/invocacoes'
 import type { AcaoDeCombate, BaseStats, BattleState, SkillDef } from '@/app/lib/battle/types'
 
 /**
@@ -272,5 +272,78 @@ describe('o nome no log', () => {
     expect(golpe?.nomeDoAtor).toBe('Dragão Arco-Íris')
     const contra = rodada(chamou, parado, atacar('sk', 0)).turnResults.find((t) => t.side === 'ENEMY' && t.kind === 'ATTACK')
     expect(contra?.nomeDoAlvo).toBe('Dragão Arco-Íris')
+  })
+})
+
+describe('Megumi: um shikigami por vez, e a ordem', () => {
+  const invocar = (id: string, def: string) =>
+    skill({ id, name: id, power: 0, effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: def }] })
+  const MEGUMI: Record<string, SkillDef> = {
+    ...SKILLS,
+    nue: invocar('nue', 'nue'),
+    sapo: invocar('sapo', 'sapo'),
+    mahoraga: invocar('mahoraga', 'mahoraga'),
+    soldado: invocar('soldado', 'soldado-sombra'),
+  }
+  const r = (e: BattleState, minha: AcaoDeCombate, dele: AcaoDeCombate = parado) =>
+    resolveRound(e, { aliadas: [minha], inimigas: [dele] }, { playerSkills: MEGUMI, enemySkills: MEGUMI, playerTransformations: {} }, NUNCA_CRITA)
+
+  it('chamar outro shikigami manda o atual de volta, sem espera', () => {
+    const comNue = r(inicio(), atacar('nue')).state
+    const troca = r(comNue, atacar('sapo'))
+    expect(invocacoesEmCampo(troca.state.aliados, 0)).toEqual({ shikigami: 1 })
+    // A vaga da Nue foi reaproveitada pelo Sapo.
+    expect(troca.state.aliados).toHaveLength(2)
+    expect(troca.state.aliados[1].invocacao?.def).toBe('sapo')
+    expect(troca.state.aliados[0].cooldowns.nue ?? 0).toBe(0)
+    expect(troca.turnResults.find((x) => x.kind === 'SUMMON')?.substituida).toBe('Nue')
+  })
+
+  it('depois da rodada em que chegou, já aceita ordem', () => {
+    const comNue = r(inicio(), atacar('nue')).state
+    expect(comNue.aliados[1].invocacao?.recemChegada).toBeUndefined()
+    expect(ordensDisponiveis(comNue.aliados, 0).map((o) => o.posicao)).toEqual([1])
+  })
+
+  it('quem chega na vaga de outro não herda o golpe dele na mesma rodada', () => {
+    const comNue = r(inicio(), atacar('nue')).state
+    const troca = r(comNue, atacar('sapo'))
+    expect(troca.turnResults.some((x) => x.kind === 'ATTACK' && x.side === 'PLAYER' && x.posicao === 1)).toBe(false)
+  })
+
+  it('a ordem troca o ataque sozinho pelo especial, e o dono paga', () => {
+    const comNue = r(inicio(), atacar('nue')).state
+    const semOrdem = r(comNue, atacar(null, 0))
+    const ordem = r(comNue, { kind: 'ORDEM', invocacao: 1, alvo: 0 })
+    const golpes = ordem.turnResults.filter((x) => x.kind === 'ATTACK' && x.side === 'PLAYER')
+    expect(golpes).toHaveLength(1)
+    expect(golpes[0]).toMatchObject({ posicao: 1, skillName: 'Rasante Elétrico', ordem: true })
+    expect(semOrdem.state.aliados[0].currentEnergy - ordem.state.aliados[0].currentEnergy).toBe(INVOCACOES.nue.especial?.custo)
+  })
+
+  it('sem energia para a ordem, o shikigami ataca sozinho como sempre', () => {
+    const comNue = r(inicio(), atacar('nue')).state
+    const semEnergia = { ...comNue, aliados: [{ ...comNue.aliados[0], currentEnergy: 0, maxEnergy: 0 }, comNue.aliados[1]] }
+    const ordem = r(semEnergia, { kind: 'ORDEM', invocacao: 1, alvo: 0 })
+    const golpe = ordem.turnResults.find((x) => x.kind === 'ATTACK' && x.posicao === 1)
+    expect(golpe?.skillName).toBe(INVOCACOES.nue.golpe.nome)
+    expect(golpe?.ordem).toBeUndefined()
+  })
+
+  it('o Mahoraga cobra vida do Megumi a cada rodada, e volta quando ela não dá', () => {
+    const comMahoraga = r(inicio(), atacar('mahoraga'))
+    const custo = Math.round(200 * (INVOCACOES.mahoraga.manutencaoVida ?? 0))
+    expect(comMahoraga.state.aliados[0].currentHp).toBe(200 - custo)
+    const quase = { ...comMahoraga.state, aliados: [{ ...comMahoraga.state.aliados[0], currentHp: custo }, comMahoraga.state.aliados[1]] }
+    const volta = r(quase, parado)
+    expect(volta.state.aliados[0].currentHp).toBe(custo)
+    expect(volta.state.aliados[1].invocacao?.fora).toBe(true)
+  })
+
+  it('a sombra destruída do Jin-Woo volta mais rápido que a espera padrão', () => {
+    const comSoldado = r(inicio(), atacar('soldado')).state
+    const caiu = r(comSoldado, atacar(null, 0), atacar('sk', 1))
+    expect(caiu.state.aliados[0].cooldowns.soldado).toBe(INVOCACOES['soldado-sombra'].espera)
+    expect(INVOCACOES['soldado-sombra'].espera).toBeLessThan(ESPERA_DA_INVOCACAO)
   })
 })
