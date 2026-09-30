@@ -76,6 +76,12 @@ COPY --chown=nextjs:nodejs public ./public
 COPY --chown=nextjs:nodejs prisma ./prisma
 COPY --chown=nextjs:nodejs package.json next.config.ts ./
 
+# A pasta do cache de imagens otimizadas precisa existir, do nextjs, ANTES do
+# volume montar nela: o Docker copia dono e permissão da pasta da imagem para
+# um volume novo. Sem isto o volume nasce do root e o Next não grava cache —
+# toda imagem seria reconvertida a cada pedido.
+RUN mkdir -p .next/cache/images && chown -R nextjs:nodejs .next/cache
+
 USER nextjs
 
 EXPOSE 3000

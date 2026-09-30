@@ -41,6 +41,11 @@ services:
       # Sem domínio (acessando pelo IP), o Caddy serve HTTP puro e o navegador
       # descarta cookie Secure — o login falha calado. Ver .env.prod.example.
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+    volumes:
+      # O cache das imagens otimizadas pelo next/image. Dentro do container ele
+      # morria a cada deploy, e toda imagem voltava a ser convertida no primeiro
+      # pedido (1 a 5 s cada, na VM). No volume, cada imagem é convertida uma vez.
+      - imagens_otimizadas:/app/.next/cache/images
     depends_on:
       db:
         condition: service_healthy
@@ -76,5 +81,6 @@ services:
 
 volumes:
   pgdata:
+  imagens_otimizadas:
   caddy_data:
   caddy_config:
