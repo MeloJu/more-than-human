@@ -256,7 +256,8 @@ const alcances = [
   ["Charizard: Asa de Aço", 'OTHER', 'CORPO'], // Steel Wing é golpe de contato
   ["Pikachu: Investida Trovão", 'OTHER', 'CORPO'], // Volt Tackle é golpe de contato
   ["Snorlax: Corpo Pesado", 'OTHER', 'CORPO'], // Heavy Slam é golpe de contato
-  ["Mega Rayquaza: Ascensão do Dragão", 'OTHER', 'CORPO'], // Dragon Ascent é golpe de contato
+  ["Mega Rayquaza: Ascensão do Dragão", 'OTHER', 'CORPO'],
+  ["Mega Charizard X: Garra de Dragão", 'OTHER', 'CORPO'], // Dragon Claw é golpe de contato // Dragon Ascent é golpe de contato
 
   // Solo Leveling
   ["Adaga do Monarca", 'OTHER', 'CORPO'],

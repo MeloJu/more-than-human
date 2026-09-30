@@ -56,6 +56,10 @@
 
 /** Red — cada Pokémon do time traz dois golpes, liberados juntos. */
 const red = {
+  // EM CAMPO (30/09/2026): o time vira invocação — um Pokémon em campo, os
+  // outros na pokébola, e o Red não é alvo nem bate (ver prepararTreinador em
+  // app/lib/battle/engine.ts). Cada golpe traz o COMANDO do Pokémon dele, e
+  // o jogador leva até 6 dos Pokémon liberados.
   character: 'Red',
   skills: [
     // Pikachu — o companheiro de sempre, disponível desde o começo.
@@ -66,7 +70,7 @@ const red = {
       energyCost: 10,
       cooldown: 1,
       tags: ['pokemon', 'eletrico'],
-      effects: [],
+      effects: [{ type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'pikachu' }],
       level: 1,
     },
     {
@@ -76,7 +80,7 @@ const red = {
       energyCost: 15,
       cooldown: 2,
       tags: ['pokemon', 'eletrico', 'stun'],
-      effects: [{ type: 'STUN', target: 'ENEMY', magnitude: 1, duration: 1 }],
+      effects: [{ type: 'STUN', target: 'ENEMY', magnitude: 1, duration: 1 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'pikachu' }],
       level: 1,
     },
 
@@ -88,7 +92,7 @@ const red = {
       energyCost: 20,
       cooldown: 3,
       tags: ['pokemon', 'fogo'],
-      effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 6, duration: 2 }],
+      effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 6, duration: 2 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'charizard' }],
       level: 2,
     },
     {
@@ -98,7 +102,7 @@ const red = {
       energyCost: 21,
       cooldown: 3,
       tags: ['pokemon', 'voador'],
-      effects: [],
+      effects: [{ type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'charizard' }],
       level: 2,
     },
 
@@ -110,7 +114,7 @@ const red = {
       energyCost: 27,
       cooldown: 4,
       tags: ['pokemon', 'agua'],
-      effects: [],
+      effects: [{ type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'blastoise' }],
       level: 4,
     },
     {
@@ -120,7 +124,7 @@ const red = {
       energyCost: 21,
       cooldown: 4,
       tags: ['pokemon', 'shield'],
-      effects: [{ type: 'SHIELD', target: 'SELF', magnitude: 34, duration: 2 }],
+      effects: [{ type: 'SHIELD', target: 'SELF', magnitude: 34, duration: 2 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'blastoise' }],
       level: 4,
     },
 
@@ -132,7 +136,7 @@ const red = {
       energyCost: 24,
       cooldown: 3,
       tags: ['pokemon', 'planta'],
-      effects: [],
+      effects: [{ type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'venusaur' }],
       level: 7,
     },
     {
@@ -145,6 +149,7 @@ const red = {
       effects: [
         { type: 'DOT', target: 'ENEMY', magnitude: 9, duration: 3 },
         { type: 'DEBUFF', target: 'ENEMY', stat: 'attack', magnitude: 14, duration: 2 },
+        { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'venusaur' },
       ],
       level: 7,
     },
@@ -157,7 +162,7 @@ const red = {
       energyCost: 30,
       cooldown: 5,
       tags: ['pokemon', 'normal'],
-      effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'speed', magnitude: 16, duration: 2 }],
+      effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'speed', magnitude: 16, duration: 2 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'snorlax' }],
       level: 10,
     },
     {
@@ -167,8 +172,74 @@ const red = {
       energyCost: 27,
       cooldown: 5,
       tags: ['pokemon', 'cura'],
-      effects: [{ type: 'HEAL', target: 'SELF', magnitude: 36 }],
+      effects: [{ type: 'HEAL', target: 'SELF', magnitude: 36 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'snorlax' }],
       level: 10,
+    },
+
+    // Mewtwo — o que o Red captura no Pokémon Origins. Controle e defesa, para
+    // não disputar o papel de dano com o Rayquaza.
+    {
+      name: 'Mewtwo: Golpe Psíquico',
+      category: 'OTHER',
+      power: 38,
+      energyCost: 30,
+      cooldown: 4,
+      tags: ['pokemon', 'psiquico'],
+      effects: [
+        { type: 'PIERCE', target: 'SELF', magnitude: 30 },
+        { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'mewtwo' },
+      ],
+      level: 12,
+    },
+    {
+      name: 'Mewtwo: Barreira',
+      category: 'OTHER',
+      power: 0,
+      energyCost: 24,
+      cooldown: 4,
+      tags: ['pokemon', 'psiquico', 'shield'],
+      effects: [
+        { type: 'SHIELD', target: 'SELF', magnitude: 36, duration: 2 },
+        { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'mewtwo' },
+      ],
+      level: 12,
+    },
+
+    // Mega Charizard X — a Mega Evolução do Charizard do Red (Pokémon Origins).
+    // Uma vez por luta, com o Charizard em campo; troca os golpes dele pelos
+    // dois abaixo.
+    {
+      name: 'Mega Evolução',
+      category: 'OTHER',
+      power: 0,
+      energyCost: 20,
+      cooldown: 99,
+      tags: ['pokemon', 'mega'],
+      effects: [{ type: 'EVOLUIR', target: 'SELF', magnitude: 0, invocacao: 'charizard', para: 'mega-charizard-x' }],
+      level: 12,
+    },
+    {
+      name: 'Mega Charizard X: Garra de Dragão',
+      category: 'OTHER',
+      power: 36,
+      energyCost: 26,
+      cooldown: 3,
+      tags: ['pokemon', 'dragao'],
+      effects: [{ type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'mega-charizard-x' }],
+      level: 12,
+    },
+    {
+      name: 'Mega Charizard X: Chama Azul',
+      category: 'OTHER',
+      power: 44,
+      energyCost: 34,
+      cooldown: 4,
+      tags: ['pokemon', 'fogo', 'dragao'],
+      effects: [
+        { type: 'DOT', target: 'ENEMY', magnitude: 9, duration: 2 },
+        { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'mega-charizard-x' },
+      ],
+      level: 12,
     },
 
     // Mega Rayquaza shiny — o fecho do time, e o golpe mais caro do jogo dele.
@@ -179,7 +250,7 @@ const red = {
       energyCost: 35,
       cooldown: 5,
       tags: ['pokemon', 'dragao', 'lendario'],
-      effects: [{ type: 'BUFF', target: 'SELF', stat: 'attack', magnitude: 22, duration: 2 }],
+      effects: [{ type: 'BUFF', target: 'SELF', stat: 'attack', magnitude: 22, duration: 2 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'mega-rayquaza' }],
       level: 14,
     },
     {
@@ -189,7 +260,7 @@ const red = {
       energyCost: 40,
       cooldown: 6,
       tags: ['pokemon', 'dragao', 'lendario', 'ultimate'],
-      effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'defense', magnitude: 24, duration: 2 }],
+      effects: [{ type: 'DEBUFF', target: 'ENEMY', stat: 'defense', magnitude: 24, duration: 2 }, { type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: 'mega-rayquaza' }],
       level: 14,
     },
   ],

@@ -20,7 +20,17 @@ import {
   vilao,
 } from './engine'
 import { acaoDaIa, acaoDoChefe, alvoDaIa } from './ai'
-import { ehLutador, invocacoesEmCampo, ordensDisponiveis, skillIdDaColuna } from './invocacoes'
+import {
+  comandoDoGolpe,
+  ehLutador,
+  evolucaoDoGolpe,
+  invocacoesEmCampo,
+  leituraDeTreinador,
+  ordensDisponiveis,
+  pokemonEmCampo,
+  pokemonNaReserva,
+  skillIdDaColuna,
+} from './invocacoes'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
 import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransformations, loadEnemyProfile } from './queries'
@@ -188,6 +198,7 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
             skillsDoOponente: golpesDoInimigo,
             campo: invocacoesEmCampo(ctx.state.aliados, a.posicao),
             ordens: ordensDisponiveis(ctx.state.aliados, a.posicao),
+            treinador: leituraDeTreinador(ctx.state.aliados, a.posicao),
           })
         : { kind: 'ATTACK', skillId: null }
   }
@@ -220,6 +231,7 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
       skillsDoOponente: skillsDe(alvo ?? 0),
       campo: invocacoesEmCampo(ctx.state.inimigos, f.posicao),
       ordens: ordensDisponiveis(ctx.state.inimigos, f.posicao),
+      treinador: leituraDeTreinador(ctx.state.inimigos, f.posicao),
     })
     inimigas[f.posicao] = (acao.kind === 'ATTACK' || acao.kind === 'ORDEM') && alvo !== undefined ? { ...acao, alvo } : acao
   }
@@ -526,6 +538,15 @@ export async function takeTurn(battleId: string, skillId: string | null, dados?:
   if (skillId && !chosenSkill) redirect(`/battle/ai/${battleId}?error=invalid_skill`)
   if (!isLegalMove(heroi(ctx.state), chosenSkill)) redirect(`/battle/ai/${battleId}?error=illegal_move`)
 
+  // TREINADOR: não luta (sem ataque básico), e o golpe de um Pokémon só sai
+  // com ele em campo — a Mega Evolução, com o Charizard em campo.
+  if (heroi(ctx.state).treinador) {
+    const emCampo = pokemonEmCampo(ctx.state.aliados, 0)?.def.id
+    const precisa = comandoDoGolpe(chosenSkill) ?? evolucaoDoGolpe(chosenSkill)?.de
+    // Ataque básico é a Investida do Pokémon em campo: basta haver um.
+    if (chosenSkill ? precisa !== emCampo : !emCampo) redirect(`/battle/ai/${battleId}?error=pokemon_fora`)
+  }
+
   const { state: newState, turnResults } = rodadaContraIa(ctx, {
     kind: 'ATTACK',
     skillId,
@@ -557,6 +578,20 @@ export async function darOrdem(battleId: string, posicao: number, dados?: FormDa
     postura: posturaDoFormulario(dados),
     alvo: alvoDoFormulario(dados, ctx.state),
   })
+
+  await finalizeRound(battleId, ctx, newState, turnResults)
+}
+
+/**
+ * A ação do treinador que troca o Pokémon em campo. Conferida aqui (POST
+ * direto): a posição precisa ser de um Pokémon dele, na pokébola e de pé.
+ */
+export async function trocarPokemon(battleId: string, posicao: number): Promise<void> {
+  const ctx = await loadActiveBattleContext(battleId)
+  const valida = Number.isInteger(posicao) && pokemonNaReserva(ctx.state.aliados, 0).some((p) => p.posicao === posicao)
+  if (!heroi(ctx.state).treinador || !valida) redirect(`/battle/ai/${battleId}?error=troca_invalida`)
+
+  const { state: newState, turnResults } = rodadaContraIa(ctx, { kind: 'TROCAR', invocacao: posicao })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
 }

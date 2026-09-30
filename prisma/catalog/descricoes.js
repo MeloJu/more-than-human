@@ -553,6 +553,11 @@ const descricoes = [
   // ──────────────────────────── POKÉMON ─────────────────────────────
   // O Red não luta: cada golpe é um Pokémon do time dele, e o nome diz qual.
 
+  ['Mewtwo: Golpe Psíquico', 'OTHER', 'Psystrike: Mewtwo concentra a mente num golpe que atravessa parte da defesa do alvo.'],
+  ['Mewtwo: Barreira', 'OTHER', 'Mewtwo ergue uma barreira psíquica que absorve os próximos golpes.'],
+  ['Mega Evolução', 'OTHER', 'Com a Pedra-Chave, o Charizard em campo vira Mega Charizard X: mais forte, mais resistente e com golpes novos. Uma vez por luta.'],
+  ['Mega Charizard X: Garra de Dragão', 'OTHER', 'Dragon Claw: o Mega Charizard X rasga o alvo com as garras.'],
+  ['Mega Charizard X: Chama Azul', 'OTHER', 'A chama azul do Mega Charizard X. O fogo continua queimando por algumas rodadas.'],
   ['Mega Rayquaza: Fúria do Céu Partido', 'OTHER', 'Mega Rayquaza desce do céu com tudo o que tem. Arrasa a defesa do alvo.'],
   ['Mega Rayquaza: Ascensão do Dragão', 'OTHER', 'Dragon Ascent: Mega Rayquaza sobe ao céu e mergulha contra o alvo. O ataque sobe.'],
   ['Snorlax: Corpo Pesado', 'OTHER', 'Heavy Slam: Snorlax cai com todo o peso em cima do alvo, que fica mais lento.'],

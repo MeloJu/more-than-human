@@ -499,6 +499,11 @@ model UserCharacter {
   activeTransformation   Transformation? @relation("ActiveTransformation", fields: [activeTransformationId], references: [id])
   activeTransformationId String?
 
+  /// O time que um treinador (o Red) leva para a luta: ids das invocações do
+  /// catálogo em código (app/lib/battle/invocacoes.ts), até 6. Nulo, o time
+  /// padrão — os últimos liberados. Validado contra o kit a cada luta.
+  timeDeInvocacao        Json?
+
   skillUnlocks          UserSkillUnlock[]
   playerBattles         Battle[]                      @relation("PlayerCharacter")
   selectedBy            User[]                        @relation("SelectedCharacter")

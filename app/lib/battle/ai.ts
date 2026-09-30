@@ -1,6 +1,34 @@
 import { ativarForma, custoDaPostura, energyCostFor, isLegalMove, podeAtivar, podeBloquear } from './engine'
 import { alcanceDe } from './alcance'
-import { invocacaoDoGolpe, type DefDeInvocacao } from './invocacoes'
+import { comandoDoGolpe, evolucaoDoGolpe, invocacaoDoGolpe, type DefDeInvocacao } from './invocacoes'
+
+/**
+ * O que a IA de um treinador precisa saber do próprio time: quem está em
+ * campo (id da invocação) e quem espera na pokébola. Ver leituraDeTreinador.
+ */
+export type TimeDaIa = { emCampo?: string; reservas: { posicao: number; hp: number; maxHp: number }[] }
+
+/**
+ * A jogada do treinador. Sem Pokémon em campo, manda o mais inteiro; com o
+ * Charizard em campo e a Mega Evolução pronta, evolui (é o pico do time);
+ * de resto, escolhe entre os golpes do Pokémon em campo como qualquer IA.
+ * O treinador não bate, então sem golpe possível ele passa a rodada.
+ */
+function acaoDeTreinador(self: CombatantState, skills: SkillDef[], time: TimeDaIa, oponente?: CombatantState): AcaoDeCombate {
+  if (!time.emCampo) {
+    const melhor = [...time.reservas].sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0]
+    return melhor ? { kind: 'TROCAR', invocacao: melhor.posicao } : { kind: 'ATTACK', skillId: null }
+  }
+  const doCampo = skills.filter((s) => {
+    const evolucao = evolucaoDoGolpe(s)
+    if (evolucao) return evolucao.de === time.emCampo
+    return comandoDoGolpe(s) === time.emCampo
+  })
+  const mega = doCampo.find((s) => evolucaoDoGolpe(s) && isLegalMove(self, s))
+  if (mega) return { kind: 'ATTACK', skillId: mega.id }
+  const golpes = doCampo.filter((s) => !evolucaoDoGolpe(s))
+  return { kind: 'ATTACK', skillId: pickAiSkill(self, golpes, oponente) }
+}
 import type { AcaoDeCombate, CombatantState, Postura, SkillDef, TransformationDef } from './types'
 
 const LOW_HP_HEAL_THRESHOLD = 0.4
@@ -379,8 +407,11 @@ export function acaoDaIa(
     campo?: CampoDaIa
     /** As invocações que aceitam ordem agora (ver ordensDisponiveis). */
     ordens?: { posicao: number; def: DefDeInvocacao }[]
+    /** Só para treinador: o time dele (ver leituraDeTreinador). */
+    treinador?: TimeDaIa
   } = {}
 ): AcaoDeCombate {
+  if (leitura.treinador) return acaoDeTreinador(self, skills, leitura.treinador, oponente)
   const forma = escolherFormaDaIa(self, formas)
   if (forma && forma.consumesTurn !== false) return { kind: 'TRANSFORM', transformationId: forma.id }
   if (deveBloquear(self, skills)) return { kind: 'BLOCK' }
@@ -413,7 +444,10 @@ export function acaoDaIa(
  */
 export function alvoDaIa(outroLado: CombatantState[], rand: () => number = Math.random): number | undefined {
   if (outroLado.length <= 1) return undefined
-  const pesos = outroLado.map((c): number => (c.currentHp <= 0 ? 0 : c.invocacao ? 1 : 2))
+  // Treinador (o Red) não é alvo, e Pokémon na pokébola não está na luta.
+  const pesos = outroLado.map((c): number =>
+    c.currentHp <= 0 || c.treinador || c.invocacao?.fora ? 0 : c.invocacao ? 1 : 2
+  )
   const total = pesos.reduce((s, p) => s + p, 0)
   if (total === 0) return undefined
   let sorteio = rand() * total

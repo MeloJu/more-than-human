@@ -10,6 +10,7 @@ import { requireUser } from '@/app/lib/session'
 import {
   computeFighterStats,
   createInitialState,
+  prepararTreinador,
   heroi,
   isLegalMove,
   migrarEstado,
@@ -17,7 +18,7 @@ import {
   sumStatBonuses,
   vilao,
 } from '@/app/lib/battle/engine'
-import { getEquippedSkills, getTreeBonus } from '@/app/lib/battle/queries'
+import { getEquippedSkills, getTreeBonus, timeDoJogador } from '@/app/lib/battle/queries'
 import { getEquipmentBonus } from '@/app/lib/equipment/queries'
 import { applyExperience } from '@/app/lib/battle/leveling'
 import { MAX_ROUNDS, PVP_LEVEL_RANGE, XP_ON_LOSS, XP_ON_WIN } from '@/app/lib/battle/constants'
@@ -116,10 +117,17 @@ async function pairPlayers(
   ])
   if (!hostFighter || !guestFighter) return null
 
-  const state = createInitialState(hostFighter.base, guestFighter.base, undefined, {
+  let state = createInitialState(hostFighter.base, guestFighter.base, undefined, {
     player: hostFighter.uc.level,
     enemy: guestFighter.uc.level,
   })
+  // Treinador (o Red) entra com o time, dos dois lados.
+  const [timeDoHost, timeDoGuest] = await Promise.all([
+    timeDoJogador(host.userCharacterId),
+    timeDoJogador(guest.userCharacterId),
+  ])
+  if (timeDoHost.length > 0) state = prepararTreinador(state, 'PLAYER', 0, timeDoHost)
+  if (timeDoGuest.length > 0) state = prepararTreinador(state, 'ENEMY', 0, timeDoGuest)
 
   try {
     return await prisma.$transaction(async (tx) => {

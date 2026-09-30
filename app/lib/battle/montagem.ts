@@ -3,8 +3,16 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/app/lib/prisma'
 import { getBonusDeAtributos } from '@/app/lib/progression/queries'
 import { getEquipmentBonus } from '@/app/lib/equipment/queries'
-import { applyTraits, comVilao, computeFighterStats, createInitialState, sumStatBonuses, traitEnergyCostModifier } from './engine'
-import { getCharacterTraits, getTreeBonus } from './queries'
+import {
+  applyTraits,
+  comVilao,
+  computeFighterStats,
+  createInitialState,
+  prepararTreinador,
+  sumStatBonuses,
+  traitEnergyCostModifier,
+} from './engine'
+import { getCharacterTraits, getTreeBonus, timeDoJogador, timeDoPersonagem } from './queries'
 import type { BaseStats } from './types'
 
 /**
@@ -74,7 +82,15 @@ export async function createBattleAndRedirect(params: {
     { player: jogador.energyCostModifier },
     { player: params.userCharacter.level, enemy: params.enemy.level }
   )
-  const state = params.chefe ? comVilao(inicial, { chefe: true }) : inicial
+  let state = params.chefe ? comVilao(inicial, { chefe: true }) : inicial
+
+  // Treinador (o Red) entra com o time em campo — o dele e o do inimigo.
+  const [timeDoLadoJogador, timeDoInimigo] = await Promise.all([
+    timeDoJogador(params.userCharacter.id),
+    params.enemy.kind === 'character' ? timeDoPersonagem(params.enemy.characterId, params.enemy.level) : Promise.resolve([]),
+  ])
+  if (timeDoLadoJogador.length > 0) state = prepararTreinador(state, 'PLAYER', 0, timeDoLadoJogador)
+  if (timeDoInimigo.length > 0) state = prepararTreinador(state, 'ENEMY', 0, timeDoInimigo)
 
   const battle = await prisma.battle.create({
     data: {

@@ -1,6 +1,7 @@
 import { prisma } from '@/app/lib/prisma'
-import { SEM_BONUS, comLutadores, computeFighterStats, createInitialState } from '@/app/lib/battle/engine'
+import { SEM_BONUS, comLutadores, computeFighterStats, createInitialState, prepararTreinador } from '@/app/lib/battle/engine'
 import { fichaDoJogador } from '@/app/lib/battle/montagem'
+import { timeDoJogador, timeDoPersonagem } from '@/app/lib/battle/queries'
 import { comReservas, type Reserva } from './andares'
 import type { Andar } from './catalogo'
 import type { BaseStats, BattleState } from '@/app/lib/battle/types'
@@ -101,6 +102,22 @@ export async function montarAndar(params: {
     inimigos: state.inimigos.map((c, i) => (i === 0 ? { ...c, nome: principal.nome, ...(chefe ? { chefe } : {}) } : c)),
   }
   state = comReservas(state, params.reservas)
+
+  // TREINADORES entram com o time — DEPOIS das reservas, para o time herdar
+  // a vida com que o treinador saiu do andar anterior (ver prepararTreinador),
+  // e depois de todos os lutadores, para as posições da party não mudarem.
+  const [timeDoLider, timesDosContratados, timesDosInimigos] = await Promise.all([
+    timeDoJogador(params.userCharacter.id),
+    Promise.all(contratados.map((c) => timeDoPersonagem(c.characterId, c.nivel))),
+    Promise.all(inimigos.map((i) => (i.characterId ? timeDoPersonagem(i.characterId, i.nivel) : Promise.resolve([])))),
+  ])
+  if (timeDoLider.length > 0) state = prepararTreinador(state, 'PLAYER', 0, timeDoLider)
+  timesDosContratados.forEach((time, i) => {
+    if (time.length > 0) state = prepararTreinador(state, 'PLAYER', i + 1, time)
+  })
+  timesDosInimigos.forEach((time, i) => {
+    if (time.length > 0) state = prepararTreinador(state, 'ENEMY', i, time)
+  })
 
   return {
     state,

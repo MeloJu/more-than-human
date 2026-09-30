@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/app/lib/prisma'
 import { requireUser } from '@/app/lib/session'
 import { getEligiblePlayerSkills } from '@/app/lib/battle/queries'
+import { TAMANHO_DO_TIME, pokemonDoKit } from '@/app/lib/battle/invocacoes'
 import { getLoadoutSlotCount } from './constants'
 import { ATRIBUTO_POR_PONTO, colunaDe, ehAtributo } from './atributos'
 import { custoDoTreino } from './treino'
@@ -102,6 +103,29 @@ export async function equipSkill(userCharacterId: string, slot: number, formData
     prisma.userCharacterEquippedSkill.deleteMany({ where: { userCharacterId, OR: [{ slot }, { skillId }] } }),
     prisma.userCharacterEquippedSkill.create({ data: { userCharacterId, skillId, slot } }),
   ])
+
+  revalidatePath('/status')
+}
+
+/**
+ * Grava o time de um treinador (o Red): até TAMANHO_DO_TIME Pokémon, só os
+ * que o nível já libera. A ordem é a da tela — o primeiro abre a luta.
+ */
+export async function salvarTime(userCharacterId: string, formData: FormData): Promise<void> {
+  const user = await requireUser()
+
+  const userCharacter = await prisma.userCharacter.findFirst({ where: { id: userCharacterId, userId: user.id } })
+  if (!userCharacter) redirect('/status?error=not_found')
+
+  const eligible = await getEligiblePlayerSkills(userCharacterId, userCharacter.characterId, userCharacter.level)
+  const disponiveis = pokemonDoKit(Object.values(eligible))
+  const pedidos = formData.getAll('pokemon').map(String)
+  const time = [...new Set(pedidos)]
+  if (time.length === 0 || time.length > TAMANHO_DO_TIME || time.some((id) => !disponiveis.includes(id))) {
+    redirect('/status?error=time_invalido')
+  }
+
+  await prisma.userCharacter.update({ where: { id: userCharacter.id }, data: { timeDeInvocacao: time } })
 
   revalidatePath('/status')
 }

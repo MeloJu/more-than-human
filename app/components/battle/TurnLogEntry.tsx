@@ -182,6 +182,30 @@ export function TurnLogEntry({
         </>
       )
     }
+    if (turn.evoluiu) {
+      return (
+        <>
+          <span className="font-medium">{actorName}</span> usou <span className="font-medium">{turn.skillName}</span>:{' '}
+          {turn.evoluiu} virou{' '}
+          <span className="font-medium" style={{ color: cor }}>
+            {def?.nome}
+          </span>
+          !
+        </>
+      )
+    }
+    if (turn.troca) {
+      return (
+        <>
+          <span className="font-medium">{actorName}</span> trocou:{' '}
+          {turn.substituida && <>{turn.substituida} volta para a pokébola, e </>}
+          <span className="font-medium" style={{ color: cor }}>
+            {def?.nome}
+          </span>{' '}
+          entra em campo.
+        </>
+      )
+    }
     const quantas = turn.invocadas?.length ?? 0
     if (quantas === 0) {
       return (
@@ -243,6 +267,9 @@ export function TurnLogEntry({
   }
 
   // ATTACK ou SUPPORT.
+  // "Pikachu usou Pikachu: Choque do Trovão" repete o nome: o golpe de
+  // Pokémon traz o dono no nome, e aqui quem age já é ele.
+  const nomeDoGolpe = turn.skillName.startsWith(`${actorName}: `) ? turn.skillName.slice(actorName.length + 2) : turn.skillName
   const acertou = typeof turn.damage === 'number' && turn.damage > 0 && !turn.countered
   const verbo = turn.severidade ? (turn.isCrit ? VERBO_CRITICO : VERBO)[turn.severidade] : 'acertou'
   const fala = falas?.[turn.skillName]
@@ -251,7 +278,7 @@ export function TurnLogEntry({
     <>
       {turn.ordem && <span className="opacity-70">Por ordem de {nomeEm(turn.side, turn.donoDaOrdem)}, </span>}
       <span className="font-medium">{actorName}</span> {turn.carregado ? 'soltou' : 'usou'}{' '}
-      <span className="font-medium">{turn.skillName}</span>
+      <span className="font-medium">{nomeDoGolpe}</span>
       {turn.carregado && <span className="text-red-500"> carregado</span>}
       {typeof turn.consumidas === 'number' && turn.consumidas > 0 && (
         <span className="text-violet-400">

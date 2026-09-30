@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { prisma } from '@/app/lib/prisma'
 import { bonusDeAtributos } from '@/app/lib/progression/atributos'
 import { requireUser } from '@/app/lib/session'
-import { equipSkill, redistribuirAtributos, unequipSkill, unlockSkillNode } from '@/app/lib/progression/actions'
+import { equipSkill, redistribuirAtributos, salvarTime, unequipSkill, unlockSkillNode } from '@/app/lib/progression/actions'
+import { MontagemDoTime } from '@/app/components/progression/MontagemDoTime'
+import { TAMANHO_DO_TIME, comandoDoGolpe, defDeInvocacao, pokemonDoKit, timeDoTreinador } from '@/app/lib/battle/invocacoes'
 import { custoDaRedistribuicao, pontosAlocados } from '@/app/lib/progression/redistribuicao'
 import { getLoadoutSlotCount } from '@/app/lib/progression/constants'
 import { computeFighterStats, sumStatBonuses } from '@/app/lib/battle/engine'
@@ -27,6 +29,7 @@ const STATUS_ERROR_MESSAGES: Record<string, string> = {
   invalid_attribute: 'Atributo inválido.',
   nothing_to_redistribute: 'Não há pontos investidos para redistribuir.',
   insufficient_coins: 'Moedas insuficientes para redistribuir.',
+  time_invalido: 'Esse time não vale: escolha de 1 a 6 Pokémon que o seu nível já libera.',
 }
 
 export default async function StatusPage({
@@ -75,6 +78,33 @@ export default async function StatusPage({
   const effectiveStats = computeFighterStats(selected.character, selected.level, sumStatBonuses(treeBonus, equipmentBonus, bonusDeAtributos(selected)))
   const xpForNextLevel = selected.level * XP_PER_LEVEL
   const slotCount = getLoadoutSlotCount(selected.level)
+
+  // TREINADOR (o Red): no lugar do loadout de golpes, o time. Todos os
+  // Pokémon do kit aparecem, os trancados com o nível que libera.
+  const ehTreinador = pokemonDoKit(Object.values(eligibleSkills)).length > 0
+  const pokemonDoTreinador = ehTreinador
+    ? await prisma.characterSkill
+        .findMany({ where: { characterId: selected.characterId }, include: { skill: true } })
+        .then((linhas) => {
+          const porPokemon = new Map<string, { nivel: number; golpes: string[] }>()
+          for (const l of linhas) {
+            const id = comandoDoGolpe(toSkillDef(l.skill))
+            const def = id ? defDeInvocacao(id) : undefined
+            if (!def || def.evoluiDe) continue
+            const atual = porPokemon.get(def.id) ?? { nivel: l.requiredLevel, golpes: [] }
+            atual.nivel = Math.min(atual.nivel, l.requiredLevel)
+            atual.golpes.push(l.skill.name.replace(`${def.nome}: `, ''))
+            porPokemon.set(def.id, atual)
+          }
+          return [...porPokemon.entries()]
+            .map(([id, p]) => {
+              const def = defDeInvocacao(id)!
+              return { id, nome: def.nome, cor: def.cor, marca: def.marca, nivel: p.nivel, liberado: p.nivel <= selected.level, golpes: p.golpes, ordem: def.ordemNoTime ?? 0 }
+            })
+            .sort((a, b) => a.ordem - b.ordem)
+        })
+    : []
+  const timeAtual = ehTreinador ? timeDoTreinador(Object.values(eligibleSkills), selected.timeDeInvocacao) : []
 
   const equippedBySlot = new Map(equippedRows.map((r) => [r.slot, r]))
   const equippedSkillIds = new Set(equippedRows.map((r) => r.skillId))
@@ -173,6 +203,16 @@ export default async function StatusPage({
         <PainelDeTransformacoes transformacoes={transformacoes} nivel={selected.level} />
       </div>
 
+      {ehTreinador ? (
+        <div className="card p-4">
+          <MontagemDoTime
+            pokemon={pokemonDoTreinador}
+            escolhidos={timeAtual}
+            tamanho={TAMANHO_DO_TIME}
+            salvar={salvarTime.bind(null, selected.id)}
+          />
+        </div>
+      ) : (
       <div className="card p-4">
         <MontagemDoLoadout
           espacos={slotCount}
@@ -187,6 +227,7 @@ export default async function StatusPage({
           tirar={Array.from({ length: slotCount }, (_, slot) => unequipSkill.bind(null, selected.id, slot))}
         />
       </div>
+      )}
 
       {nodes.length === 0 && <div className="card p-6 opacity-70">Esse personagem ainda não tem árvore de habilidades.</div>}
 

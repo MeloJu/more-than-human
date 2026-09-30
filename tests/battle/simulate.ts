@@ -1,6 +1,6 @@
-import { createInitialState, heroi, resolveRound, vilao } from '@/app/lib/battle/engine'
+import { createInitialState, heroi, prepararTreinador, resolveRound, vilao } from '@/app/lib/battle/engine'
 import { acaoDaIa, alvoDaIa } from '@/app/lib/battle/ai'
-import { invocacoesEmCampo, ordensDisponiveis } from '@/app/lib/battle/invocacoes'
+import { invocacoesEmCampo, leituraDeTreinador, ordensDisponiveis } from '@/app/lib/battle/invocacoes'
 import { MAX_ROUNDS } from '@/app/lib/battle/constants'
 import type { BaseStats, Outcome, SkillDef, TransformationDef } from '@/app/lib/battle/types'
 
@@ -48,6 +48,8 @@ export type Combatente = {
   nivel?: number
   /** Formas disponíveis. A IA decide quando liberar, como na batalha de verdade. */
   formas?: Record<string, TransformationDef>
+  /** Treinador: o time que ele leva (ver prepararTreinador). */
+  time?: string[]
 }
 
 export type ResultadoSimulacao = {
@@ -65,6 +67,8 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
     { player: jogador.energyCostModifier ?? 0, enemy: inimigo.energyCostModifier ?? 0 },
     { player: jogador.nivel ?? 1, enemy: inimigo.nivel ?? 1 }
   )
+  if (jogador.time?.length) state = prepararTreinador(state, 'PLAYER', 0, jogador.time)
+  if (inimigo.time?.length) state = prepararTreinador(state, 'ENEMY', 0, inimigo.time)
   const formasJogador = jogador.formas ?? {}
   const formasInimigo = inimigo.formas ?? {}
 
@@ -92,6 +96,7 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
               rand,
               campo: invocacoesEmCampo(state.aliados, 0),
               ordens: ordensDisponiveis(state.aliados, 0),
+              treinador: leituraDeTreinador(state.aliados, 0),
             }),
             alvoDoJogador
           ),
@@ -103,6 +108,7 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
               rand,
               campo: invocacoesEmCampo(state.inimigos, 0),
               ordens: ordensDisponiveis(state.inimigos, 0),
+              treinador: leituraDeTreinador(state.inimigos, 0),
             }),
             alvoDoInimigo
           ),

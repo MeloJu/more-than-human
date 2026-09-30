@@ -68,6 +68,18 @@ export type DefDeInvocacao = {
    * ela vai perdendo força — é preciso variar. O Mahoraga da obra.
    */
   adapta?: { porGolpe: number; maximo: number }
+  /**
+   * POKÉMON: não ataca sozinho — só age quando o treinador COMANDA um golpe
+   * dele (efeito COMANDO). O treinador não é alvo, e a vida dele é a soma da
+   * vida do time. Ver prepararTreinador em engine.ts.
+   */
+  comandado?: boolean
+  /** Parte da vida do time que é deste Pokémon (Snorlax aguenta mais que Pikachu). */
+  peso?: number
+  /** Ordem em que o Pokémon entra no time do treinador (para o time padrão). */
+  ordemNoTime?: number
+  /** Forma evoluída: de qual invocação ela sai (Mega Charizard X sai do Charizard). */
+  evoluiDe?: string
   /** Apresentação: a cor e o kanji da orbe. */
   cor: string
   marca: string
@@ -270,6 +282,152 @@ export const INVOCACOES: Record<string, DefDeInvocacao> = {
     cor: '#2dd4bf',
     marca: '蟻',
   },
+
+  // Red — o time. Um Pokémon em campo por vez, os outros na pokébola com a
+  // vida guardada. O Red não luta: o que ele faz na rodada é comandar um golpe
+  // do Pokémon em campo, trocar de Pokémon ou mega evoluir o Charizard.
+  pikachu: pokemon('pikachu', 'Pikachu', 1, { peso: 0.85, ataque: 0.9, defesa: 0.7, cor: '#facc15', marca: '雷' }),
+  charizard: pokemon('charizard', 'Charizard', 2, { peso: 1, ataque: 1, defesa: 0.8, cor: '#fb923c', marca: '炎' }),
+  blastoise: pokemon('blastoise', 'Blastoise', 3, { peso: 1.1, ataque: 0.85, defesa: 1.2, cor: '#60a5fa', marca: '水' }),
+  venusaur: pokemon('venusaur', 'Venusaur', 4, { peso: 1.05, ataque: 0.85, defesa: 1, cor: '#4ade80', marca: '草' }),
+  snorlax: pokemon('snorlax', 'Snorlax', 5, { peso: 1.3, ataque: 0.9, defesa: 1.25, cor: '#93c5fd', marca: '眠' }),
+  mewtwo: pokemon('mewtwo', 'Mewtwo', 6, { peso: 0.95, ataque: 1.1, defesa: 0.9, cor: '#c084fc', marca: '念' }),
+  'mega-rayquaza': pokemon('mega-rayquaza', 'Mega Rayquaza', 7, { peso: 1.1, ataque: 1.15, defesa: 1, cor: '#eab308', marca: '龍' }),
+  // A Mega Evolução do Charizard do Red (Pokémon Origins). Não entra no time
+  // sozinha: sai do Charizard em campo, uma vez por luta.
+  'mega-charizard-x': {
+    ...pokemon('mega-charizard-x', 'Mega Charizard X', 2, { peso: 1.2, ataque: 1.25, defesa: 1.1, cor: '#3b82f6', marca: '蒼' }),
+    evoluiDe: 'charizard',
+  },
+}
+
+/** Ficha de um Pokémon do time: tudo que não é deste Pokémon é igual para todos. */
+function pokemon(
+  id: string,
+  nome: string,
+  ordemNoTime: number,
+  o: { peso: number; ataque: number; defesa: number; cor: string; marca: string }
+): DefDeInvocacao {
+  return {
+    id,
+    nome,
+    grupo: 'pokemon',
+    nomeDoGrupo: 'Time',
+    limiteDoGrupo: 1,
+    comandado: true,
+    ordemNoTime,
+    peso: o.peso,
+    // Vida vem do peso (a parte do time), não da fração do dono.
+    vida: 0,
+    ataque: o.ataque,
+    defesa: o.defesa,
+    // O ataque básico do Pokémon: sai quando o treinador não tem golpe pronto
+    // (os dois do Pokémon em recarga). Nunca sozinho.
+    golpe: { nome: 'Investida', power: 12, tags: ['pokemon'], alcance: 'CORPO' },
+    manutencao: 0,
+    cor: o.cor,
+    marca: o.marca,
+  }
+}
+
+/** Quantos Pokémon o treinador leva para a luta. */
+export const TAMANHO_DO_TIME = 6
+
+/**
+ * A vida do time, em múltiplos da vida do treinador. O Red não é alvo, então
+ * a vida dele só existe dividida entre os Pokémon; o multiplicador compensa a
+ * rodada perdida a cada troca — por isso cresce com o tamanho do time: com
+ * seis, são até cinco trocas numa luta. Medido no simulador (ver
+ * tests/battle/simulate.ts).
+ */
+export function vidaDoTime(tamanho: number): number {
+  return 1.75 + 0.08 * Math.max(0, tamanho - 1)
+}
+
+/** O Pokémon que o golpe comanda, se ele comanda algum. */
+export function comandoDoGolpe(skill: SkillDef | null): string | undefined {
+  return skill?.effects.find((e) => e.type === 'COMANDO')?.invocacao
+}
+
+/** A evolução que o golpe faz, se faz alguma: de qual invocação para qual. */
+export function evolucaoDoGolpe(skill: SkillDef | null): { de: string; para: string } | undefined {
+  const e = skill?.effects.find((x) => x.type === 'EVOLUIR')
+  return e?.invocacao && e.para ? { de: e.invocacao, para: e.para } : undefined
+}
+
+/**
+ * Os Pokémon que um kit libera, na ordem do time. Sai dos golpes: cada golpe
+ * com COMANDO diz de quem é, e formas evoluídas não contam (saem de outro).
+ */
+export function pokemonDoKit(skills: SkillDef[]): string[] {
+  const ids = new Set<string>()
+  for (const s of skills) {
+    const id = comandoDoGolpe(s)
+    const def = id ? defDeInvocacao(id) : undefined
+    if (def && !def.evoluiDe) ids.add(def.id)
+  }
+  return [...ids].sort((a, b) => (INVOCACOES[a].ordemNoTime ?? 0) - (INVOCACOES[b].ordemNoTime ?? 0))
+}
+
+/**
+ * O time que o treinador leva: o escolhido pelo jogador (só o que o kit já
+ * libera, até TAMANHO_DO_TIME), ou, sem escolha, os últimos liberados — os
+ * mais fortes. Personagem sem Pokémon no kit devolve lista vazia.
+ */
+export function timeDoTreinador(skills: SkillDef[], escolhidos?: unknown): string[] {
+  const disponiveis = pokemonDoKit(skills)
+  if (Array.isArray(escolhidos)) {
+    const validos = escolhidos.filter((id): id is string => typeof id === 'string' && disponiveis.includes(id))
+    const unicos = [...new Set(validos)].slice(0, TAMANHO_DO_TIME)
+    if (unicos.length > 0) return unicos
+  }
+  return disponiveis.slice(-TAMANHO_DO_TIME)
+}
+
+/**
+ * Os golpes que valem numa luta com este time: os dos Pokémon levados, os
+ * das formas que eles viram, e a evolução de quem está no time. Golpe que
+ * não é de Pokémon (nenhum, no Red de hoje) passa sempre.
+ */
+export function golpesDoTime(skills: SkillDef[], time: string[]): SkillDef[] {
+  return skills.filter((s) => {
+    const evolucao = evolucaoDoGolpe(s)
+    if (evolucao) return time.includes(evolucao.de)
+    const id = comandoDoGolpe(s)
+    if (!id) return true
+    const def = defDeInvocacao(id)
+    return time.includes(id) || (def?.evoluiDe !== undefined && time.includes(def.evoluiDe))
+  })
+}
+
+/** O Pokémon do treinador em campo agora, se houver. */
+export function pokemonEmCampo(time: CombatantState[], dono: number): { posicao: number; def: DefDeInvocacao } | undefined {
+  const posicao = time.findIndex((c) => c.invocacao?.dono === dono && emCampo(c) && defDeInvocacao(c.invocacao.def)?.comandado)
+  const def = posicao === -1 ? undefined : defDeInvocacao(time[posicao].invocacao?.def ?? '')
+  return def ? { posicao, def } : undefined
+}
+
+/** O que a IA do treinador lê do time; undefined para quem não é treinador. */
+export function leituraDeTreinador(
+  time: CombatantState[],
+  dono: number
+): { emCampo?: string; reservas: { posicao: number; hp: number; maxHp: number }[] } | undefined {
+  if (!time[dono]?.treinador) return undefined
+  return {
+    emCampo: pokemonEmCampo(time, dono)?.def.id,
+    reservas: pokemonNaReserva(time, dono).map(({ posicao, hp, maxHp }) => ({ posicao, hp, maxHp })),
+  }
+}
+
+/** Os Pokémon na pokébola que ainda podem lutar. */
+export function pokemonNaReserva(time: CombatantState[], dono: number): { posicao: number; def: DefDeInvocacao; hp: number; maxHp: number }[] {
+  const reserva: { posicao: number; def: DefDeInvocacao; hp: number; maxHp: number }[] = []
+  time.forEach((c, posicao) => {
+    if (c.invocacao?.dono !== dono || !c.invocacao.fora || c.currentHp <= 0) return
+    const def = defDeInvocacao(c.invocacao.def)
+    if (def?.comandado) reserva.push({ posicao, def, hp: c.currentHp, maxHp: c.maxHp })
+  })
+  return reserva
 }
 
 /**

@@ -11,6 +11,7 @@ export type EffectLike = {
   stack?: boolean
   invocacao?: string
   grupo?: string
+  para?: string
 }
 
 /**
@@ -53,6 +54,8 @@ const EFFECT_ICON: Record<EffectType, string> = {
   INVOCAR: '✦',
   CONSUMIR: '🌀',
   ABATE: '⚔️',
+  COMANDO: '◓',
+  EVOLUIR: '🧬',
 }
 
 export function describeEffect(e: EffectLike): string {
@@ -100,6 +103,13 @@ export function describeEffect(e: EffectLike): string {
       return `${EFFECT_ICON.CONSUMIR} Consome as invocações em campo · +${e.magnitude} de poder por uma`
     case 'ABATE':
       return `${EFFECT_ICON.ABATE} Abaixo de ${e.magnitude}% da vida, o alvo cai (chefe não)`
+    case 'COMANDO':
+      return `${EFFECT_ICON.COMANDO} Golpe de ${(e.invocacao && defDeInvocacao(e.invocacao)?.nome) ?? 'Pokémon'}, que precisa estar em campo`
+    case 'EVOLUIR': {
+      const de = e.invocacao ? defDeInvocacao(e.invocacao)?.nome : undefined
+      const para = e.para ? defDeInvocacao(e.para)?.nome : undefined
+      return `${EFFECT_ICON.EVOLUIR} ${de ?? 'A invocação'} em campo vira ${para ?? 'a forma evoluída'} · uma vez por luta`
+    }
   }
 }
 
@@ -113,6 +123,8 @@ const BATTLE_ERROR_MESSAGES: Record<string, string> = {
   insufficient_energy: 'Energia insuficiente para liberar essa forma.',
   insufficient_stamina: 'Stamina insuficiente para liberar essa forma.',
   tier_locked: 'Seu personagem ainda não tem nível para encarar esse inimigo.',
+  pokemon_fora: 'Esse golpe é de um Pokémon que não está em campo.',
+  troca_invalida: 'Esse Pokémon não pode entrar agora (desmaiado ou já em campo).',
   invalid_order: 'Essa invocação não pode receber ordem agora (fora de campo ou acabou de chegar).',
   party_cheia: 'A party só tem duas vagas de contrato.',
   contrato_repetido: 'O mesmo personagem foi contratado duas vezes.',

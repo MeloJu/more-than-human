@@ -3,6 +3,7 @@ import { SEM_BONUS, computeBaseStats, hasBattleValue, migrarEstado } from './eng
 import { getEquipmentGrantedSkills } from '@/app/lib/equipment/queries'
 import { NORMAL_BATTLE_XP_MULTIPLIER } from './constants'
 import { escolherLoadoutPadrao } from './ai'
+import { golpesDoTime, timeDoTreinador } from './invocacoes'
 import { getLoadoutSlotCount } from '@/app/lib/progression/constants'
 import type { BaseStats, ScalingStat, SkillDef, SkillEffect, StatBonus, TraitDef, TransformationDef, Alcance } from './types'
 import type { ScalingStat as PrismaScalingStat } from '@prisma/client'
@@ -215,7 +216,14 @@ export async function getEnemySkills(
   })
   const usaveis = rows.map((cs) => cs.skill).filter(hasBattleValue).map(toSkillDef)
   const skills: Record<string, SkillDef> = {}
-  const escolhidas = opcoes.semTeto ? usaveis : escolherLoadoutPadrao(usaveis, getLoadoutSlotCount(level))
+  // Treinador (o Red) não tem loadout de golpes: leva os golpes do time.
+  const time = timeDoTreinador(usaveis)
+  const escolhidas =
+    time.length > 0
+      ? golpesDoTime(usaveis, time)
+      : opcoes.semTeto
+        ? usaveis
+        : escolherLoadoutPadrao(usaveis, getLoadoutSlotCount(level))
   for (const s of escolhidas) skills[s.id] = s
   return marcarGolpesDeForma(characterId, skills)
 }
@@ -234,7 +242,10 @@ export async function getEquippedSkills(userCharacterId: string): Promise<Record
   const [rows, equipmentSkills, uc] = await Promise.all([
     prisma.userCharacterEquippedSkill.findMany({ where: { userCharacterId }, include: { skill: true } }),
     getEquipmentGrantedSkills(userCharacterId),
-    prisma.userCharacter.findUnique({ where: { id: userCharacterId }, select: { characterId: true, level: true } }),
+    prisma.userCharacter.findUnique({
+      where: { id: userCharacterId },
+      select: { characterId: true, level: true, timeDeInvocacao: true },
+    }),
   ])
   // O equipado passa pelo kit ATUAL: uma habilidade que saiu do kit (ver
   // prisma/catalog/aposentadas.js) continua no slot de quem a tinha — o sync
@@ -242,7 +253,13 @@ export async function getEquippedSkills(userCharacterId: string): Promise<Record
   // kit que vem a marca de golpe da forma.
   const elegiveis = uc ? await getEligiblePlayerSkills(userCharacterId, uc.characterId, uc.level) : {}
   const skills: Record<string, SkillDef> = {}
-  for (const row of rows) {
+  // TREINADOR: o loadout dele é o TIME, não os slots de golpe. Leva os dois
+  // golpes de cada Pokémon escolhido (ver timeDoTreinador).
+  const time = timeDoTreinador(Object.values(elegiveis), uc?.timeDeInvocacao)
+  if (time.length > 0) {
+    for (const s of golpesDoTime(Object.values(elegiveis), time)) skills[s.id] = s
+  }
+  for (const row of time.length > 0 ? [] : rows) {
     const s = elegiveis[row.skill.id]
     if (s) skills[s.id] = s
   }
@@ -252,6 +269,30 @@ export async function getEquippedSkills(userCharacterId: string): Promise<Record
     if (hasBattleValue(skill)) skills[skill.id] = toSkillDef(skill)
   }
   return skills
+}
+
+/**
+ * O time com que um personagem do jogador entra na luta, se ele é treinador:
+ * o escolhido na tela de personagem, validado contra o que o nível libera.
+ * Lista vazia para quem não é treinador.
+ */
+export async function timeDoJogador(userCharacterId: string): Promise<string[]> {
+  const uc = await prisma.userCharacter.findUnique({
+    where: { id: userCharacterId },
+    select: { characterId: true, level: true, timeDeInvocacao: true },
+  })
+  if (!uc) return []
+  const elegiveis = await getEligiblePlayerSkills(userCharacterId, uc.characterId, uc.level)
+  return timeDoTreinador(Object.values(elegiveis), uc.timeDeInvocacao)
+}
+
+/** O time padrão de um personagem do catálogo no nível dado (inimigo, contratado). */
+export async function timeDoPersonagem(characterId: string, level: number): Promise<string[]> {
+  const rows = await prisma.characterSkill.findMany({
+    where: { characterId, requiredLevel: { lte: level } },
+    include: { skill: true },
+  })
+  return timeDoTreinador(rows.map((cs) => cs.skill).filter(hasBattleValue).map(toSkillDef))
 }
 
 /**

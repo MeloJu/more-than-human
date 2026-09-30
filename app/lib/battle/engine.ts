@@ -61,7 +61,10 @@ import type {
 import { alcanceDe } from './alcance'
 import {
   ESPERA_DA_INVOCACAO,
+  vidaDoTime,
+  comandoDoGolpe,
   defDeInvocacao,
+  evolucaoDoGolpe,
   ehLutador,
   emCampo,
   especialDaInvocacao,
@@ -1212,7 +1215,17 @@ function performSkillUse(
   // genérico e virariam status persistente em alguém, o que não são.
   // INVOCAR, CONSUMIR e ABATE também não são status: resolveRound os trata,
   // porque só ele enxerga o campo inteiro.
-  const MODIFICADORES_DE_DANO = new Set(['PIERCE', 'EXECUTE', 'COMBO_STUN', 'COMBO_FOLLOWUP', 'INVOCAR', 'CONSUMIR', 'ABATE'])
+  const MODIFICADORES_DE_DANO = new Set([
+    'PIERCE',
+    'EXECUTE',
+    'COMBO_STUN',
+    'COMBO_FOLLOWUP',
+    'INVOCAR',
+    'CONSUMIR',
+    'ABATE',
+    'COMANDO',
+    'EVOLUIR',
+  ])
   const supportEffects = effects.filter(
     (e) =>
       e.type !== 'LIFESTEAL' &&
@@ -1731,11 +1744,24 @@ function alvoDe(state: BattleState, atacante: EmCampo, pedido: number | undefine
   const oposto = timeOposto(state, atacante.lado)
   const ladoAlvo: Side = atacante.lado === LADO_ALIADO ? 'ENEMY' : LADO_ALIADO
 
-  if (pedido !== undefined && oposto[pedido] && estaDePe(oposto[pedido])) {
+  if (pedido !== undefined && oposto[pedido] && podeSerAlvo(oposto[pedido])) {
     return { lado: ladoAlvo, indice: pedido }
   }
-  const primeiroVivo = oposto.findIndex(estaDePe)
+  const primeiroVivo = oposto.findIndex(podeSerAlvo)
   return primeiroVivo === -1 ? null : { lado: ladoAlvo, indice: primeiroVivo }
+}
+
+/**
+ * Em campo de verdade: de pé, e não na pokébola. O Pokémon que espera a vez
+ * tem vida mas não está na luta — não age, não apanha, não sofre efeito.
+ */
+function emJogo(c: CombatantState): boolean {
+  return estaDePe(c) && !c.invocacao?.fora
+}
+
+/** Quem pode levar golpe: em jogo, e não um treinador (o Red não é alvo). */
+function podeSerAlvo(c: CombatantState): boolean {
+  return emJogo(c) && !c.treinador
 }
 
 function acaoDe(input: AcoesDaRodada, onde: EmCampo): AcaoDeCombate | undefined {
@@ -1960,6 +1986,10 @@ function assentarInvocacoes(state: BattleState): BattleState {
       }
       if (estaDePe(c)) return
       time[i] = { ...c, invocacao: { ...c.invocacao, fora: true } }
+      mudou = true
+      // Pokémon desmaiado não abre espera em golpe nenhum: não foi chamado
+      // por golpe, e voltar exige a troca de qualquer jeito.
+      if (!c.invocacao.skillId) return
       const esperaDoGrupo = defDeInvocacao(c.invocacao.def)?.espera ?? ESPERA_DA_INVOCACAO
       const espera = Math.max(dono.cooldowns[c.invocacao.skillId] ?? 0, esperaDoGrupo)
       time[c.invocacao.dono] = { ...dono, cooldowns: { ...dono.cooldowns, [c.invocacao.skillId]: espera } }
@@ -1968,6 +1998,172 @@ function assentarInvocacoes(state: BattleState): BattleState {
     if (mudou) atual = comTime(atual, lado, time)
   }
   return atual
+}
+
+/**
+ * Põe o time de um treinador em campo, no começo da luta.
+ *
+ * O TREINADOR NÃO É ALVO e não bate: a vida dele passa a ser a soma da vida do
+ * time (ver sincronizarTreinadores), e é por ela que o lado vence ou perde —
+ * time inteiro desmaiado é derrota. Cada Pokémon recebe a sua parte da vida
+ * pelo `peso`, e os atributos das frações do treinador.
+ *
+ * O primeiro do time já começa em campo: gastar a primeira rodada soltando a
+ * pokébola seria punir o Red por ser o Red.
+ */
+export function prepararTreinador(state: BattleState, lado: Side, indice: number, time: string[]): BattleState {
+  const defs = time.map(defDeInvocacao).filter((d): d is DefDeInvocacao => Boolean(d?.comandado))
+  if (defs.length === 0) return state
+
+  const lutadores = [...timeDoLado(state, lado)]
+  const treinador = lutadores[indice]
+  const vidaDoTimeTodo = Math.round(treinador.maxHp * vidaDoTime(defs.length))
+  const pesoTotal = defs.reduce((s, d) => s + (d.peso ?? 1), 0)
+  // Treinador que já entra ferido (o andar seguinte da raid, onde nada se
+  // recupera) passa a fração perdida para o time inteiro.
+  const fracao = treinador.maxHp > 0 ? Math.max(0, Math.min(1, treinador.currentHp / treinador.maxHp)) : 1
+  let jaTemEmCampo = false
+
+  defs.forEach((def) => {
+    const hp = Math.max(1, Math.round((vidaDoTimeTodo * (def.peso ?? 1)) / pesoTotal))
+    const atual = fracao > 0 ? Math.max(1, Math.round(hp * fracao)) : 0
+    // O primeiro de pé entra em campo; os outros esperam na pokébola.
+    const emCampoAgora = !jaTemEmCampo && atual > 0
+    if (emCampoAgora) jaTemEmCampo = true
+    lutadores.push({
+      ...makeCombatant(
+        {
+          hp,
+          attack: Math.max(1, Math.round(treinador.attack * def.ataque)),
+          defense: Math.round(treinador.defense * def.defesa),
+          speed: treinador.speed,
+          // A reserva do treinador: os golpes do Red escalam de ENERGIA (é
+          // invocador), e quem bate é o Pokémon. Ele nunca paga com ela — o
+          // comando é pago pelo treinador —, só serve de base para o dano.
+          energy: treinador.maxEnergy,
+          stamina: 0,
+          accuracy: treinador.accuracy,
+          agility: treinador.agility,
+        },
+        0,
+        treinador.nivel ?? 1
+      ),
+      currentHp: atual,
+      nome: def.nome,
+      invocacao: { def: def.id, dono: indice, skillId: '', ...(emCampoAgora ? {} : { fora: true }) },
+    })
+  })
+  lutadores[indice] = { ...treinador, treinador: true }
+  return sincronizarTreinadores(comTime(state, lado, lutadores))
+}
+
+/**
+ * A vida do treinador é a do time: soma do que resta a cada Pokémon, na
+ * pokébola ou em campo. Refeita depois de tudo que mexe em vida.
+ */
+export function sincronizarTreinadores(state: BattleState): BattleState {
+  let atual = state
+  for (const lado of [LADO_ALIADO, 'ENEMY'] as Side[]) {
+    const time = timeDoLado(atual, lado)
+    time.forEach((c, i) => {
+      if (!c.treinador) return
+      const pokemon = time.filter((x) => x.invocacao?.dono === i && defDeInvocacao(x.invocacao.def)?.comandado)
+      const vida = pokemon.reduce((s, x) => s + Math.max(0, x.currentHp), 0)
+      const maxima = pokemon.reduce((s, x) => s + x.maxHp, 0)
+      if (vida !== c.currentHp || maxima !== c.maxHp) {
+        atual = comCombatenteEm(atual, { lado, indice: i }, { ...c, currentHp: vida, maxHp: maxima, baseMaxHp: maxima })
+      }
+    })
+  }
+  return atual
+}
+
+/**
+ * A troca: o Pokémon em campo volta para a pokébola (com a vida que tinha) e
+ * o escolhido entra. Só vale para um Pokémon do próprio treinador, na
+ * pokébola e de pé.
+ */
+function trocarPokemon(state: BattleState, treinador: EmCampo, posicao: number): { state: BattleState; resultado: TurnResult } | null {
+  const time = [...timeDoLado(state, treinador.lado)]
+  const escolhido = time[posicao]
+  const def = escolhido?.invocacao ? defDeInvocacao(escolhido.invocacao.def) : undefined
+  if (!escolhido?.invocacao || escolhido.invocacao.dono !== treinador.indice || !def?.comandado) return null
+  if (!escolhido.invocacao.fora || escolhido.currentHp <= 0) return null
+
+  let saiu: string | undefined
+  time.forEach((c, i) => {
+    if (c.invocacao?.dono === treinador.indice && emCampo(c) && defDeInvocacao(c.invocacao.def)?.comandado) {
+      saiu = c.nome
+      time[i] = { ...c, invocacao: { ...c.invocacao, fora: true } }
+    }
+  })
+  time[posicao] = { ...escolhido, invocacao: { ...escolhido.invocacao, fora: undefined } }
+
+  return {
+    state: comTime(state, treinador.lado, time),
+    resultado: {
+      version: 1,
+      side: treinador.lado,
+      posicao: treinador.indice,
+      kind: 'SUMMON',
+      skillId: null,
+      skillName: 'Troca',
+      invocacao: def.id,
+      invocadas: [posicao],
+      troca: true,
+      ...(saiu ? { substituida: saiu } : {}),
+    },
+  }
+}
+
+/**
+ * A evolução da invocação em campo (a Mega Evolução do Charizard): a ficha
+ * vira a da forma nova, a vida máxima cresce na proporção do peso e o que foi
+ * perdido continua perdido.
+ */
+function evoluirInvocacao(
+  state: BattleState,
+  dono: EmCampo,
+  skill: SkillDef,
+  de: string,
+  para: string
+): { state: BattleState; resultado: TurnResult } | null {
+  const time = timeDoLado(state, dono.lado)
+  const indice = time.findIndex((c) => c.invocacao?.dono === dono.indice && emCampo(c) && c.invocacao.def === de)
+  const nova = defDeInvocacao(para)
+  const velha = defDeInvocacao(de)
+  if (indice === -1 || !nova || !velha) return null
+
+  const quem = time[indice]
+  const treinador = time[dono.indice]
+  const maxHp = Math.round((quem.maxHp * (nova.peso ?? 1)) / (velha.peso ?? 1))
+  const evoluido: CombatantState = {
+    ...quem,
+    nome: nova.nome,
+    maxHp,
+    baseMaxHp: maxHp,
+    currentHp: quem.currentHp + (maxHp - quem.maxHp),
+    attack: Math.max(1, Math.round(treinador.attack * nova.ataque)),
+    baseAttack: Math.max(1, Math.round(treinador.attack * nova.ataque)),
+    defense: Math.round(treinador.defense * nova.defesa),
+    baseDefense: Math.round(treinador.defense * nova.defesa),
+    invocacao: { ...(quem.invocacao as NonNullable<CombatantState['invocacao']>), def: nova.id },
+  }
+  return {
+    state: sincronizarTreinadores(comCombatenteEm(state, { lado: dono.lado, indice }, evoluido)),
+    resultado: {
+      version: 1,
+      side: dono.lado,
+      posicao: dono.indice,
+      kind: 'SUMMON',
+      skillId: skill.id,
+      skillName: skill.name,
+      invocacao: nova.id,
+      invocadas: [indice],
+      evoluiu: velha.nome,
+      energySpent: energyCostFor(treinador, skill.energyCost),
+    },
+  }
 }
 
 /**
@@ -2055,7 +2251,7 @@ export function resolveRound(
     ...atual.aliados.map((_, indice) => ({ lado: LADO_ALIADO, indice })),
     ...atual.inimigos.map((_, indice) => ({ lado: 'ENEMY' as Side, indice })),
   ]
-  const vivos = () => posicoes.filter((p) => estaDePe(combatenteEm(atual, p)))
+  const vivos = () => posicoes.filter((p) => emJogo(combatenteEm(atual, p)))
 
   // Toda linha do log sai daqui dizendo QUEM dentro do lado (ver
   // TurnResult.posicao). É carimbada aqui, e não dentro de cada função que
@@ -2126,6 +2322,7 @@ export function resolveRound(
     atual = comCombatenteEm(atual, p, r.combatant)
     turnResults.push(...r.results.map((x) => em(x, p.indice)))
   }
+  atual = sincronizarTreinadores(atual)
   // Quem chegou na rodada passada já bate nesta; quem o dano contínuo
   // derrubou sai de campo.
   for (const p of posicoes) {
@@ -2172,6 +2369,18 @@ export function resolveRound(
     })
   }
 
+  // 3a. TROCA DE POKÉMON, antes da iniciativa como o bloqueio: nos jogos a
+  //     troca tem prioridade, e quem entra já leva o golpe da rodada — o
+  //     preço de trocar é esse, junto da rodada gasta.
+  for (const p of vivos()) {
+    const acao = acaoDaVez(p)
+    if (acao?.kind !== 'TROCAR' || isStunned(combatenteEm(atual, p))) continue
+    const r = trocarPokemon(atual, p, acao.invocacao)
+    if (!r) continue
+    atual = r.state
+    turnResults.push(r.resultado)
+  }
+
   // 3b. POSTURA, paga aqui pelo mesmo motivo do bloqueio: ela precisa estar de
   //     pé quando o golpe do outro chegar, seja quem for mais rápido. Sem
   //     stamina para a postura pedida, o combatente fica na neutra — a
@@ -2209,7 +2418,8 @@ export function resolveRound(
     const invocacao = combatenteEm(atual, p).invocacao
     if (invocacao) {
       const def = defDeInvocacao(invocacao.def)
-      if (!def || invocacao.recemChegada || invocacao.fora) continue
+      // Pokémon não ataca sozinho: só pelo comando do treinador.
+      if (!def || invocacao.recemChegada || invocacao.fora || def.comandado) continue
       const onde = { lado: p.lado, indice: invocacao.dono }
       // ORDEM: o dono mandou esta usar o especial. Dono atordoado não manda.
       const acaoDoDono = acaoDaVez(onde)
@@ -2307,7 +2517,7 @@ export function resolveRound(
     if (!atual.aliados.some(lutadorDePe) || !atual.inimigos.some(lutadorDePe)) break
 
     const c = combatenteEm(atual, p)
-    if (!estaDePe(c)) continue
+    if (!emJogo(c)) continue
     // Chegou NESTA rodada: a vaga pode ter sido reaproveitada depois que os
     // golpes foram escolhidos (o Mahoraga no lugar dos Cães), e o golpe
     // marcado para ela era de quem estava ali antes.
@@ -2424,6 +2634,46 @@ export function resolveRound(
       continue
     }
 
+    // EVOLUIR: a Mega Evolução do Pokémon em campo. Sem ele em campo, a
+    // rodada passa sem custo — a tela e a IA não oferecem essa jogada.
+    const evolucao = evolucaoDoGolpe(golpe.skill)
+    if (evolucao && golpe.skill) {
+      const r = evoluirInvocacao(atual, p, golpe.skill, evolucao.de, evolucao.para)
+      if (r) {
+        atual = comCombatenteEm(r.state, p, { ...pagarGolpe(combatenteEm(r.state, p), golpe.skill), comboPreparado: undefined })
+        turnResults.push(r.resultado)
+      }
+      continue
+    }
+
+    // COMANDO: quem bate é o Pokémon em campo, com os atributos dele; o
+    // treinador paga a energia e a recarga. Sem esse Pokémon em campo, não há
+    // quem obedeça e a rodada passa sem custo.
+    let executor: EmCampo = p
+    const comandado = comandoDoGolpe(golpe.skill)
+    if (comandado && golpe.skill) {
+      const indice = timeDoLado(atual, p.lado).findIndex(
+        (x) => x.invocacao?.dono === p.indice && emCampo(x) && x.invocacao.def === comandado
+      )
+      if (indice === -1) continue
+      atual = comCombatenteEm(atual, p, { ...pagarGolpe(c, golpe.skill), comboPreparado: undefined })
+      executor = { lado: p.lado, indice }
+      golpe = { ...golpe, skill: { ...golpe.skill, energyCost: 0, cooldown: 0 } }
+    }
+    // O treinador não luta. Sem golpe de Pokémon (ataque básico, ou os golpes
+    // em recarga), quem bate é o Pokémon em campo, com o golpe básico dele —
+    // como qualquer lutador sem habilidade pronta. Sem Pokémon em campo, a
+    // rodada passa.
+    if (c.treinador && executor === p) {
+      const doCampo = timeDoLado(atual, p.lado).findIndex(
+        (x) => x.invocacao?.dono === p.indice && emCampo(x) && defDeInvocacao(x.invocacao.def)?.comandado
+      )
+      const defDoCampo = doCampo === -1 ? undefined : defDeInvocacao(timeDoLado(atual, p.lado)[doCampo].invocacao?.def ?? '')
+      if (golpe.skill || !defDoCampo) continue
+      executor = { lado: p.lado, indice: doCampo }
+      golpe = { ...golpe, skill: golpeDaInvocacao(defDoCampo) }
+    }
+
     // Forma que não gasta a rodada, liberada no próprio turno antes do golpe.
     // Sem como pagar, o golpe sai sem ela — a intenção era atacar.
     const liberar = acao?.kind === 'ATTACK' && acao.liberar ? formasDe(p)[acao.liberar] : undefined
@@ -2437,7 +2687,7 @@ export function resolveRound(
     // Desperdiçar a ação puniria o jogador por uma coisa que ele não tinha
     // como prever — a intenção era ATACAR, e ela continua válida. Sem alvo
     // nenhum de pé, aí sim não há o que fazer.
-    let mira = golpe.alvo && estaDePe(combatenteEm(atual, golpe.alvo))
+    let mira = golpe.alvo && podeSerAlvo(combatenteEm(atual, golpe.alvo))
       ? golpe.alvo
       : alvoDe(atual, p, undefined)
     if (!mira) continue
@@ -2466,8 +2716,9 @@ export function resolveRound(
     }
 
     const alvoAtual = combatenteEm(atual, mira)
-    // Relido, e não `c`: a forma liberada logo acima já mudou o atacante.
-    const atacante = combatenteEm(atual, p)
+    // Relido, e não `c`: a forma liberada logo acima já mudou o atacante. E
+    // com COMANDO, o atacante é o Pokémon, não o treinador.
+    const atacante = combatenteEm(atual, executor)
 
     const hpAntes = atacante.currentHp
     const eraCarregado = Boolean(atacante.carregando)
@@ -2484,7 +2735,7 @@ export function resolveRound(
         adaptacao: alvoAtual.adaptacao?.[chaveDaAdaptacao(skillDoGolpe)],
       }
     )
-    atual = comCombatenteEm(atual, p, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
+    atual = comCombatenteEm(atual, executor, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
     atual = comCombatenteEm(atual, mira, r.defender)
 
     // A RODA GIRA: quem se adapta (o Mahoraga) aprende o golpe que acabou de
@@ -2528,7 +2779,7 @@ export function resolveRound(
     turnResults.push(
       {
         ...r.turnResult,
-        posicao: p.indice,
+        posicao: executor.indice,
         posicaoDoAlvo: mira.indice,
         ...(eraCarregado ? { carregado: true } : {}),
         ...(consumidas > 0 ? { consumidas } : {}),
@@ -2537,7 +2788,7 @@ export function resolveRound(
         ...(adaptou ? { adaptou: true } : {}),
         ...(abatido ? { abatido: true, targetHpAfter: 0 } : {}),
       },
-      ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? p.indice : alvoDoGolpe.indice))
+      ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? executor.indice : alvoDoGolpe.indice))
     )
 
     // Ressurreição depois do golpe: quem lança pode ter derrubado alguém na
@@ -2552,12 +2803,13 @@ export function resolveRound(
 
     // Transformação por dano recebido, do lado de quem apanhou E de quem
     // levou counter — as duas são "tomei dano", e o counter machuca o atacante.
+    atual = sincronizarTreinadores(atual)
     atual = assentarInvocacoes(atual)
 
-    for (const machucado of [p, mira]) {
+    for (const machucado of [executor, mira]) {
       const depois = combatenteEm(atual, machucado)
       if (!estaDePe(depois)) continue
-      const sofrido = mesmoLugar(machucado, p) ? hpAntes - depois.currentHp : r.turnResult.damage ?? 0
+      const sofrido = mesmoLugar(machucado, executor) ? hpAntes - depois.currentHp : r.turnResult.damage ?? 0
       if (sofrido <= 0) continue
       const auto = maybeAutoTransform(depois, formasDe(machucado), ['ON_DAMAGE_TAKEN'], sofrido)
       if (auto) {
@@ -2580,6 +2832,7 @@ export function resolveRound(
   const manutencao = manterInvocacoes(atual)
   atual = manutencao.state
   turnResults.push(...manutencao.results)
+  atual = sincronizarTreinadores(atual)
 
   // Quem chegou nesta rodada age na próxima: a marca sai AGORA, e não no
   // começo da próxima, para o estado gravado entre as rodadas já dizer que

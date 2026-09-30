@@ -2,7 +2,7 @@ import { prisma } from '@/app/lib/prisma'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/app/lib/session'
-import { activateTransformation, takeTurn, blockTurn, darOrdem } from '@/app/lib/battle/actions'
+import { activateTransformation, takeTurn, blockTurn, darOrdem, trocarPokemon } from '@/app/lib/battle/actions'
 import { getBattleView, getEquippedSkills, getPlayerTransformations } from '@/app/lib/battle/queries'
 import { getRetratosDosFalantes, getStageOutro, parseDialogo } from '@/app/lib/story/queries'
 import { CenaDeDialogo } from '@/app/components/story/CenaDeDialogo'
@@ -25,8 +25,15 @@ import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from 
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
 import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
-import { FaixaDeInvocacao, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
-import { emCampo, golpeDeOrdem, ordensDisponiveis } from '@/app/lib/battle/invocacoes'
+import { FaixaDeInvocacao, FaixaDeTroca, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import {
+  comandoDoGolpe,
+  emCampo,
+  evolucaoDoGolpe,
+  golpeDeOrdem,
+  ordensDisponiveis,
+  pokemonEmCampo,
+} from '@/app/lib/battle/invocacoes'
 import { TelaDeVersus } from '@/app/components/battle/TelaDeVersus'
 import { alcanceDe } from '@/app/lib/battle/alcance'
 import { toSkillDef } from '@/app/lib/battle/queries'
@@ -139,6 +146,14 @@ export default async function BattleArenaPage({
   })
   const invocacoesAliadas = state.aliados.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
   const invocacoesInimigas = state.inimigos.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
+  // TREINADOR (o Red): não luta, então os botões são só os golpes do Pokémon
+  // em campo (e a Mega Evolução, com o Charizard), sem ataque básico nem
+  // bloqueio; a troca fica numa faixa própria.
+  const souTreinador = Boolean(heroi(state).treinador)
+  const pokemonNoCampo = pokemonEmCampo(state.aliados, 0)?.def.id
+  const golpesVisiveis = Object.values(playerSkills).filter(
+    (s) => !souTreinador || (comandoDoGolpe(s) ?? evolucaoDoGolpe(s)?.de) === pokemonNoCampo
+  )
   const orbesDe = (lado: 'aliados' | 'inimigos', dono: number, skills: Parameters<typeof gruposDoDono>[2] = []) => {
     const grupos = gruposDoDono(state[lado], dono, skills)
     return grupos.length > 0 ? <OrbesDeInvocacao grupos={grupos} time={state[lado]} dono={dono} /> : undefined
@@ -488,23 +503,33 @@ export default async function BattleArenaPage({
             {/* Sem chave de rodada, ao contrário da postura: o alvo escolhido
                 continua o mesmo de uma rodada para a outra (focar um inimigo é
                 o normal), e se ele cair o seletor passa para o próximo de pé. */}
+            {souTreinador && (
+              <FaixaDeTroca time={state.aliados} dono={0} acao={(posicao) => trocarPokemon.bind(null, battleId, posicao)} />
+            )}
+            {/* Treinador inimigo e Pokémon na pokébola não são alvo. */}
             <ComAlvo
               cor={corInimigo}
-              opcoes={state.inimigos.map((c, posicao) => ({
-                posicao,
-                nome: nomesInimigos[posicao] ?? enemy.name,
-                vida: c.currentHp,
-                vidaMaxima: c.maxHp,
-              }))}
+              opcoes={state.inimigos
+                .map((c, posicao) => ({ c, posicao }))
+                .filter(({ c }) => !c.treinador && !c.invocacao?.fora)
+                .map(({ c, posicao }) => ({
+                  posicao,
+                  nome: nomesInimigos[posicao] ?? enemy.name,
+                  vida: c.currentHp,
+                  vidaMaxima: c.maxHp,
+                }))}
             >
               <ComPostura key={ultimaRodada} opcoes={posturas} stamina={heroi(state).currentStamina ?? 0} cor={corJogador}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch mt-4">
-                  <form action={takeTurn.bind(null, battleId, null)} className="h-full">
-                    <CampoDePostura />
-                    <CampoDeAlvo />
-                    <BotaoDeAtaqueBasico />
-                  </form>
-                  {Object.values(playerSkills).map((skill) => (
+                  {/* No treinador, o ataque básico é a Investida do Pokémon em campo. */}
+                  {(!souTreinador || pokemonNoCampo) && (
+                    <form action={takeTurn.bind(null, battleId, null)} className="h-full">
+                      <CampoDePostura />
+                      <CampoDeAlvo />
+                      <BotaoDeAtaqueBasico />
+                    </form>
+                  )}
+                  {golpesVisiveis.map((skill) => (
                     <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
                       <CampoDePostura />
                       <CampoDeAlvo />
@@ -524,9 +549,11 @@ export default async function BattleArenaPage({
                       </form>
                     )
                   })}
-                  <form action={blockTurn.bind(null, battleId)} className="h-full">
-                    <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
-                  </form>
+                  {!souTreinador && (
+                    <form action={blockTurn.bind(null, battleId)} className="h-full">
+                      <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
+                    </form>
+                  )}
                 </div>
               </ComPostura>
             </ComAlvo>

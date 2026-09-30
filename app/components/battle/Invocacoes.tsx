@@ -38,6 +38,7 @@ export function OrbesDeInvocacao({ grupos, time, dono }: { grupos: DefDeInvocaca
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {grupos.map((def) => {
+        if (def.comandado) return <PokebolasDoTime key={def.grupo} time={time} dono={dono} />
         // Cada orbe acesa na cor de QUEM está em campo: no grupo das sombras
         // do Jin-Woo, Igris é vermelho e Beru é verde-água.
         const emCampoDoGrupo = time
@@ -75,6 +76,124 @@ export function OrbesDeInvocacao({ grupos, time, dono }: { grupos: DefDeInvocaca
           </span>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * As orbes de um treinador: uma por Pokémon do time, na cor dele. Acesa é
+ * quem ainda pode lutar, apagada é quem desmaiou, e o anel marca quem está
+ * em campo — é o que o Red precisa saber para decidir a troca.
+ */
+function PokebolasDoTime({ time, dono }: { time: CombatantState[]; dono: number }) {
+  const membros = time.filter((c) => c.invocacao?.dono === dono && defDeInvocacao(c.invocacao.def)?.comandado)
+  const dePe = membros.filter((c) => c.currentHp > 0).length
+  const rotulo = `Time: ${dePe} de ${membros.length} de pé`
+  return (
+    <span className="inline-flex items-center gap-1.5" title={rotulo} aria-label={rotulo} role="img">
+      {membros.map((c, i) => {
+        const def = defDeInvocacao(c.invocacao?.def ?? '')
+        const cor = def?.cor ?? '#a1a1aa'
+        const noCampo = emCampo(c)
+        const desmaiado = c.currentHp <= 0
+        return (
+          <span
+            key={i}
+            aria-hidden
+            className="h-2.5 w-2.5 rounded-full transition-all duration-300"
+            style={
+              desmaiado
+                ? { border: '1.5px solid rgba(113,113,122,.6)', background: 'rgba(10,10,15,.6)' }
+                : {
+                    background: `radial-gradient(circle at 35% 30%, #fff 0%, ${cor} 45%, color-mix(in srgb, ${cor} 60%, #000) 100%)`,
+                    boxShadow: noCampo ? `0 0 0 1.5px #fff, 0 0 10px ${cor}` : `0 0 6px ${cor}`,
+                    opacity: noCampo ? 1 : 0.75,
+                  }
+            }
+          />
+        )
+      })}
+    </span>
+  )
+}
+
+/**
+ * A faixa de troca do treinador: o time inteiro, com a vida de cada um.
+ * Quem está em campo e quem desmaiou aparecem, mas não trocam — o jogador
+ * precisa ver o time todo para decidir quem entra.
+ *
+ * `acao` monta o formulário de cada troca (a página tem o id da luta e a
+ * action do servidor); aqui fica só o desenho.
+ */
+export function FaixaDeTroca({
+  time,
+  dono,
+  acao,
+}: {
+  time: CombatantState[]
+  dono: number
+  acao: (posicao: number) => (formData: FormData) => void | Promise<void>
+}) {
+  const membros = time
+    .map((c, posicao) => ({ c, posicao, def: c.invocacao ? defDeInvocacao(c.invocacao.def) : undefined }))
+    .filter((m) => m.c.invocacao?.dono === dono && m.def?.comandado)
+  if (membros.length === 0) return null
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs uppercase tracking-widest text-muted">Time · trocar gasta a rodada</div>
+      <div className="flex flex-wrap gap-2">
+        {membros.map(({ c, posicao, def }) => {
+          const noCampo = emCampo(c)
+          const desmaiado = c.currentHp <= 0
+          const cor = def?.cor ?? '#a1a1aa'
+          const conteudo = (
+            <>
+              <span
+                aria-hidden
+                className="grid h-7 w-7 shrink-0 place-items-center font-kanji text-sm"
+                style={{
+                  clipPath: chanfro(4),
+                  color: '#fff',
+                  background: desmaiado ? '#27272a' : `color-mix(in srgb, ${cor} 55%, #0a0a0f)`,
+                }}
+              >
+                {def?.marca}
+              </span>
+              <span className="min-w-0 text-left">
+                <span className="block text-sm font-medium leading-tight">{c.nome ?? def?.nome}</span>
+                <span className="block text-[11px] tabular-nums text-muted">
+                  {desmaiado ? 'desmaiado' : noCampo ? `em campo · ${c.currentHp}/${c.maxHp}` : `${c.currentHp}/${c.maxHp}`}
+                </span>
+              </span>
+            </>
+          )
+          const estilo = {
+            borderRadius: '2px 8px 2px 8px',
+            borderColor: noCampo ? cor : 'var(--border)',
+            background: noCampo ? `color-mix(in srgb, ${cor} 14%, var(--background))` : 'var(--background)',
+          }
+          if (noCampo || desmaiado) {
+            return (
+              <div key={posicao} className={`flex items-center gap-2 border px-2.5 py-1.5 ${desmaiado ? 'opacity-40' : ''}`} style={estilo}>
+                {conteudo}
+              </div>
+            )
+          }
+          return (
+            <form key={posicao} action={acao(posicao)}>
+              <button
+                type="submit"
+                className="flex items-center gap-2 border px-2.5 py-1.5 transition-all hover:brightness-125"
+                style={estilo}
+                aria-label={`Trocar para ${c.nome ?? def?.nome}`}
+              >
+                {conteudo}
+              </button>
+            </form>
+          )
+        })}
+      </div>
     </div>
   )
 }

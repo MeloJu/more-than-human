@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createInitialState, resolveRound } from '@/app/lib/battle/engine'
+import { createInitialState, prepararTreinador, resolveRound } from '@/app/lib/battle/engine'
 import { alvoDaIa, pickAiSkill } from '@/app/lib/battle/ai'
 import { ESPERA_DA_INVOCACAO, INVOCACOES, invocacoesEmCampo, ordensDisponiveis, skillIdDaColuna } from '@/app/lib/battle/invocacoes'
 import type { AcaoDeCombate, BaseStats, BattleState, SkillDef } from '@/app/lib/battle/types'
@@ -362,5 +362,80 @@ describe('Megumi: um shikigami por vez, e a ordem', () => {
     const caiu = r(comSoldado, atacar(null, 0), atacar('sk', 1))
     expect(caiu.state.aliados[0].cooldowns.soldado).toBe(INVOCACOES['soldado-sombra'].espera)
     expect(INVOCACOES['soldado-sombra'].espera).toBeLessThan(ESPERA_DA_INVOCACAO)
+  })
+})
+
+describe('Red: o treinador', () => {
+  const comandar = (id: string, pokemon: string, over: Partial<SkillDef> = {}) =>
+    skill({ id, name: id, power: 30, effects: [{ type: 'COMANDO', target: 'SELF', magnitude: 0, invocacao: pokemon }], ...over })
+  const RED: Record<string, SkillDef> = {
+    ...SKILLS,
+    choque: comandar('choque', 'pikachu', { energyCost: 10 }),
+    chamas: comandar('chamas', 'charizard'),
+    garra: comandar('garra', 'mega-charizard-x'),
+    mega: skill({ id: 'mega', name: 'Mega Evolução', power: 0, cooldown: 99, effects: [{ type: 'EVOLUIR', target: 'SELF', magnitude: 0, invocacao: 'charizard', para: 'mega-charizard-x' }] }),
+  }
+  const r = (e: BattleState, minha: AcaoDeCombate, dele: AcaoDeCombate = parado) =>
+    resolveRound(e, { aliadas: [minha], inimigas: [dele] }, { playerSkills: RED, enemySkills: RED, playerTransformations: {} }, NUNCA_CRITA)
+  const comTime = () => prepararTreinador(inicio(), 'PLAYER', 0, ['pikachu', 'charizard'])
+
+  it('o time entra com o primeiro em campo, e a vida do Red é a do time', () => {
+    const e = comTime()
+    expect(e.aliados[0].treinador).toBe(true)
+    expect(e.aliados[1].invocacao?.fora).toBeFalsy()
+    expect(e.aliados[2].invocacao?.fora).toBe(true)
+    expect(e.aliados[0].currentHp).toBe(e.aliados[1].currentHp + e.aliados[2].currentHp)
+  })
+
+  it('o golpe comandado sai do Pokémon, e o Red paga', () => {
+    const e = comTime()
+    const semGolpe = r(e, parado)
+    const comGolpe = r(e, atacar('choque', 0))
+    const golpe = comGolpe.turnResults.find((x) => x.kind === 'ATTACK' && x.side === 'PLAYER')
+    expect(golpe?.posicao).toBe(1)
+    expect(golpe?.nomeDoAtor).toBe('Pikachu')
+    expect(semGolpe.state.aliados[0].currentEnergy - comGolpe.state.aliados[0].currentEnergy).toBe(10)
+  })
+
+  it('sem golpe pronto, o Pokémon em campo dá a Investida — o Red nunca bate', () => {
+    const golpe = r(comTime(), atacar(null, 0)).turnResults.find((x) => x.kind === 'ATTACK' && x.side === 'PLAYER')
+    expect(golpe).toMatchObject({ posicao: 1, skillName: 'Investida' })
+  })
+
+  it('golpe de Pokémon que não está em campo não sai', () => {
+    const golpes = r(comTime(), atacar('chamas', 0)).turnResults.filter((x) => x.kind === 'ATTACK' && x.side === 'PLAYER')
+    expect(golpes).toHaveLength(0)
+  })
+
+  it('o Red não é alvo: o inimigo bate no Pokémon em campo', () => {
+    const golpe = r(comTime(), parado, atacar('sk', 0)).turnResults.find((x) => x.kind === 'ATTACK' && x.side === 'ENEMY')
+    expect(golpe?.posicaoDoAlvo).toBe(1)
+  })
+
+  it('a troca gasta a rodada, e quem entra já apanha', () => {
+    const t = r(comTime(), { kind: 'TROCAR', invocacao: 2 }, atacar('sk', 0))
+    expect(t.state.aliados[1].invocacao?.fora).toBe(true)
+    expect(t.state.aliados[2].invocacao?.fora).toBeFalsy()
+    expect(t.turnResults.find((x) => x.side === 'ENEMY' && x.kind === 'ATTACK')?.posicaoDoAlvo).toBe(2)
+    expect(t.turnResults.find((x) => x.kind === 'SUMMON')).toMatchObject({ troca: true, substituida: 'Pikachu' })
+  })
+
+  it('desmaiado o time inteiro, o Red perde', () => {
+    const e = comTime()
+    const quase = { ...e, aliados: e.aliados.map((c, i) => (i === 1 ? { ...c, currentHp: 1 } : i === 2 ? { ...c, currentHp: 0 } : c)) }
+    const fim = r(quase, parado, atacar('sk', 0))
+    expect(fim.state.aliados[0].currentHp).toBe(0)
+    expect(fim.state.outcome).toBe('ENEMY_WIN')
+  })
+
+  it('a Mega Evolução transforma o Charizard em campo, e os golpes do Mega X passam a sair', () => {
+    const e = prepararTreinador(inicio(), 'PLAYER', 0, ['charizard'])
+    const antes = e.aliados[1].maxHp
+    const mega = r(e, atacar('mega'))
+    expect(mega.state.aliados[1].invocacao?.def).toBe('mega-charizard-x')
+    expect(mega.state.aliados[1].maxHp).toBeGreaterThan(antes)
+    expect(mega.turnResults.find((x) => x.kind === 'SUMMON')?.evoluiu).toBe('Charizard')
+    const garra = r(mega.state, atacar('garra', 0)).turnResults.find((x) => x.kind === 'ATTACK' && x.side === 'PLAYER')
+    expect(garra?.posicao).toBe(1)
   })
 })

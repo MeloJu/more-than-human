@@ -71,6 +71,17 @@ export type EffectType =
    * Chefe nunca: contra ele sobra o dano extra do EXECUTE que vem junto.
    */
   | 'ABATE'
+  /**
+   * O treinador comanda o golpe do Pokémon `invocacao`, que precisa estar em
+   * campo: quem bate é o Pokémon, com os atributos dele; quem paga é o
+   * treinador. Ver prepararTreinador em engine.ts.
+   */
+  | 'COMANDO'
+  /**
+   * A invocação `invocacao` em campo vira a `para` (a Mega Evolução do
+   * Charizard). Gasta a rodada, uma vez por luta (recarga longa no golpe).
+   */
+  | 'EVOLUIR'
 
 // Mechanical definition attached to a Skill (Skill.effects in the DB). A
 // skill can carry several of these alongside its normal power-based damage
@@ -96,6 +107,8 @@ export type SkillEffect = {
   invocacao?: string
   /** SÓ para CONSUMIR: o grupo de invocações consumido ('maldicao'). */
   grupo?: string
+  /** SÓ para EVOLUIR: a invocação em que `invocacao` se transforma. */
+  para?: string
   stat?: Stat // BUFF/DEBUFF only
   magnitude: number // % for BUFF/DEBUFF/LIFESTEAL, flat amount for DOT/SHIELD/HEAL, % reflected for COUNTER
   duration?: number // rounds; absent = instantaneous (HEAL, LIFESTEAL)
@@ -249,6 +262,11 @@ export type CombatantState = {
    */
   chefe?: boolean
   /**
+   * TREINADOR (o Red): não é alvo e não bate. A vida dele é a soma da vida do
+   * time, refeita pelo motor (ver sincronizarTreinadores).
+   */
+  treinador?: boolean
+  /**
    * Quanto do dano de cada golpe este combatente já aprendeu a ignorar, por
    * id de habilidade (a roda do Mahoraga). Ver DefDeInvocacao.adapta.
    */
@@ -368,6 +386,10 @@ export type TurnResult = {
   recolhida?: boolean
   /** SUMMON: o nome da invocação que voltou para dar lugar à nova (ver `substitui`). */
   substituida?: string
+  /** SUMMON: foi uma troca de Pokémon (o que saiu volta para a pokébola). */
+  troca?: boolean
+  /** SUMMON: evolução — o nome da forma de antes (Charizard, antes do Mega X). */
+  evoluiu?: string
   /** ATTACK: o golpe especial da invocação, por ordem do dono. */
   ordem?: boolean
   /** ATTACK com `ordem`: a posição de quem mandou, no mesmo lado. */
@@ -613,6 +635,12 @@ export type AcaoDeCombate =
    * dono paga a energia do especial; sem ela, a invocação ataca como sempre.
    */
   | { kind: 'ORDEM'; invocacao: number; alvo?: number; postura?: Postura }
+  /**
+   * A ação do treinador que troca o Pokémon em campo pelo da posição
+   * `invocacao` (na pokébola, de pé). Gasta a rodada; resolve antes da
+   * iniciativa, e quem entra já apanha.
+   */
+  | { kind: 'TROCAR'; invocacao: number }
 
 /** O mesmo tipo, com o nome que o lado do jogador já usava. */
 export type PlayerAction = AcaoDeCombate
