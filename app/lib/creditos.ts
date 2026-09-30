@@ -70,7 +70,21 @@ export const CREDITOS: Record<string, Credito> = {
     criador: 'Criadores creditados em cada personagem',
     detentor: 'Warner Bros. Entertainment Inc.',
   },
+  'sword-art-online': {
+    obra: 'Sword Art Online',
+    criador: 'Reki Kawahara',
+    detentor: 'Reki Kawahara / KADOKAWA / SAO Project',
+  },
 }
+
+/**
+ * Quem aparece no jogo SEM ser personagem jogável — NPC de loja, de forja.
+ * A página de créditos lê do banco os animes com personagem; estes não
+ * estão lá, e sem esta lista apareceriam no jogo sem crédito.
+ */
+export const NPCS: { nome: string; papel: string; obra: string }[] = [
+  { nome: 'Lisbeth', papel: 'a ferreira da forja', obra: 'sword-art-online' },
+]
 
 /** Aviso curto, para o rodapé de todas as páginas. */
 export const AVISO_CURTO =

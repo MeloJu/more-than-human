@@ -7,7 +7,7 @@ import { EquipmentCard } from '@/app/components/equipment/EquipmentCard'
 import { COR_DA_RARIDADE } from '@/app/components/itens/CartaDeItem'
 import { AbasDaSecao } from '@/app/components/AbasDaSecao'
 import { ABAS_DA_LOJA } from '@/app/lib/navegacao'
-import { chanfro } from '@/app/components/battle/Moldura'
+import Image from 'next/image'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
 
 const ERROS: Record<string, string> = {
@@ -22,9 +22,9 @@ const ERROS: Record<string, string> = {
 /**
  * A FORJA DA LISBETH: o que se faz com o que a raid deixa cair.
  *
- * A ferreira de SAO é a primeira NPC de craft (desenho aprovado em 30/09/2026);
- * por enquanto só com o kanji da forja no lugar do retrato. Receitas viram as
- * peças que a loja não vende; o refino melhora a peça que você já tem.
+ * A ferreira de SAO é a primeira NPC de craft (desenho aprovado em 30/09/2026),
+ * com a arte dela na forja no cabeçalho (crédito em /creditos). Receitas viram
+ * as peças que a loja não vende; o refino melhora a peça que você já tem.
  */
 export default async function ForjaPage({
   searchParams,
@@ -89,24 +89,50 @@ export default async function ForjaPage({
     <main className="mx-auto max-w-6xl p-6 space-y-6">
       <AbasDaSecao abas={ABAS_DA_LOJA} />
 
-      {/* A Lisbeth. */}
-      <div className="card flex flex-wrap items-center gap-5 p-5" style={{ borderColor: 'color-mix(in srgb, #f472b6 45%, var(--border))' }}>
-        <span
-          aria-hidden
-          className="grid h-20 w-20 shrink-0 place-items-center font-kanji text-4xl text-white"
-          style={{ clipPath: chanfro(10), background: 'radial-gradient(circle at 40% 35%, #f472b6, #7c2d5b 70%, #0a0a0f)', textShadow: '0 0 16px #f9a8d4' }}
-        >
-          鍛
-        </span>
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="kicker">Forja · Lisbeth</div>
-          <h1 className="heading text-3xl">Forja da Lisbeth</h1>
-          <p className="text-sm text-muted">
-            &ldquo;Traz o material que eu faço a lâmina. E se quebrar, a culpa é de quem empunhou.&rdquo; Receitas viram as peças que a loja
-            não vende; o refino soma {Math.round(REFINO_POR_NIVEL * 100)}% dos bônus da peça por nível, até +{REFINO_MAXIMO}.
-          </p>
+      {/* A LISBETH, na forja: a arte ocupa o cartão, com a ferreira e a lâmina
+          em brasa à direita, e um véu escuro da esquerda deixa o texto legível.
+          No celular o véu sobe e cobre mais, porque o texto fica por cima dela. */}
+      <div
+        className="card relative min-h-[300px] overflow-hidden p-0"
+        style={{ borderColor: 'color-mix(in srgb, #f472b6 45%, var(--border))' }}
+      >
+        {/* No computador a arte ocupa a metade direita, para a ferreira e a
+            lâmina em brasa ficarem fora do véu do texto. */}
+        <div className="absolute inset-y-0 right-0 w-full sm:w-[64%]">
+          <Image
+            src="/images/npcs/lisbeth.webp"
+            alt="Lisbeth martelando uma espada em brasa na forja, com o castelo de Aincrad ao fundo"
+            fill
+            priority
+            className="object-cover"
+            style={{ objectPosition: '35% 42%' }}
+            sizes="(max-width: 640px) 100vw, 740px"
+          />
         </div>
-        <span className="coin-badge">◆ {coins} moedas</span>
+        <div
+          aria-hidden
+          className="absolute inset-0 sm:hidden"
+          style={{ background: 'linear-gradient(to top, rgba(10,10,15,.96) 30%, rgba(10,10,15,.55) 65%, rgba(10,10,15,.15))' }}
+        />
+        <div
+          aria-hidden
+          className="absolute inset-0 hidden sm:block"
+          style={{ background: 'linear-gradient(90deg, rgba(10,10,15,.98) 0%, rgba(10,10,15,.95) 36%, rgba(10,10,15,.4) 46%, transparent 58%)' }}
+        />
+        <div className="relative flex min-h-[300px] flex-col justify-end gap-2 p-5 sm:max-w-[40%] sm:justify-center">
+          <div className="kicker" style={{ color: '#f9a8d4' }}>
+            Forja · Lisbeth
+          </div>
+          <h1 className="heading text-3xl">Forja da Lisbeth</h1>
+          <p className="text-sm text-zinc-300">
+            &ldquo;Traz o material que eu faço a lâmina. E se quebrar, a culpa é de quem empunhou.&rdquo;
+          </p>
+          <p className="text-xs text-muted">
+            Receitas viram as peças que a loja não vende; o refino soma {Math.round(REFINO_POR_NIVEL * 100)}% dos bônus da peça por
+            nível, até +{REFINO_MAXIMO}.
+          </p>
+          <span className="coin-badge self-start">◆ {coins} moedas</span>
+        </div>
       </div>
 
       {errorMessage && <div className="card p-3 text-sm border-danger/40 text-danger">{errorMessage}</div>}

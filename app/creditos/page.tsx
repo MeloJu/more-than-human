@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { prisma } from '@/app/lib/prisma'
-import { CREDITOS, AVISO_CURTO } from '@/app/lib/creditos'
+import { CREDITOS, AVISO_CURTO, NPCS } from '@/app/lib/creditos'
 
 export const metadata = { title: 'Créditos e direitos · More Than Human' }
 
@@ -71,6 +71,39 @@ export default async function CreditosPage() {
           )
         })}
       </div>
+
+      {/* NPCs: aparecem no jogo sem ser personagem jogável. */}
+      {NPCS.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Participações</h2>
+          {NPCS.map((npc) => {
+            const credito = CREDITOS[npc.obra]
+            return (
+              <section key={npc.nome} className="card p-4 space-y-2">
+                <h3 className="font-semibold">
+                  {npc.nome} <span className="font-normal text-muted">· {npc.papel}</span>
+                </h3>
+                {credito && (
+                  <dl className="text-sm space-y-1">
+                    <div className="flex gap-2">
+                      <dt className="text-muted shrink-0">Obra:</dt>
+                      <dd>{credito.obra}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="text-muted shrink-0">Criação:</dt>
+                      <dd>{credito.criador}</dd>
+                    </div>
+                    <div className="flex gap-2">
+                      <dt className="text-muted shrink-0">Direitos:</dt>
+                      <dd>{credito.detentor}</dd>
+                    </div>
+                  </dl>
+                )}
+              </section>
+            )
+          })}
+        </div>
+      )}
 
       <Link href="/dashboard" className="inline-block text-sm underline">
         Voltar
