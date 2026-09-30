@@ -432,3 +432,34 @@ describe('forma para qualquer posição', () => {
     expect(r.state.aliados[1].activeTransformationId).toBeFalsy()
   })
 })
+
+describe('golpe em área (EM_AREA)', () => {
+  const onda = skill({ id: 'onda', name: 'Cero Gigante', power: 20, energyCost: 30, alcance: 'AREA', effects: [{ type: 'EM_AREA', target: 'ENEMY', magnitude: 0 }] })
+
+  it('acerta todo mundo do outro lado, e quem lança paga uma vez', () => {
+    const e = campo([stats({ energy: 200 })], [stats(), stats(), stats()])
+    const antes = e.aliados[0].currentEnergy
+    const r = resolveRound(
+      e,
+      { aliadas: [atacar('onda', 0)], inimigas: [{ kind: 'BLOCK' }, { kind: 'BLOCK' }, { kind: 'BLOCK' }] },
+      { playerSkills: { onda }, enemySkills: { onda }, playerTransformations: {} },
+      NUNCA_CRITA
+    )
+    const golpes = r.turnResults.filter((t) => t.kind === 'ATTACK' && t.side === 'PLAYER')
+    expect(golpes.map((g) => g.posicaoDoAlvo)).toEqual([0, 1, 2])
+    expect(golpes.every((g) => g.emArea)).toBe(true)
+    expect(r.state.inimigos.every((c) => c.currentHp < 100)).toBe(true)
+    expect(antes - r.state.aliados[0].currentEnergy).toBeLessThanOrEqual(30)
+  })
+
+  it('num 1x1 é um golpe comum', () => {
+    const e = campo([stats()], [stats()])
+    const r = resolveRound(
+      e,
+      { aliadas: [atacar('onda')], inimigas: [{ kind: 'BLOCK' }] },
+      { playerSkills: { onda }, enemySkills: { onda }, playerTransformations: {} },
+      NUNCA_CRITA
+    )
+    expect(r.turnResults.filter((t) => t.kind === 'ATTACK')).toHaveLength(1)
+  })
+})

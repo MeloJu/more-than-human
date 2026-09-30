@@ -56,6 +56,7 @@ const EFFECT_ICON: Record<EffectType, string> = {
   ABATE: '⚔️',
   COMANDO: '◓',
   EVOLUIR: '🧬',
+  EM_AREA: '💥',
 }
 
 export function describeEffect(e: EffectLike): string {
@@ -103,6 +104,8 @@ export function describeEffect(e: EffectLike): string {
       return `${EFFECT_ICON.CONSUMIR} Consome as invocações em campo · +${e.magnitude} de poder por uma`
     case 'ABATE':
       return `${EFFECT_ICON.ABATE} Abaixo de ${e.magnitude}% da vida, o alvo cai (chefe não)`
+    case 'EM_AREA':
+      return `${EFFECT_ICON.EM_AREA} Acerta todos do outro lado`
     case 'COMANDO':
       return `${EFFECT_ICON.COMANDO} Golpe de ${(e.invocacao && defDeInvocacao(e.invocacao)?.nome) ?? 'Pokémon'}, que precisa estar em campo`
     case 'EVOLUIR': {

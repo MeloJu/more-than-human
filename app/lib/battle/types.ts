@@ -82,6 +82,11 @@ export type EffectType =
    * Charizard). Gasta a rodada, uma vez por luta (recarga longa no golpe).
    */
   | 'EVOLUIR'
+  /**
+   * O golpe acerta TODOS do outro lado que podem ser alvo, cada um com a
+   * própria defesa — não só o alvo escolhido. Quem lança paga uma vez.
+   */
+  | 'EM_AREA'
 
 // Mechanical definition attached to a Skill (Skill.effects in the DB). A
 // skill can carry several of these alongside its normal power-based damage
@@ -398,6 +403,8 @@ export type TurnResult = {
   consumidas?: number
   /** ATTACK: o alvo caiu pelo ABATE, abaixo do limiar. */
   abatido?: boolean
+  /** ATTACK: parte de um golpe EM_AREA — uma linha por alvo atingido. */
+  emArea?: boolean
   /** ATTACK: o alvo se adaptou ao golpe (a roda do Mahoraga girou). */
   adaptou?: boolean
   /** ATTACK: a invocação guardiã se pôs na frente do dono (ver `guarda`). */

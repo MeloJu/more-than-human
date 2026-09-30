@@ -245,6 +245,12 @@ const renomeacoes = [
     nomeNovo: 'Shikigami: Max Elephant',
     fonte: 'anime/mangá — o shikigami é o Max Elephant (満象, elefante), que inunda o campo; "Touro" era erro de tradução.',
   },
+  {
+    nomeAntigo: 'Hollow Claw',
+    categoria: 'OTHER',
+    nomeNovo: 'Garra de Hollow',
+    fonte: 'tradução — o golpe básico dos Hollows veio do seed em inglês, e o resto do catálogo é em português.',
+  },
 ];
 
 module.exports = { renomeacoes };

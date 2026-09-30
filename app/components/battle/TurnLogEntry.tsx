@@ -300,6 +300,7 @@ export function TurnLogEntry({
           e <span className={turn.isCrit ? 'font-medium text-amber-600 dark:text-amber-400' : ''}>{verbo}</span>{' '}
           {alvoName} — <span className="tabular-nums">{turn.damage}</span> de dano
           {turn.isCrit && <span className="text-amber-600 dark:text-amber-400"> (CRÍTICO)</span>}
+          {turn.emArea && <span className="opacity-70"> (em área)</span>}
           {/* Bloqueado e ignorando-a-defesa são os dois extremos do mesmo eixo,
               e os dois precisam aparecer: sem eles, o mesmo número de dano
               conta histórias diferentes sem avisar qual. */}

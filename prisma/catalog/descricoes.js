@@ -602,7 +602,8 @@ const descricoes = [
   // Habilidades que não vêm de personagem: as que um equipamento concede a
   // quem o veste, e a garra dos Hollows da raid.
 
-  ['Hollow Claw', 'OTHER', 'A garra de um Hollow. O golpe mais básico de qualquer um deles.'],
+  // Hollow Claw virou Garra de Hollow; a descrição dos golpes de monstro mora em
+  // prisma/catalog/monstros.js, junto do kit.
   ['Getsuga Tenshō (Zangetsu)', 'OTHER', 'Com Zangetsu em mãos, qualquer um libera o Getsuga Tenshō: a onda de reiatsu em forma de lua crescente.'],
   ['Shinsō: Estocada Estendida', 'OTHER', 'Shinsō se estende numa estocada à distância, e o alvo fica mais lento.'],
   ['Ginto: Barreira Quincy', 'OTHER', 'Um tubo de Gintō se desfaz numa barreira de prata.'],

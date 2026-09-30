@@ -47,6 +47,7 @@ const traitCatalog = require('./catalog/traits');
 const descricoesCatalog = require('./catalog/descricoes');
 const aposentadasCatalog = require('./catalog/aposentadas');
 const alcanceCatalog = require('./catalog/alcance');
+const monstrosCatalog = require('./catalog/monstros');
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -667,6 +668,52 @@ async function syncPrecisao() {
 }
 
 /**
+ * Kits dos monstros de raid. Ver prisma/catalog/monstros.js para o desenho.
+ *
+ * Cria o golpe, liga ao monstro e DESLIGA o que saiu do kit — monstro não tem
+ * dado de jogador, então o catálogo é a verdade inteira sobre o que ele usa.
+ * Monstro que ainda não existe no banco é avisado e pulado.
+ */
+async function syncMonstros() {
+  for (const m of monstrosCatalog.monstros) {
+    const monstro = await prisma.monster.findUnique({ where: { name: m.monstro }, select: { id: true, attack: true } });
+    if (!monstro) {
+      console.log(`  (aviso) monstro inexistente neste banco: ${m.monstro}`);
+      continue;
+    }
+    // O ataque do monstro mora no catálogo desde o kit (ver monstros.js).
+    if (m.ataque !== undefined) {
+      const d = diff({ attack: monstro.attack }, { attack: m.ataque });
+      registra('monstro', `${m.monstro} (ataque)`, d);
+      if (!DRY_RUN && d.acao !== 'igual') await prisma.monster.update({ where: { id: monstro.id }, data: { attack: m.ataque } });
+    }
+    const ids = [];
+    for (const def of m.skills) {
+      const chave = { name_category: { name: def.name, category: def.category } };
+      const atual = await prisma.skill.findUnique({ where: chave });
+      registra('monstro', def.name, diff(atual, def));
+      if (DRY_RUN) continue;
+      const row = await prisma.skill.upsert({ where: chave, create: def, update: def });
+      ids.push(row.id);
+      const ligacao = { monsterId_skillId: { monsterId: monstro.id, skillId: row.id } };
+      if (!(await prisma.monsterSkill.findUnique({ where: ligacao }))) {
+        registra('monstro', `${m.monstro} · ${def.name}`, { acao: 'criar', campos: ['ligacao'] });
+        await prisma.monsterSkill.create({ data: { monsterId: monstro.id, skillId: row.id } });
+      }
+    }
+    if (DRY_RUN) continue;
+    const sobras = await prisma.monsterSkill.findMany({
+      where: { monsterId: monstro.id, skillId: { notIn: ids } },
+      include: { skill: { select: { name: true } } },
+    });
+    for (const s of sobras) {
+      registra('monstro', `${m.monstro} deixa ${s.skill.name}`, { acao: 'atualizar', campos: ['ligacao'] });
+      await prisma.monsterSkill.delete({ where: { id: s.id } });
+    }
+  }
+}
+
+/**
  * Kits dos invocadores. Ver prisma/catalog/summoners.js para o desenho.
  *
  * Diferente de syncKits, este arquivo CRIA as habilidades além de ligá-las:
@@ -1043,6 +1090,7 @@ async function main() {
   await syncRenomeacoesCanonicas();
   await syncKits();
   await syncSummoners();
+  await syncMonstros();
   await syncCharacterImages();
   await syncCores();
   await syncTransformations();

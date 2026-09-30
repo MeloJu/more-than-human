@@ -1227,6 +1227,7 @@ function performSkillUse(
     'ABATE',
     'COMANDO',
     'EVOLUIR',
+    'EM_AREA',
   ])
   const supportEffects = effects.filter(
     (e) =>
@@ -2731,106 +2732,126 @@ export function resolveRound(
       skillDoGolpe = { ...skillDoGolpe, power: skillDoGolpe.power + consumidas * consumo.magnitude }
     }
 
-    const alvoAtual = combatenteEm(atual, mira)
-    // Relido, e não `c`: a forma liberada logo acima já mudou o atacante. E
-    // com COMANDO, o atacante é o Pokémon, não o treinador.
-    const atacante = combatenteEm(atual, executor)
+    // EM ÁREA: o mesmo golpe acerta todo mundo do outro lado que pode ser
+    // alvo — o Cero Gigante do Menos varre a party inteira. Quem lança paga
+    // uma vez; cada alvo se defende com a postura e a guarda dele. A
+    // guardiã não intercepta (golpe de área passa por cima, ver acima).
+    const emArea = Boolean(skillDoGolpe?.effects.some((e) => e.type === 'EM_AREA'))
+    const ladoDoAlvo = mira.lado
+    const alvosDoGolpe: EmCampo[] = emArea
+      ? timeDoLado(atual, ladoDoAlvo)
+          .map((alvo, indice) => ({ alvo, indice }))
+          .filter(({ alvo }) => podeSerAlvo(alvo))
+          .map(({ indice }) => ({ lado: ladoDoAlvo, indice }))
+      : [mira]
+    const golpeCheio = skillDoGolpe
+    for (const [n, alvoDaVez] of alvosDoGolpe.entries()) {
+      // Quem lançou pode cair no contragolpe de um dos alvos no meio da área.
+      if (n > 0 && !estaDePe(combatenteEm(atual, executor))) break
+      mira = alvoDaVez
+      skillDoGolpe = n === 0 || !golpeCheio ? golpeCheio : { ...golpeCheio, energyCost: 0, cooldown: 0 }
+      const alvoAtual = combatenteEm(atual, mira)
+      // Relido, e não `c`: a forma liberada logo acima já mudou o atacante. E
+      // com COMANDO, o atacante é o Pokémon, não o treinador.
+      const atacante = combatenteEm(atual, executor)
 
-    const hpAntes = atacante.currentHp
-    const eraCarregado = Boolean(atacante.carregando)
-    const r = performSkillUse(
-      p.lado,
-      atacante,
-      alvoAtual,
-      skillDoGolpe,
-      rand,
-      {
-        bloqueia: bloqueando.has(chave(mira)),
-        posturaAtacante: posturas.get(chave(p)),
-        posturaDefensor: posturas.get(chave(mira)),
-        adaptacao: alvoAtual.adaptacao?.[chaveDaAdaptacao(skillDoGolpe)],
+      const hpAntes = atacante.currentHp
+      const eraCarregado = Boolean(atacante.carregando)
+      const r = performSkillUse(
+        p.lado,
+        atacante,
+        alvoAtual,
+        skillDoGolpe,
+        rand,
+        {
+          bloqueia: bloqueando.has(chave(mira)),
+          posturaAtacante: posturas.get(chave(p)),
+          posturaDefensor: posturas.get(chave(mira)),
+          adaptacao: alvoAtual.adaptacao?.[chaveDaAdaptacao(skillDoGolpe)],
+        }
+      )
+      atual = comCombatenteEm(atual, executor, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
+      atual = comCombatenteEm(atual, mira, r.defender)
+
+      // A RODA GIRA: quem se adapta (o Mahoraga) aprende o golpe que acabou de
+      // levar, e o próximo igual entra mais fraco. Só golpe que encostou ensina.
+      let adaptou = false
+      const regraDeAdaptacao = alvoAtual.invocacao ? defDeInvocacao(alvoAtual.invocacao.def)?.adapta : undefined
+      const depoisDoGolpe = combatenteEm(atual, mira)
+      if (regraDeAdaptacao && (r.turnResult.damage ?? 0) > 0 && estaDePe(depoisDoGolpe)) {
+        const golpeAprendido = chaveDaAdaptacao(skillDoGolpe)
+        const antes = depoisDoGolpe.adaptacao?.[golpeAprendido] ?? 0
+        const agora = Math.min(regraDeAdaptacao.maximo, antes + regraDeAdaptacao.porGolpe)
+        if (agora > antes) {
+          atual = comCombatenteEm(atual, mira, {
+            ...depoisDoGolpe,
+            adaptacao: { ...depoisDoGolpe.adaptacao, [golpeAprendido]: agora },
+          })
+          adaptou = true
+        }
       }
-    )
-    atual = comCombatenteEm(atual, executor, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
-    atual = comCombatenteEm(atual, mira, r.defender)
 
-    // A RODA GIRA: quem se adapta (o Mahoraga) aprende o golpe que acabou de
-    // levar, e o próximo igual entra mais fraco. Só golpe que encostou ensina.
-    let adaptou = false
-    const regraDeAdaptacao = alvoAtual.invocacao ? defDeInvocacao(alvoAtual.invocacao.def)?.adapta : undefined
-    const depoisDoGolpe = combatenteEm(atual, mira)
-    if (regraDeAdaptacao && (r.turnResult.damage ?? 0) > 0 && estaDePe(depoisDoGolpe)) {
-      const golpeAprendido = chaveDaAdaptacao(skillDoGolpe)
-      const antes = depoisDoGolpe.adaptacao?.[golpeAprendido] ?? 0
-      const agora = Math.min(regraDeAdaptacao.maximo, antes + regraDeAdaptacao.porGolpe)
-      if (agora > antes) {
-        atual = comCombatenteEm(atual, mira, {
-          ...depoisDoGolpe,
-          adaptacao: { ...depoisDoGolpe.adaptacao, [golpeAprendido]: agora },
-        })
-        adaptou = true
+      // ABATE: abaixo do limiar depois do golpe, cai na hora. Chefe nunca —
+      // contra ele fica o dano extra do EXECUTE que vem no mesmo golpe.
+      let abatido = false
+      const abate = skillDoGolpe?.effects.find((e) => e.type === 'ABATE')
+      const atingido = combatenteEm(atual, mira)
+      if (
+        abate &&
+        (r.turnResult.damage ?? 0) > 0 &&
+        estaDePe(atingido) &&
+        !atingido.chefe &&
+        atingido.maxHp > 0 &&
+        atingido.currentHp / atingido.maxHp < abate.magnitude / 100
+      ) {
+        atual = comCombatenteEm(atual, mira, { ...atingido, currentHp: 0 })
+        abatido = true
       }
-    }
 
-    // ABATE: abaixo do limiar depois do golpe, cai na hora. Chefe nunca —
-    // contra ele fica o dano extra do EXECUTE que vem no mesmo golpe.
-    let abatido = false
-    const abate = skillDoGolpe?.effects.find((e) => e.type === 'ABATE')
-    const atingido = combatenteEm(atual, mira)
-    if (
-      abate &&
-      (r.turnResult.damage ?? 0) > 0 &&
-      estaDePe(atingido) &&
-      !atingido.chefe &&
-      atingido.maxHp > 0 &&
-      atingido.currentHp / atingido.maxHp < abate.magnitude / 100
-    ) {
-      atual = comCombatenteEm(atual, mira, { ...atingido, currentHp: 0 })
-      abatido = true
-    }
+      // Os eventos do golpe (choque de domínio, guarda partida) dizem em `side`
+      // de quem é a linha; a posição sai de quem daquele lado estava na troca.
+      const alvoDoGolpe = mira
+      turnResults.push(
+        {
+          ...r.turnResult,
+          posicao: executor.indice,
+          posicaoDoAlvo: mira.indice,
+          ...(eraCarregado ? { carregado: true } : {}),
+          ...(consumidas > 0 ? { consumidas } : {}),
+          ...(cumpriuOrdem && donoDaOrdem ? { ordem: true, donoDaOrdem: donoDaOrdem.indice } : {}),
+          ...(interceptou ? { interceptou: true } : {}),
+          ...(adaptou ? { adaptou: true } : {}),
+          ...(abatido ? { abatido: true, targetHpAfter: 0 } : {}),
+          ...(emArea ? { emArea: true } : {}),
+        },
+        ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? executor.indice : alvoDoGolpe.indice))
+      )
 
-    // Os eventos do golpe (choque de domínio, guarda partida) dizem em `side`
-    // de quem é a linha; a posição sai de quem daquele lado estava na troca.
-    const alvoDoGolpe = mira
-    turnResults.push(
-      {
-        ...r.turnResult,
-        posicao: executor.indice,
-        posicaoDoAlvo: mira.indice,
-        ...(eraCarregado ? { carregado: true } : {}),
-        ...(consumidas > 0 ? { consumidas } : {}),
-        ...(cumpriuOrdem && donoDaOrdem ? { ordem: true, donoDaOrdem: donoDaOrdem.indice } : {}),
-        ...(interceptou ? { interceptou: true } : {}),
-        ...(adaptou ? { adaptou: true } : {}),
-        ...(abatido ? { abatido: true, targetHpAfter: 0 } : {}),
-      },
-      ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? executor.indice : alvoDoGolpe.indice))
-    )
-
-    // Ressurreição depois do golpe: quem lança pode ter derrubado alguém na
-    // mesma ação (counter), e o aliado que acabou de cair já conta.
-    if (r.reviveSolicitado !== undefined) {
-      const volta = reviverAliado(atual, p.lado, r.reviveSolicitado)
-      if (volta) {
-        atual = volta.state
-        turnResults.push(volta.resultado)
+      // Ressurreição depois do golpe: quem lança pode ter derrubado alguém na
+      // mesma ação (counter), e o aliado que acabou de cair já conta.
+      if (r.reviveSolicitado !== undefined) {
+        const volta = reviverAliado(atual, p.lado, r.reviveSolicitado)
+        if (volta) {
+          atual = volta.state
+          turnResults.push(volta.resultado)
+        }
       }
-    }
 
-    // Transformação por dano recebido, do lado de quem apanhou E de quem
-    // levou counter — as duas são "tomei dano", e o counter machuca o atacante.
-    atual = sincronizarTreinadores(atual)
-    atual = assentarInvocacoes(atual)
+      // Transformação por dano recebido, do lado de quem apanhou E de quem
+      // levou counter — as duas são "tomei dano", e o counter machuca o atacante.
+      atual = sincronizarTreinadores(atual)
+      atual = assentarInvocacoes(atual)
 
-    for (const machucado of [executor, mira]) {
-      const depois = combatenteEm(atual, machucado)
-      if (!estaDePe(depois)) continue
-      const sofrido = mesmoLugar(machucado, executor) ? hpAntes - depois.currentHp : r.turnResult.damage ?? 0
-      if (sofrido <= 0) continue
-      const auto = maybeAutoTransform(depois, formasDe(machucado), ['ON_DAMAGE_TAKEN'], sofrido)
-      if (auto) {
-        atual = comCombatenteEm(atual, machucado, auto.combatant)
-        turnResults.push(em(makeTransformResult(machucado.lado, auto.transformation), machucado.indice))
+      for (const machucado of [executor, mira]) {
+        const depois = combatenteEm(atual, machucado)
+        if (!estaDePe(depois)) continue
+        const sofrido = mesmoLugar(machucado, executor) ? hpAntes - depois.currentHp : r.turnResult.damage ?? 0
+        if (sofrido <= 0) continue
+        const auto = maybeAutoTransform(depois, formasDe(machucado), ['ON_DAMAGE_TAKEN'], sofrido)
+        if (auto) {
+          atual = comCombatenteEm(atual, machucado, auto.combatant)
+          turnResults.push(em(makeTransformResult(machucado.lado, auto.transformation), machucado.indice))
+        }
       }
     }
   }

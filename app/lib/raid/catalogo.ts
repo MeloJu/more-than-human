@@ -91,22 +91,22 @@ export const RAIDS: Raid[] = [
       {
         nome: 'Deserto de Hueco Mundo',
         descricao: 'Areia branca, lua parada. Três Hollows farejam a party antes de ela ver a fortaleza.',
-        inimigos: [{ monstro: 'Hollow', nivel: 11 }, { monstro: 'Hollow', nivel: 11 }, { monstro: 'Hollow', nivel: 11 }],
+        inimigos: [{ monstro: 'Hollow', nivel: 10 }, { monstro: 'Hollow', nivel: 10 }, { monstro: 'Hollow', nivel: 10 }],
       },
       {
         nome: 'Floresta de Menos',
         descricao: 'Árvores de quartzo sob a areia. Um Menos Grande se ergue, e um Hollow vem atrás dele.',
-        inimigos: [{ monstro: 'Menos Grande', nivel: 11 }, { monstro: 'Hollow', nivel: 11 }],
+        inimigos: [{ monstro: 'Menos Grande', nivel: 10 }, { monstro: 'Hollow', nivel: 10 }],
       },
       {
         nome: 'Corredores de Las Noches',
         descricao: 'Dentro da fortaleza, o céu é pintado. Dois Adjuchas guardam o caminho.',
-        inimigos: [{ monstro: 'Adjuchas', nivel: 11 }, { monstro: 'Adjuchas', nivel: 11 }],
+        inimigos: [{ monstro: 'Adjuchas', nivel: 9 }, { monstro: 'Adjuchas', nivel: 9 }],
       },
       {
         nome: 'Portão da Sexta Torre',
         descricao: 'Um Vasto Lorde guarda a torre. Quase um Espada.',
-        inimigos: [{ monstro: 'Vasto Lorde', nivel: 12 }],
+        inimigos: [{ monstro: 'Vasto Lorde', nivel: 10 }],
       },
       {
         nome: 'Sexta Torre',
