@@ -2372,6 +2372,35 @@ export function resolveRound(
     })
   }
 
+  // 3-. CONSUMÍVEL (a poção), antes de tudo como item em Pokémon: quem bebe
+  //     gasta a rodada, e a cura já vale para os golpes desta. No treinador,
+  //     cura o Pokémon em campo — o Red não tem vida própria.
+  for (const p of vivos()) {
+    const acao = acaoDaVez(p)
+    const c = combatenteEm(atual, p)
+    if (acao?.kind !== 'ITEM' || isStunned(c)) continue
+    const quem = c.treinador ? pokemonEmCampo(timeDoLado(atual, p.lado), p.indice) : undefined
+    const onde: EmCampo = quem ? { lado: p.lado, indice: quem.posicao } : p
+    const alvo = combatenteEm(atual, onde)
+    const cura = Math.min(alvo.maxHp - alvo.currentHp, Math.round(alvo.maxHp * (acao.vida ?? 0)))
+    const energia = Math.min(c.maxEnergy - c.currentEnergy, Math.round(c.maxEnergy * (acao.energia ?? 0)))
+    atual = comCombatenteEm(atual, onde, { ...alvo, currentHp: alvo.currentHp + Math.max(0, cura) })
+    const bebeu = combatenteEm(atual, p)
+    atual = comCombatenteEm(atual, p, { ...bebeu, currentEnergy: bebeu.currentEnergy + Math.max(0, energia), comboPreparado: undefined })
+    turnResults.push({
+      version: 1,
+      side: p.lado,
+      posicao: p.indice,
+      kind: 'ITEM',
+      skillId: null,
+      skillName: acao.nome,
+      ...(cura > 0 ? { healed: cura } : {}),
+      ...(energia > 0 ? { energiaRecuperada: energia } : {}),
+      ...(quem ? { posicaoDoAlvo: quem.posicao } : {}),
+    })
+  }
+  atual = sincronizarTreinadores(atual)
+
   // 3a. TROCA DE POKÉMON, antes da iniciativa como o bloqueio: nos jogos a
   //     troca tem prioridade, e quem entra já leva o golpe da rodada — o
   //     preço de trocar é esse, junto da rodada gasta.

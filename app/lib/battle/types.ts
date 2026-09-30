@@ -377,6 +377,9 @@ export type TurnResult = {
     | 'REVIVE'
     | 'CHARGE'
     | 'SUMMON'
+    | 'ITEM'
+  /** ITEM: energia recuperada pelo consumível. */
+  energiaRecuperada?: number
   /**
    * O nome de quem agiu e de quem foi atingido, quando é invocação — gravado
    * na hora, porque a vaga dela é reaproveitada e o nome pela posição mudaria.
@@ -648,6 +651,12 @@ export type AcaoDeCombate =
    * iniciativa, e quem entra já apanha.
    */
   | { kind: 'TROCAR'; invocacao: number }
+  /**
+   * Usa um consumível da mochila (a poção): gasta a rodada, resolve antes da
+   * iniciativa como item em Pokémon. O efeito vem do catálogo, em fração do
+   * máximo; o servidor é quem confere que o item existe e o tira da mochila.
+   */
+  | { kind: 'ITEM'; nome: string; vida?: number; energia?: number }
 
 /** O mesmo tipo, com o nome que o lado do jogador já usava. */
 export type PlayerAction = AcaoDeCombate

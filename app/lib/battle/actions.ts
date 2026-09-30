@@ -38,7 +38,7 @@ import { createBattleAndRedirect } from './montagem'
 import { raidPorSlug } from '@/app/lib/raid/catalogo'
 import { avancar, recompensaDaRaid, reservasDoTime } from '@/app/lib/raid/andares'
 import { sortearLoot } from '@/app/lib/raid/loot'
-import { darItens } from '@/app/lib/itens/queries'
+import { darItens, gastarItens } from '@/app/lib/itens/queries'
 import { autoFillLoadout } from '@/app/lib/progression/loadout'
 import { recordStoryProgress } from '@/app/lib/story/progresso'
 import { MAX_ROUNDS, NPC_WINS_ON_WIN } from './constants'
@@ -303,7 +303,9 @@ async function persistRound(
   ehBatalhaContraIa: boolean,
   userId: string,
   /** O andar de raid que esta luta é, ou null fora da raid. */
-  raid: { runId: string; slug: string; andar: number; totalDeAndares: number } | null
+  raid: { runId: string; slug: string; andar: number; totalDeAndares: number } | null,
+  /** O consumível usado na rodada, a tirar da mochila junto com a gravação. */
+  itemGasto?: string
 ): Promise<{ finalState: BattleState; isFinished: boolean; reward: Reward | null; moedas: number }> {
   const nextTurnNumber = expectedTurnNumber + 1
   const forcedEnd = newState.outcome === null && nextTurnNumber > MAX_ROUNDS
@@ -342,6 +344,10 @@ async function persistRound(
       },
     })
     if (updateResult.count === 0) throw new Error('CONCURRENT_UPDATE')
+
+    // A POÇÃO SAI DA MOCHILA NA MESMA TRANSAÇÃO da rodada em que foi bebida:
+    // sem ela na mochila (gasta em outra aba), a rodada inteira volta atrás.
+    if (itemGasto) await gastarItens(tx, userId, [{ itemId: itemGasto, quantidade: 1 }])
 
     // FIM DE ANDAR: a incursão anda na MESMA transação da rodada final. Fora
     // dela, uma queda no meio deixaria a luta terminada e a raid parada no
@@ -486,7 +492,8 @@ async function finalizeRound(
   battleId: string,
   ctx: Awaited<ReturnType<typeof loadActiveBattleContext>>,
   newState: BattleState,
-  turnResults: TurnResult[]
+  turnResults: TurnResult[],
+  itemGasto?: string
 ): Promise<void> {
   try {
     const result = await persistRound(
@@ -507,11 +514,13 @@ async function finalizeRound(
         ctx.battle.opponentUserId === null &&
         ctx.battle.raidRunId === null,
       ctx.battle.userId,
-      ctx.raid
+      ctx.raid,
+      itemGasto
     )
     await applyPostBattleEffects(battleId, ctx.userCharacter.id, ctx.userCharacter.characterId, ctx.userCharacter.level, result)
   } catch (e) {
     if (e instanceof Error && e.message === 'CONCURRENT_UPDATE') redirect(`/battle/ai/${battleId}?error=conflict`)
+    if (e instanceof Error && e.message === 'FALTA_ITEM') redirect(`/battle/ai/${battleId}?error=sem_item`)
     throw e
   }
 }
@@ -610,6 +619,32 @@ export async function darOrdem(battleId: string, posicao: number, dados?: FormDa
   })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
+}
+
+/**
+ * Bebe um consumível da mochila (a poção), gastando a rodada. O efeito vem do
+ * catálogo, não do formulário; o item tem que ser da conta, ser consumível e
+ * ter quantidade — e é tirado da mochila na transação da rodada.
+ */
+export async function usarItem(battleId: string, itemId: string): Promise<void> {
+  const ctx = await loadActiveBattleContext(battleId)
+  const naMochila = await prisma.userItem.findUnique({
+    where: { userId_itemId: { userId: ctx.battle.userId, itemId } },
+    include: { item: true },
+  })
+  if (!naMochila || naMochila.quantidade <= 0 || naMochila.item.tipo !== 'CONSUMIVEL') {
+    redirect(`/battle/ai/${battleId}?error=sem_item`)
+  }
+  const efeito = (naMochila.item.efeito ?? {}) as { vida?: number; energia?: number }
+
+  const { state: newState, turnResults } = rodadaContraIa(ctx, {
+    kind: 'ITEM',
+    nome: naMochila.item.nome,
+    vida: typeof efeito.vida === 'number' ? efeito.vida : undefined,
+    energia: typeof efeito.energia === 'number' ? efeito.energia : undefined,
+  })
+
+  await finalizeRound(battleId, ctx, newState, turnResults, itemId)
 }
 
 /**

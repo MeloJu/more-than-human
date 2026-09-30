@@ -126,6 +126,7 @@ const BATTLE_ERROR_MESSAGES: Record<string, string> = {
   insufficient_energy: 'Energia insuficiente para liberar essa forma.',
   insufficient_stamina: 'Stamina insuficiente para liberar essa forma.',
   tier_locked: 'Seu personagem ainda não tem nível para encarar esse inimigo.',
+  sem_item: 'Você não tem esse item na mochila.',
   pokemon_fora: 'Esse golpe é de um Pokémon que não está em campo.',
   troca_invalida: 'Esse Pokémon não pode entrar agora (desmaiado ou já em campo).',
   invalid_order: 'Essa invocação não pode receber ordem agora (fora de campo ou acabou de chegar).',

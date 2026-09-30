@@ -171,6 +171,18 @@ export function TurnLogEntry({
       </>
     )
   }
+  if (turn.kind === 'ITEM') {
+    const partes = [
+      typeof turn.healed === 'number' && turn.healed > 0 ? `${turn.healed} de vida` : null,
+      typeof turn.energiaRecuperada === 'number' && turn.energiaRecuperada > 0 ? `${turn.energiaRecuperada} de energia` : null,
+    ].filter(Boolean)
+    return (
+      <>
+        <span className="font-medium">{actorName}</span> bebeu <span className="font-medium text-green-500">{turn.skillName}</span>
+        {partes.length > 0 ? <> e recuperou {partes.join(' e ')}</> : <>, mas já estava inteiro</>}.
+      </>
+    )
+  }
   if (turn.kind === 'SUMMON') {
     const def = turn.invocacao ? defDeInvocacao(turn.invocacao) : undefined
     const cor = def?.cor

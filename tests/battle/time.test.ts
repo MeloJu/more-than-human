@@ -463,3 +463,28 @@ describe('golpe em área (EM_AREA)', () => {
     expect(r.turnResults.filter((t) => t.kind === 'ATTACK')).toHaveLength(1)
   })
 })
+
+describe('consumível em batalha', () => {
+  it('a poção cura antes dos golpes, até o máximo, e gasta a rodada', () => {
+    const e = campo([stats({ hp: 100 })], [stats()])
+    const ferido = { ...e, aliados: [{ ...e.aliados[0], currentHp: 50 }] }
+    const r = resolveRound(
+      ferido,
+      { aliadas: [{ kind: 'ITEM', nome: 'Poção', vida: 0.3 }], inimigas: [{ kind: 'BLOCK' }] },
+      { playerSkills: {}, enemySkills: {}, playerTransformations: {} },
+      NUNCA_CRITA
+    )
+    expect(r.turnResults.find((t) => t.kind === 'ITEM')).toMatchObject({ skillName: 'Poção', healed: 30 })
+    expect(r.state.aliados[0].currentHp).toBe(80)
+    expect(r.turnResults.some((t) => t.kind === 'ATTACK' && t.side === 'PLAYER')).toBe(false)
+
+    const quaseCheio = { ...e, aliados: [{ ...e.aliados[0], currentHp: 95 }] }
+    const r2 = resolveRound(
+      quaseCheio,
+      { aliadas: [{ kind: 'ITEM', nome: 'Poção', vida: 0.3 }], inimigas: [{ kind: 'BLOCK' }] },
+      { playerSkills: {}, enemySkills: {}, playerTransformations: {} },
+      NUNCA_CRITA
+    )
+    expect(r2.state.aliados[0].currentHp).toBe(100)
+  })
+})

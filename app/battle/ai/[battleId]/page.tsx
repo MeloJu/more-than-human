@@ -2,7 +2,7 @@ import { prisma } from '@/app/lib/prisma'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { requireUser } from '@/app/lib/session'
-import { activateTransformation, takeTurn, blockTurn, darOrdem, trocarPokemon } from '@/app/lib/battle/actions'
+import { activateTransformation, takeTurn, blockTurn, darOrdem, trocarPokemon, usarItem } from '@/app/lib/battle/actions'
 import { getBattleView, getEquippedSkills, getPlayerTransformations } from '@/app/lib/battle/queries'
 import { getRetratosDosFalantes, getStageOutro, parseDialogo } from '@/app/lib/story/queries'
 import { CenaDeDialogo } from '@/app/components/story/CenaDeDialogo'
@@ -186,6 +186,15 @@ export default async function BattleArenaPage({
   const espolio = battle.recompensas as unknown as Recompensa | null
   const itensDoEspolio = espolio?.itens.length
     ? await prisma.item.findMany({ where: { nome: { in: espolio.itens.map((i) => i.nome) } }, select: { nome: true, marca: true, raridade: true } })
+    : []
+
+  // A MOCHILA na luta: as poções que a conta tem. Beber gasta a rodada.
+  const pocoes = isActive
+    ? await prisma.userItem.findMany({
+        where: { userId: battle.userId, quantidade: { gt: 0 }, item: { tipo: 'CONSUMIVEL' } },
+        include: { item: true },
+        orderBy: { item: { nome: 'asc' } },
+      })
     : []
 
   const formasDaParty = idsDeFormaDaParty.length
@@ -548,6 +557,32 @@ export default async function BattleArenaPage({
                 o normal), e se ele cair o seletor passa para o próximo de pé. */}
             {souTreinador && (
               <FaixaDeTroca time={state.aliados} dono={0} acao={(posicao) => trocarPokemon.bind(null, battleId, posicao)} />
+            )}
+            {pocoes.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-widest text-muted">Mochila · beber gasta a rodada</div>
+                <div className="flex flex-wrap gap-2">
+                  {pocoes.map((linha) => {
+                    const cor = COR_DA_RARIDADE[linha.item.raridade] ?? COR_DA_RARIDADE.COMUM
+                    return (
+                      <form key={linha.id} action={usarItem.bind(null, battleId, linha.itemId)}>
+                        <button
+                          type="submit"
+                          title={linha.item.descricao}
+                          className="flex items-center gap-2 border px-2.5 py-1.5 text-sm transition-all hover:brightness-125"
+                          style={{ borderRadius: '2px 8px 2px 8px', borderColor: `color-mix(in srgb, ${cor} 55%, var(--border))`, background: 'var(--background)' }}
+                        >
+                          <span aria-hidden className="font-kanji" style={{ color: cor }}>
+                            {linha.item.marca}
+                          </span>
+                          <span className="font-medium">{linha.item.nome}</span>
+                          <span className="tabular-nums text-muted">×{linha.quantidade}</span>
+                        </button>
+                      </form>
+                    )
+                  })}
+                </div>
+              </div>
             )}
             {/* Treinador inimigo e Pokémon na pokébola não são alvo. */}
             <ComAlvo
