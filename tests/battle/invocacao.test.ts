@@ -420,6 +420,14 @@ describe('Red: o treinador', () => {
     expect(t.turnResults.find((x) => x.kind === 'SUMMON')).toMatchObject({ troca: true, substituida: 'Pikachu' })
   })
 
+  it('sem Pokémon em campo, o Red manda o próximo sozinho, e ele não bate na rodada da entrada', () => {
+    const e = comTime()
+    const semCampo = { ...e, aliados: e.aliados.map((c, i) => (i === 1 ? { ...c, currentHp: 0, invocacao: { ...c.invocacao!, fora: true } } : c)) }
+    const r1 = r(semCampo, atacar('chamas', 0))
+    expect(r1.state.aliados[2].invocacao?.fora).toBeFalsy()
+    expect(r1.turnResults.some((x) => x.kind === 'ATTACK' && x.side === 'PLAYER')).toBe(false)
+  })
+
   it('desmaiado o time inteiro, o Red perde', () => {
     const e = comTime()
     const quase = { ...e, aliados: e.aliados.map((c, i) => (i === 1 ? { ...c, currentHp: 1 } : i === 2 ? { ...c, currentHp: 0 } : c)) }

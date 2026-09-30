@@ -1,7 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { skillIdDaColuna } from '@/app/lib/battle/invocacoes'
+import { comandoDoGolpe, evolucaoDoGolpe, pokemonEmCampo, skillIdDaColuna } from '@/app/lib/battle/invocacoes'
 import { bonusDeAtributos } from '@/app/lib/progression/atributos'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
@@ -188,6 +188,13 @@ export async function submitPvpAction(battleId: string, skillId: string | null):
   const chosen = skillId ? mySkills[skillId] ?? null : null
   if (skillId && !chosen) redirect(`/battle/pvp/${battleId}?error=invalid_skill`)
   if (!isLegalMove(myCombatant, chosen)) redirect(`/battle/pvp/${battleId}?error=illegal_move`)
+  // Treinador: o golpe de um Pokémon só sai com ele em campo.
+  if (myCombatant.treinador && chosen) {
+    const precisa = comandoDoGolpe(chosen) ?? evolucaoDoGolpe(chosen)?.de
+    if (precisa !== pokemonEmCampo(isHost ? state.aliados : state.inimigos, 0)?.def.id) {
+      redirect(`/battle/pvp/${battleId}?error=pokemon_fora`)
+    }
+  }
 
   const action: PlayerAction = { kind: 'ATTACK', skillId }
 

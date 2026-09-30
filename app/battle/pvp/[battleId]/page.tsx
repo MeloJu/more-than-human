@@ -16,7 +16,9 @@ import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
 import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
 import { LiveBattleSync } from '@/app/components/pvp/LiveBattleSync'
 import { impactoDaRodada } from '@/app/lib/battle/rodada'
-import type { TurnResult } from '@/app/lib/battle/types'
+import { FaixaDeInvocacao, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import { comandoDoGolpe, emCampo, evolucaoDoGolpe, pokemonEmCampo } from '@/app/lib/battle/invocacoes'
+import type { CombatantState, SkillDef, TurnResult } from '@/app/lib/battle/types'
 
 export default async function PvpArenaPage({
   params,
@@ -56,6 +58,23 @@ export default async function PvpArenaPage({
   )
   const meuImpacto = view.isHost ? impacto.PLAYER : impacto.ENEMY
   const impactoDoOutro = view.isHost ? impacto.ENEMY : impacto.PLAYER
+
+  // As invocações de cada lado, na perspectiva de quem olha: o host é o lado
+  // PLAYER do motor. O PvP não tem ordem nem troca manual — o Red manda o
+  // próximo sozinho quando o Pokémon desmaia (ver resolveRound) —, mas o
+  // campo precisa aparecer para as duas pessoas.
+  const meuTime = view.isHost ? state.aliados : state.inimigos
+  const timeDoOutro = view.isHost ? state.inimigos : state.aliados
+  const orbes = (time: CombatantState[], skills: SkillDef[]) => {
+    const grupos = gruposDoDono(time, 0, skills)
+    return grupos.length > 0 ? <OrbesDeInvocacao grupos={grupos} time={time} dono={0} /> : undefined
+  }
+  const emCampoDe = (time: CombatantState[]) => time.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
+  // Treinador: os botões são os golpes do Pokémon em campo.
+  const pokemonNoCampo = me.combatant.treinador ? pokemonEmCampo(meuTime, 0)?.def.id : undefined
+  const meusGolpes = Object.values(mySkills).filter(
+    (s) => !me.combatant.treinador || (comandoDoGolpe(s) ?? evolucaoDoGolpe(s)?.de) === pokemonNoCampo
+  )
 
   // O motor nomeia os lados como player/enemy; o desfecho precisa ser lido na
   // perspectiva de quem está olhando, senão o convidado veria "Vitória!" ao
@@ -130,6 +149,7 @@ export default async function PvpArenaPage({
             cor={minhaCor}
             levelBadge={me.userCharacter.level}
             combatant={me.combatant}
+            orbes={orbes(meuTime, Object.values(mySkills))}
           />
         </CartaAnimada>
 
@@ -151,9 +171,25 @@ export default async function PvpArenaPage({
             cor={corDoOutro}
             levelBadge={foe.userCharacter.level}
             combatant={foe.combatant}
+            orbes={orbes(timeDoOutro, Object.values(foeSkills))}
           />
         </CartaAnimada>
       </div>
+
+      {(emCampoDe(meuTime).length > 0 || emCampoDe(timeDoOutro).length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {emCampoDe(meuTime).map(({ c, posicao }) => (
+              <FaixaDeInvocacao key={posicao} combatente={c} dono={me.userCharacter.nickname} />
+            ))}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {emCampoDe(timeDoOutro).map(({ c, posicao }) => (
+              <FaixaDeInvocacao key={posicao} combatente={c} dono={foe.userCharacter.nickname} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {isActive && (
         <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${minhaCor} 45%, var(--border))`} tinta>
@@ -182,7 +218,7 @@ export default async function PvpArenaPage({
                 <form action={submitPvpAction.bind(null, battleId, null)} className="h-full">
                   <BotaoDeAtaqueBasico />
                 </form>
-                {Object.values(mySkills).map((skill) => (
+                {meusGolpes.map((skill) => (
                   <form key={skill.id} action={submitPvpAction.bind(null, battleId, skill.id)} className="h-full">
                     <BotaoDeHabilidade skill={skill} combatente={me.combatant} />
                   </form>

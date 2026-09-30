@@ -68,6 +68,8 @@ import {
   ehLutador,
   emCampo,
   especialDaInvocacao,
+  pokemonEmCampo,
+  pokemonNaReserva,
   golpeDaInvocacao,
   invocacaoDoGolpe,
   vagasDoGrupo,
@@ -2372,13 +2374,25 @@ export function resolveRound(
   // 3a. TROCA DE POKÉMON, antes da iniciativa como o bloqueio: nos jogos a
   //     troca tem prioridade, e quem entra já leva o golpe da rodada — o
   //     preço de trocar é esse, junto da rodada gasta.
+  //
+  //     SEM POKÉMON EM CAMPO, o treinador manda o próximo sozinho — o mais
+  //     inteiro —, gastando a rodada do mesmo jeito. Sem isso, uma tela que não
+  //     oferece a troca (o PvP) deixaria o Red parado com o time na pokébola.
+  const trocaram = new Set<string>()
   for (const p of vivos()) {
+    const c = combatenteEm(atual, p)
+    if (isStunned(c)) continue
     const acao = acaoDaVez(p)
-    if (acao?.kind !== 'TROCAR' || isStunned(combatenteEm(atual, p))) continue
-    const r = trocarPokemon(atual, p, acao.invocacao)
+    let destino = acao?.kind === 'TROCAR' ? acao.invocacao : undefined
+    if (destino === undefined && c.treinador && !pokemonEmCampo(timeDoLado(atual, p.lado), p.indice)) {
+      destino = pokemonNaReserva(timeDoLado(atual, p.lado), p.indice).sort((a, b) => b.hp / b.maxHp - a.hp / a.maxHp)[0]?.posicao
+    }
+    if (destino === undefined) continue
+    const r = trocarPokemon(atual, p, destino)
     if (!r) continue
     atual = r.state
     turnResults.push(r.resultado)
+    trocaram.add(chave(p))
   }
 
   // 3b. POSTURA, paga aqui pelo mesmo motivo do bloqueio: ela precisa estar de
@@ -2605,6 +2619,8 @@ export function resolveRound(
     let golpe = golpes.get(chave(p))
     // Quem não declarou ataque nesta rodada não age.
     if (!golpe) continue
+    // Quem trocou de Pokémon nesta rodada já gastou a vez na troca.
+    if (trocaram.has(chave(p))) continue
 
     // A ORDEM É PAGA NA HORA do golpe, pelo dono: se ele não tem mais a
     // energia (gastou, ou caiu no meio da rodada), a invocação ataca sozinha
