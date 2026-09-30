@@ -401,10 +401,10 @@ const descricoes = [
   ['Limitless: Repulsão', 'OTHER', 'Um empurrão do Ilimitado, a técnica que o clã Gojo herda. Barato.'],
 
   // Suguru Geto
-  ['Dragão Arco-Íris', 'OTHER', 'O Dragão Arco-Íris, a maldição de escamas mais duras que Geto controla. Continua ferindo por algumas rodadas.'],
-  ['Uzumaki: Redemoinho de Maldições', 'OTHER', 'Uzumaki: Geto comprime várias maldições numa só e a dispara.'],
-  ['Invocação em Massa', 'OTHER', 'Geto solta várias maldições de uma vez em cima do alvo.'],
-  ['Espírito Amaldiçoado Menor', 'OTHER', 'Uma maldição pequena, das muitas que Geto absorveu. Barata.'],
+  ['Dragão Arco-Íris', 'OTHER', 'O Dragão Arco-Íris, a maldição de escamas mais duras que Geto controla. Fica em campo e recebe no lugar dele os golpes de alvo único.'],
+  ['Uzumaki: Redemoinho de Maldições', 'OTHER', 'Uzumaki: Geto comprime numa só todas as maldições em campo e a dispara. Cada maldição consumida deixa o golpe mais forte, e quem fica abaixo de 15% da vida cai na hora. Chefe não cai, só toma o dano.'],
+  ['Invocação em Massa', 'OTHER', 'Geto solta duas maldições de uma vez. Elas ficam em campo e atacam sozinhas.'],
+  ['Espírito Amaldiçoado Menor', 'OTHER', 'Uma maldição pequena, das muitas que Geto absorveu. Fica em campo e ataca sozinha; cabem três.'],
   ['Corrosão Amaldiçoada', 'OTHER', 'Uma maldição que se agarra ao alvo e continua corroendo por algumas rodadas.'],
   ['Deterioração Progressiva', 'OTHER', 'Uma maldição que desgasta o alvo aos poucos: abre a defesa e continua ferindo.'],
 

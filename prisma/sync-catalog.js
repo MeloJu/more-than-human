@@ -685,17 +685,21 @@ async function syncSummoners() {
     if (!c) throw new Error(`Invocador inexistente no banco: ${inv.character}`);
 
     for (const def of inv.skills) {
-      const { level, ...skillLiteral } = def;
+      const { level, substituirEfeitos, ...skillLiteral } = def;
       const atual = await prisma.skill.findUnique({
         where: { name_category: { name: skillLiteral.name, category: skillLiteral.category } },
       });
       // Preserva tag e efeito acrescentados depois (tags-faltantes.js,
       // mecanicas-de-dano.js) em vez de sobrescrever com o literal puro do
       // catálogo de assinatura/invocação — ver comEfeitosPreservados.
+      //
+      // `substituirEfeitos` é a exceção: o golpe MUDOU de natureza (o Dragão
+      // Arco-Íris deixou de ser dano contínuo e virou invocação), e preservar
+      // o efeito antigo o traria de volta.
       const skill = {
         ...skillLiteral,
         tags: comTagsPreservadas(atual, skillLiteral.tags),
-        effects: comEfeitosPreservados(atual, skillLiteral.effects),
+        effects: substituirEfeitos ? skillLiteral.effects : comEfeitosPreservados(atual, skillLiteral.effects),
       };
       registra('invocacao', skill.name, diff(atual, skill));
 

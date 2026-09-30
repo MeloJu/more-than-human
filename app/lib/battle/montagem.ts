@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client'
 import { prisma } from '@/app/lib/prisma'
 import { getBonusDeAtributos } from '@/app/lib/progression/queries'
 import { getEquipmentBonus } from '@/app/lib/equipment/queries'
-import { applyTraits, computeFighterStats, createInitialState, sumStatBonuses, traitEnergyCostModifier } from './engine'
+import { applyTraits, comVilao, computeFighterStats, createInitialState, sumStatBonuses, traitEnergyCostModifier } from './engine'
 import { getCharacterTraits, getTreeBonus } from './queries'
 import type { BaseStats } from './types'
 
@@ -64,14 +64,17 @@ export async function createBattleAndRedirect(params: {
   userCharacter: { id: string; level: number; character: { hp: number; attack: number; defense: number; speed: number; energy: number; stamina: number } }
   enemy: EnemyRef
   storyStageId?: string
+  /** O inimigo é chefe: o ABATE não o derruba de uma vez. */
+  chefe?: boolean
 }): Promise<never> {
   const jogador = await fichaDoJogador(params.userCharacter)
-  const state = createInitialState(
+  const inicial = createInitialState(
     jogador.base,
     params.enemy.base,
     { player: jogador.energyCostModifier },
     { player: params.userCharacter.level, enemy: params.enemy.level }
   )
+  const state = params.chefe ? comVilao(inicial, { chefe: true }) : inicial
 
   const battle = await prisma.battle.create({
     data: {

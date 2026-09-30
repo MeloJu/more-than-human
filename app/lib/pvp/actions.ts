@@ -1,6 +1,7 @@
 'use server'
 
 import { redirect } from 'next/navigation'
+import { skillIdDaColuna } from '@/app/lib/battle/invocacoes'
 import { bonusDeAtributos } from '@/app/lib/progression/atributos'
 import { revalidatePath } from 'next/cache'
 import { Prisma } from '@prisma/client'
@@ -263,7 +264,7 @@ async function maybeResolveRound(battleId: string): Promise<void> {
           number: n++,
           round: battle.turnNumber,
           actor: r.side,
-          skillId: r.skillId,
+          skillId: skillIdDaColuna(r.skillId),
           result: r as unknown as Prisma.InputJsonValue,
         },
       })

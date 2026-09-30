@@ -59,6 +59,16 @@ import type {
   Postura,
 } from './types'
 import { alcanceDe } from './alcance'
+import {
+  ESPERA_DA_INVOCACAO,
+  defDeInvocacao,
+  ehLutador,
+  emCampo,
+  golpeDaInvocacao,
+  invocacaoDoGolpe,
+  vagasDoGrupo,
+  type DefDeInvocacao,
+} from './invocacoes'
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
@@ -1192,7 +1202,9 @@ function performSkillUse(
   // PIERCE/EXECUTE/COMBO_STUN já foram totalmente consumidos dentro de
   // computeDamage — chegam até aqui e, sem este filtro, cairiam no caminho
   // genérico e virariam status persistente em alguém, o que não são.
-  const MODIFICADORES_DE_DANO = new Set(['PIERCE', 'EXECUTE', 'COMBO_STUN', 'COMBO_FOLLOWUP'])
+  // INVOCAR, CONSUMIR e ABATE também não são status: resolveRound os trata,
+  // porque só ele enxerga o campo inteiro.
+  const MODIFICADORES_DE_DANO = new Set(['PIERCE', 'EXECUTE', 'COMBO_STUN', 'COMBO_FOLLOWUP', 'INVOCAR', 'CONSUMIR', 'ABATE'])
   const supportEffects = effects.filter(
     (e) =>
       e.type !== 'LIFESTEAL' &&
@@ -1751,7 +1763,8 @@ function reviverAliado(
   porcentagem: number
 ): { state: BattleState; resultado: TurnResult } | null {
   const time = lado === LADO_ALIADO ? state.aliados : state.inimigos
-  const indice = time.findIndex((c) => !estaDePe(c))
+  // Só lutador de verdade: invocação caída se chama de novo, não se revive.
+  const indice = time.findIndex((c) => !estaDePe(c) && ehLutador(c))
   if (indice === -1) return null
 
   const caido = time[indice]
@@ -1772,6 +1785,197 @@ function reviverAliado(
 }
 
 const mesmoLugar = (a: EmCampo, b: EmCampo) => a.lado === b.lado && a.indice === b.indice
+
+/**
+ * De pé e lutador de verdade. É quem decide a luta: um lado com o invocador
+ * caído e três maldições em campo perdeu — as maldições são dele, não do
+ * time (ver assentarInvocacoes).
+ */
+function lutadorDePe(c: CombatantState): boolean {
+  return estaDePe(c) && ehLutador(c)
+}
+
+function timeDoLado(state: BattleState, lado: Side): CombatantState[] {
+  return lado === LADO_ALIADO ? state.aliados : state.inimigos
+}
+
+function comTime(state: BattleState, lado: Side, time: CombatantState[]): BattleState {
+  return lado === LADO_ALIADO ? { ...state, aliados: time } : { ...state, inimigos: time }
+}
+
+/**
+ * Chama as invocações de um golpe INVOCAR para o campo do dono.
+ *
+ * Cada uma nasce das frações do dono NA HORA (ver DefDeInvocacao) e chega
+ * `recemChegada`: bate a partir da próxima rodada, porque a rodada de chamar
+ * já foi a ação do dono. Sem vaga no grupo, o golpe foi pago e ninguém vem —
+ * a tela e a IA não oferecem essa jogada, isto é para o POST direto.
+ *
+ * A VAGA de uma invocação que saiu é reaproveitada: sem isso, cada chamada
+ * aumentaria o array do lado, e uma luta longa do Geto terminaria com vinte
+ * maldições mortas no estado gravado.
+ */
+function chamarInvocacoes(
+  state: BattleState,
+  dono: EmCampo,
+  skill: SkillDef,
+  def: DefDeInvocacao,
+  quantidade: number
+): { state: BattleState; resultado: TurnResult } {
+  const time = [...timeDoLado(state, dono.lado)]
+  const quem = time[dono.indice]
+  const vezes = Math.min(quantidade, vagasDoGrupo(time, dono.indice, def))
+  const invocadas: number[] = []
+
+  for (let n = 0; n < vezes; n++) {
+    const criatura: CombatantState = {
+      ...makeCombatant(
+        {
+          hp: Math.max(1, Math.round(quem.maxHp * def.vida)),
+          attack: Math.max(1, Math.round(quem.attack * def.ataque)),
+          defense: Math.round(quem.defense * def.defesa),
+          speed: quem.speed,
+          energy: 0,
+          stamina: 0,
+          accuracy: quem.accuracy,
+          agility: quem.agility,
+        },
+        0,
+        quem.nivel ?? 1
+      ),
+      nome: def.nome,
+      invocacao: { def: def.id, dono: dono.indice, skillId: skill.id, recemChegada: true },
+    }
+    const vaga = time.findIndex((c) => c.invocacao?.dono === dono.indice && c.invocacao.fora)
+    const indice = vaga === -1 ? time.length : vaga
+    time[indice] = criatura
+    invocadas.push(indice)
+  }
+
+  // Numeradas quando cabem várias ("Maldição 2"), para o log e o alvo
+  // dizerem qual. A ordem é a do array, que é estável entre as rodadas.
+  if (def.limiteDoGrupo > 1) {
+    let k = 0
+    time.forEach((c, i) => {
+      if (c.invocacao?.dono === dono.indice && c.invocacao.def === def.id && !c.invocacao.fora) {
+        k++
+        time[i] = { ...c, nome: `${def.nome} ${k}` }
+      }
+    })
+  }
+
+  return {
+    state: comTime(state, dono.lado, time),
+    resultado: {
+      version: 1,
+      side: dono.lado,
+      posicao: dono.indice,
+      kind: 'SUMMON',
+      skillId: skill.id,
+      skillName: skill.name,
+      invocacao: def.id,
+      invocadas,
+      energySpent: energyCostFor(quem, skill.energyCost),
+    },
+  }
+}
+
+/**
+ * Tira de campo as invocações de um grupo do dono, para o CONSUMIR. Saem sem
+ * abrir a espera: foi escolha do dono gastá-las.
+ */
+function consumirGrupo(state: BattleState, dono: EmCampo, grupo: string): { state: BattleState; quantas: number } {
+  let quantas = 0
+  const time = timeDoLado(state, dono.lado).map((c) => {
+    if (c.invocacao?.dono !== dono.indice || !emCampo(c)) return c
+    if (defDeInvocacao(c.invocacao.def)?.grupo !== grupo) return c
+    quantas++
+    return { ...c, currentHp: 0, invocacao: { ...c.invocacao, fora: true } }
+  })
+  return { state: comTime(state, dono.lado, time), quantas }
+}
+
+/**
+ * A guardiã que se põe na frente de quem vai apanhar, se houver: uma
+ * invocação `guarda` de pé do mesmo dono. Invocação não tem guardiã.
+ */
+function guardiaDe(state: BattleState, alvo: EmCampo): EmCampo | null {
+  const time = timeDoLado(state, alvo.lado)
+  if (!ehLutador(time[alvo.indice])) return null
+  const indice = time.findIndex(
+    (c) => c.invocacao?.dono === alvo.indice && emCampo(c) && defDeInvocacao(c.invocacao.def)?.guarda
+  )
+  return indice === -1 ? null : { lado: alvo.lado, indice }
+}
+
+/**
+ * Põe em dia quem saiu de campo, depois de cada coisa que pode derrubar
+ * alguém (golpe, dano contínuo, contragolpe).
+ *
+ * - Invocação DESTRUÍDA sai e abre a espera no golpe que a chamou
+ *   (ESPERA_DA_INVOCACAO): é o preço de o poder estar fora do invocador.
+ * - Dono caído leva as invocações junto, sem espera — não há mais quem as
+ *   mantenha, e sem isso um lado continuaria "vivo" só com as criaturas.
+ */
+function assentarInvocacoes(state: BattleState): BattleState {
+  let atual = state
+  for (const lado of [LADO_ALIADO, 'ENEMY'] as Side[]) {
+    const time = [...timeDoLado(atual, lado)]
+    let mudou = false
+    time.forEach((c, i) => {
+      if (!c.invocacao || c.invocacao.fora) return
+      const dono = time[c.invocacao.dono]
+      if (!dono || !estaDePe(dono)) {
+        time[i] = { ...c, currentHp: 0, invocacao: { ...c.invocacao, fora: true } }
+        mudou = true
+        return
+      }
+      if (estaDePe(c)) return
+      time[i] = { ...c, invocacao: { ...c.invocacao, fora: true } }
+      const espera = Math.max(dono.cooldowns[c.invocacao.skillId] ?? 0, ESPERA_DA_INVOCACAO)
+      time[c.invocacao.dono] = { ...dono, cooldowns: { ...dono.cooldowns, [c.invocacao.skillId]: espera } }
+      mudou = true
+    })
+    if (mudou) atual = comTime(atual, lado, time)
+  }
+  return atual
+}
+
+/**
+ * A manutenção de fim de rodada: cada invocação em campo cobra energia do
+ * dono. Sem como pagar, ela volta — sem espera, porque não foi destruída.
+ */
+function manterInvocacoes(state: BattleState): { state: BattleState; results: TurnResult[] } {
+  let atual = state
+  const results: TurnResult[] = []
+  for (const lado of [LADO_ALIADO, 'ENEMY'] as Side[]) {
+    timeDoLado(atual, lado).forEach((c, i) => {
+      if (!c.invocacao || !emCampo(c)) return
+      const def = defDeInvocacao(c.invocacao.def)
+      if (!def) return
+      const time = [...timeDoLado(atual, lado)]
+      const dono = time[c.invocacao.dono]
+      const custo = energyCostFor(dono, def.manutencao)
+      if (dono.currentEnergy >= custo) {
+        time[c.invocacao.dono] = { ...dono, currentEnergy: dono.currentEnergy - custo }
+      } else {
+        time[i] = { ...c, currentHp: 0, invocacao: { ...c.invocacao, fora: true } }
+        results.push({
+          version: 1,
+          side: lado,
+          posicao: c.invocacao.dono,
+          kind: 'SUMMON',
+          skillId: null,
+          skillName: c.nome ?? def.nome,
+          invocacao: def.id,
+          recolhida: true,
+        })
+      }
+      atual = comTime(atual, lado, time)
+    })
+  }
+  return { state: atual, results }
+}
 
 export function resolveRound(
   state: BattleState,
@@ -1817,11 +2021,35 @@ export function resolveRound(
   // um combatente solto.
   const em = (r: TurnResult, posicao: number): TurnResult => ({ ...r, posicao })
 
+  // O NOME DA INVOCAÇÃO VAI NA LINHA, na hora. A vaga de uma invocação que
+  // saiu é reaproveitada pela próxima, então ler o nome pela posição depois
+  // diria "Maldição 1 usou Mandíbulas do Dragão" num turno antigo. Carimbado
+  // depois de cada ação — antes que a vaga possa mudar de dono.
+  let carimbados = 0
+  const carimbarNomes = () => {
+    for (let i = carimbados; i < turnResults.length; i++) {
+      const t = turnResults[i]
+      const ator = timeDoLado(atual, t.side)[t.posicao ?? 0]
+      const ladoDoAlvo: Side = t.side === LADO_ALIADO ? 'ENEMY' : LADO_ALIADO
+      const alvo = t.posicaoDoAlvo !== undefined ? timeDoLado(atual, ladoDoAlvo)[t.posicaoDoAlvo] : undefined
+      if (ator?.invocacao || alvo?.invocacao) {
+        turnResults[i] = {
+          ...t,
+          ...(ator?.invocacao ? { nomeDoAtor: ator.nome } : {}),
+          ...(alvo?.invocacao ? { nomeDoAlvo: alvo.nome } : {}),
+        }
+      }
+    }
+    carimbados = turnResults.length
+  }
+
   // O GOLPE CARREGADO SAI SOZINHO: quem anunciou uma carga na rodada passada
   // não escolhe de novo — a ação dele é o golpe anunciado, no alvo marcado.
   // Sem isso o aviso seria blefe, e o jogador não teria no que confiar para
   // escolher a postura.
   const acaoDaVez = (p: EmCampo): AcaoDeCombate | undefined => {
+    // Invocação não recebe ação: o motor joga por ela (ver o passo 4).
+    if (combatenteEm(atual, p).invocacao) return undefined
     const carga = combatenteEm(atual, p).carregando
     if (carga) return { kind: 'ATTACK', skillId: carga.skillId, alvo: carga.alvo }
     return acaoDe(input, p)
@@ -1856,6 +2084,13 @@ export function resolveRound(
     atual = comCombatenteEm(atual, p, r.combatant)
     turnResults.push(...r.results.map((x) => em(x, p.indice)))
   }
+  // Quem chegou na rodada passada já bate nesta; quem o dano contínuo
+  // derrubou sai de campo.
+  for (const p of posicoes) {
+    const c = combatenteEm(atual, p)
+    if (c.invocacao?.recemChegada) atual = comCombatenteEm(atual, p, { ...c, invocacao: { ...c.invocacao, recemChegada: undefined } })
+  }
+  atual = assentarInvocacoes(atual)
 
   // 2. Transformação automática de início de rodada, de todo mundo de pé que
   //    tenha forma (ver ctx.formasPorPosicao).
@@ -1923,6 +2158,17 @@ export function resolveRound(
   //    isso não existiria se cada um fosse escolhido na sua vez.
   const golpes = new Map<string, { skill: SkillDef | null; alvo: EmCampo | null }>()
   for (const p of vivos()) {
+    // A INVOCAÇÃO BATE SOZINHA, no alvo do dono: é o que ela faz na obra —
+    // o Geto aponta, as maldições vão. Dono sem alvo (bloqueou, se
+    // transformou), ela vai no primeiro de pé.
+    const invocacao = combatenteEm(atual, p).invocacao
+    if (invocacao) {
+      const def = defDeInvocacao(invocacao.def)
+      if (!def || invocacao.recemChegada || invocacao.fora) continue
+      const doDono = golpes.get(chave({ lado: p.lado, indice: invocacao.dono }))
+      golpes.set(chave(p), { skill: golpeDaInvocacao(def), alvo: alvoDe(atual, p, doDono?.alvo?.indice) })
+      continue
+    }
     const acao = acaoDaVez(p)
     if (!acao || acao.kind !== 'ATTACK' || bloqueando.has(chave(p))) continue
 
@@ -2001,8 +2247,10 @@ export function resolveRound(
   const ordem = ordemDeIniciativa(atual)
 
   for (const p of ordem) {
+    carimbarNomes()
     // Um lado inteiro no chão encerra a rodada: não há mais em quem bater.
-    if (!atual.aliados.some(estaDePe) || !atual.inimigos.some(estaDePe)) break
+    // Contam só os lutadores — as invocações saem junto com o dono.
+    if (!atual.aliados.some(lutadorDePe) || !atual.inimigos.some(lutadorDePe)) break
 
     const c = combatenteEm(atual, p)
     if (!estaDePe(c)) continue
@@ -2090,6 +2338,17 @@ export function resolveRound(
     // Quem não declarou ataque nesta rodada não age.
     if (!golpe) continue
 
+    // INVOCAR: a rodada é gasta chamando. Não bate em ninguém — quem bate é
+    // a invocação, a partir da próxima rodada.
+    const chamada = invocacaoDoGolpe(golpe.skill)
+    if (chamada && golpe.skill) {
+      atual = comCombatenteEm(atual, p, { ...pagarGolpe(c, golpe.skill), comboPreparado: undefined })
+      const r = chamarInvocacoes(atual, p, golpe.skill, chamada.def, chamada.quantidade)
+      atual = r.state
+      turnResults.push(r.resultado)
+      continue
+    }
+
     // Forma que não gasta a rodada, liberada no próprio turno antes do golpe.
     // Sem como pagar, o golpe sai sem ela — a intenção era atacar.
     const liberar = acao?.kind === 'ATTACK' && acao.liberar ? formasDe(p)[acao.liberar] : undefined
@@ -2103,10 +2362,33 @@ export function resolveRound(
     // Desperdiçar a ação puniria o jogador por uma coisa que ele não tinha
     // como prever — a intenção era ATACAR, e ela continua válida. Sem alvo
     // nenhum de pé, aí sim não há o que fazer.
-    const mira = golpe.alvo && estaDePe(combatenteEm(atual, golpe.alvo))
+    let mira = golpe.alvo && estaDePe(combatenteEm(atual, golpe.alvo))
       ? golpe.alvo
       : alvoDe(atual, p, undefined)
     if (!mira) continue
+
+    // A GUARDIÃ se põe na frente do dono (o Dragão Arco-Íris do Geto). Golpe
+    // em área passa por cima: não há onde se pôr na frente.
+    let interceptou = false
+    if (alcanceDe(golpe.skill) !== 'AREA') {
+      const guardia = guardiaDe(atual, mira)
+      if (guardia) {
+        mira = guardia
+        interceptou = true
+      }
+    }
+
+    // CONSUMIR: as invocações do grupo saem de campo e cada uma soma poder
+    // ao golpe — as esferas da ult da Syndra, no Uzumaki do Geto.
+    let skillDoGolpe = golpe.skill
+    let consumidas = 0
+    const consumo = skillDoGolpe?.effects.find((e) => e.type === 'CONSUMIR')
+    if (skillDoGolpe && consumo?.grupo) {
+      const r = consumirGrupo(atual, p, consumo.grupo)
+      atual = r.state
+      consumidas = r.quantas
+      skillDoGolpe = { ...skillDoGolpe, power: skillDoGolpe.power + consumidas * consumo.magnitude }
+    }
 
     const alvoAtual = combatenteEm(atual, mira)
     // Relido, e não `c`: a forma liberada logo acima já mudou o atacante.
@@ -2118,7 +2400,7 @@ export function resolveRound(
       p.lado,
       atacante,
       alvoAtual,
-      golpe.skill,
+      skillDoGolpe,
       rand,
       {
         bloqueia: bloqueando.has(chave(mira)),
@@ -2128,11 +2410,38 @@ export function resolveRound(
     )
     atual = comCombatenteEm(atual, p, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
     atual = comCombatenteEm(atual, mira, r.defender)
+
+    // ABATE: abaixo do limiar depois do golpe, cai na hora. Chefe nunca —
+    // contra ele fica o dano extra do EXECUTE que vem no mesmo golpe.
+    let abatido = false
+    const abate = skillDoGolpe?.effects.find((e) => e.type === 'ABATE')
+    const atingido = combatenteEm(atual, mira)
+    if (
+      abate &&
+      (r.turnResult.damage ?? 0) > 0 &&
+      estaDePe(atingido) &&
+      !atingido.chefe &&
+      atingido.maxHp > 0 &&
+      atingido.currentHp / atingido.maxHp < abate.magnitude / 100
+    ) {
+      atual = comCombatenteEm(atual, mira, { ...atingido, currentHp: 0 })
+      abatido = true
+    }
+
     // Os eventos do golpe (choque de domínio, guarda partida) dizem em `side`
     // de quem é a linha; a posição sai de quem daquele lado estava na troca.
+    const alvoDoGolpe = mira
     turnResults.push(
-      { ...r.turnResult, posicao: p.indice, posicaoDoAlvo: mira.indice, ...(eraCarregado ? { carregado: true } : {}) },
-      ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? p.indice : mira.indice))
+      {
+        ...r.turnResult,
+        posicao: p.indice,
+        posicaoDoAlvo: mira.indice,
+        ...(eraCarregado ? { carregado: true } : {}),
+        ...(consumidas > 0 ? { consumidas } : {}),
+        ...(interceptou ? { interceptou: true } : {}),
+        ...(abatido ? { abatido: true, targetHpAfter: 0 } : {}),
+      },
+      ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? p.indice : alvoDoGolpe.indice))
     )
 
     // Ressurreição depois do golpe: quem lança pode ter derrubado alguém na
@@ -2147,6 +2456,8 @@ export function resolveRound(
 
     // Transformação por dano recebido, do lado de quem apanhou E de quem
     // levou counter — as duas são "tomei dano", e o counter machuca o atacante.
+    atual = assentarInvocacoes(atual)
+
     for (const machucado of [p, mira]) {
       const depois = combatenteEm(atual, machucado)
       if (!estaDePe(depois)) continue
@@ -2160,12 +2471,19 @@ export function resolveRound(
     }
   }
 
+  carimbarNomes()
+
   // 7. Fim da rodada: manutenção das formas ativas de todo mundo.
   // Só de quem está de pé: o dreno de vida "não mata, deixa em 1", e aplicado
   // em quem já caiu na rodada ele o LEVANTARIA com 1 de vida.
   for (const p of vivos()) {
     atual = comCombatenteEm(atual, p, applyDrain(combatenteEm(atual, p), formasDe(p)))
   }
+
+  // 7a. A manutenção das invocações em campo, paga pelo dono.
+  const manutencao = manterInvocacoes(atual)
+  atual = manutencao.state
+  turnResults.push(...manutencao.results)
 
   // 7b. Quem passou a rodada na postura neutra recupera stamina a mais: é o
   //     que faz ficar parado ser uma escolha, e não só a falta de uma.
@@ -2199,13 +2517,15 @@ export function resolveRound(
   }
 
   // 8. Desfecho: um lado perde quando TODOS caem, não quando o primeiro cai.
-  const aliadosDePe = atual.aliados.some(estaDePe)
-  const inimigosDePe = atual.inimigos.some(estaDePe)
+  //    Invocação não segura a luta: é do dono, e cai com ele.
+  const aliadosDePe = atual.aliados.some(lutadorDePe)
+  const inimigosDePe = atual.inimigos.some(lutadorDePe)
 
   let outcome: Outcome = state.outcome
   if (!aliadosDePe && !inimigosDePe) outcome = 'DRAW'
   else if (!inimigosDePe) outcome = 'PLAYER_WIN'
   else if (!aliadosDePe) outcome = 'ENEMY_WIN'
 
+  carimbarNomes()
   return { state: { ...atual, outcome }, turnResults }
 }

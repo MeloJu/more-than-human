@@ -1,3 +1,4 @@
+import { ehLutador } from '@/app/lib/battle/invocacoes'
 import type { BattleState, CombatantState, Outcome } from '@/app/lib/battle/types'
 
 /**
@@ -12,9 +13,13 @@ import type { BattleState, CombatantState, Outcome } from '@/app/lib/battle/type
 /** Como um lutador da party sai de um andar. */
 export type Reserva = { hp: number; energia: number; stamina: number }
 
-/** Fotografa a party no fim do andar, por posição. */
+/**
+ * Fotografa a party no fim do andar, por posição. As invocações ficam: são
+ * chamadas de novo a cada andar, e moram depois dos lutadores no array, então
+ * tirá-las não mexe na posição de ninguém.
+ */
 export function reservasDoTime(aliados: CombatantState[]): Reserva[] {
-  return aliados.map((c) => ({
+  return aliados.filter(ehLutador).map((c) => ({
     hp: Math.max(0, c.currentHp),
     energia: Math.max(0, c.currentEnergy),
     stamina: Math.max(0, c.currentStamina ?? 0),

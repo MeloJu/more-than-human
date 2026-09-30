@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import type { ReactNode } from 'react'
 import { Droplet, Heart } from 'lucide-react'
 import { CharacterMonogram } from '@/app/components/CharacterImage'
 import FOCO_DOS_RETRATOS from '@/app/lib/battle/foco-dos-retratos.json'
@@ -29,6 +30,7 @@ export function FaixaDeAliado({
   formaAtiva,
   combatente,
   rotulo = 'Aliado · IA',
+  orbes,
 }: {
   nome: string
   imageUrl: string | null
@@ -38,6 +40,8 @@ export function FaixaDeAliado({
   combatente: CombatantState
   /** O que a faixa é: aliado da party ou inimigo do andar. */
   rotulo?: string
+  /** As orbes de invocação, para quem invoca (ver OrbesDeInvocacao). */
+  orbes?: ReactNode
 }) {
   const c = cor ?? 'var(--accent)'
   const foco = (imageUrl && FOCO[imageUrl]) || '50% 20%'
@@ -64,6 +68,7 @@ export function FaixaDeAliado({
             )}
             <span className="ml-auto text-xs uppercase tracking-wider opacity-60">{caido ? 'Caído' : rotulo}</span>
           </div>
+          {orbes}
           <StatBar
             label="HP"
             icone={<Heart className="h-3 w-3 fill-red-500 text-red-500" />}

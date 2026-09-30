@@ -1,5 +1,12 @@
 // Kits dos três invocadores: Red, Suguru Geto e Sung Jin Woo.
 //
+// ATUALIZAÇÃO (29/09/2026): a batalha passou a aceitar N combatentes por lado,
+// e a invocação EM CAMPO existe (ver app/lib/battle/invocacoes.ts). O Geto é o
+// primeiro a usá-la — os golpes dele que chamam maldição agora trazem o efeito
+// INVOCAR. Red e Sung Jin Woo continuam no modelo abaixo até o desenho de cada
+// um ser confirmado. O texto a seguir descreve o modelo antigo e fica como
+// registro de por que ele existiu.
+//
 // POR QUE EXISTE: os três entraram no elenco na passagem de classes e ficaram
 // com ZERO habilidades — literalmente só ataque básico, enquanto o resto do
 // elenco tem de 16 a 18. Eram os únicos personagens injogáveis do jogo.
@@ -194,6 +201,17 @@ const red = {
  * A assinatura dele é MALDIÇÃO, não dano bruto: quase todo golpe deixa algo
  * apodrecendo depois. É também o que apresenta o vocabulário de Jujutsu Kaisen
  * ao jogo, para quando o arco de história desse universo entrar.
+ *
+ * EM CAMPO (desenho aprovado em 29/09/2026, inspirado na Syndra):
+ * - as maldições ficam em campo, até três, e atacam sozinhas;
+ * - o Dragão Arco-Íris é a guardiã: recebe no lugar dele os golpes de alvo
+ *   único (área passa por cima);
+ * - o Uzumaki consome TODAS as maldições em campo, cada uma somando poder, e
+ *   quem ficar abaixo de 15% da vida cai na hora — chefe não, contra ele fica
+ *   o dano extra do EXECUTE.
+ *
+ * `substituirEfeitos` nos golpes que mudaram de natureza: sem ele o sync
+ * preservaria o dano contínuo antigo junto do INVOCAR.
  */
 const geto = {
   character: 'Suguru Geto',
@@ -201,11 +219,12 @@ const geto = {
     {
       name: 'Espírito Amaldiçoado Menor',
       category: 'OTHER',
-      power: 11,
+      power: 0,
       energyCost: 10,
       cooldown: 1,
       tags: ['maldicao'],
-      effects: [],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'maldicao-menor' }],
+      substituirEfeitos: true,
       level: 1,
     },
     {
@@ -221,11 +240,12 @@ const geto = {
     {
       name: 'Invocação em Massa',
       category: 'OTHER',
-      power: 28,
-      energyCost: 24,
+      power: 0,
+      energyCost: 22,
       cooldown: 3,
       tags: ['maldicao'],
-      effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 6, duration: 2 }],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 2, invocacao: 'maldicao-menor' }],
+      substituirEfeitos: true,
       level: 2,
     },
     {
@@ -244,21 +264,27 @@ const geto = {
     {
       name: 'Uzumaki: Redemoinho de Maldições',
       category: 'OTHER',
-      power: 40,
+      power: 30,
       energyCost: 33,
       cooldown: 5,
       tags: ['maldicao'],
-      effects: [],
+      effects: [
+        { type: 'CONSUMIR', target: 'SELF', magnitude: 16, grupo: 'maldicao' },
+        { type: 'EXECUTE', target: 'SELF', magnitude: 40 },
+        { type: 'ABATE', target: 'SELF', magnitude: 15 },
+      ],
+      substituirEfeitos: true,
       level: 10,
     },
     {
       name: 'Dragão Arco-Íris',
       category: 'OTHER',
-      power: 46,
+      power: 0,
       energyCost: 38,
       cooldown: 6,
       tags: ['maldicao', 'ultimate'],
-      effects: [{ type: 'DOT', target: 'ENEMY', magnitude: 11, duration: 3 }],
+      effects: [{ type: 'INVOCAR', target: 'SELF', magnitude: 1, invocacao: 'dragao-arco-iris' }],
+      substituirEfeitos: true,
       level: 14,
     },
   ],

@@ -19,6 +19,7 @@ import {
   vilao,
 } from './engine'
 import { acaoDaIa, acaoDoChefe, alvoDaIa } from './ai'
+import { ehLutador, invocacoesEmCampo, skillIdDaColuna } from './invocacoes'
 import { recompensaComTeto, vitoriasContraIaHoje } from './recompensa'
 import { applyExperience, battleXpGained } from './leveling'
 import { getEnemySkills, getEquippedSkills, getMonsterSkills, getPlayerTransformations, loadEnemyProfile } from './queries'
@@ -182,7 +183,10 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
     // Caído tem a ação ignorada pelo motor; o ataque básico só preenche a vaga.
     aliadas[a.posicao] =
       eu && eu.currentHp > 0
-        ? acaoDaIa(eu, Object.values(a.skills), primeiroInimigoDePe, a.formas, { skillsDoOponente: golpesDoInimigo })
+        ? acaoDaIa(eu, Object.values(a.skills), primeiroInimigoDePe, a.formas, {
+            skillsDoOponente: golpesDoInimigo,
+            campo: invocacoesEmCampo(ctx.state.aliados, a.posicao),
+          })
         : { kind: 'ATTACK', skillId: null }
   }
 
@@ -210,7 +214,10 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
 
     const alvo = alvoDaIa(ctx.state.aliados)
     const presa = ctx.state.aliados[alvo ?? 0]
-    const acao = acaoDaIa(eu, Object.values(f.skills), presa, f.formas, { skillsDoOponente: skillsDe(alvo ?? 0) })
+    const acao = acaoDaIa(eu, Object.values(f.skills), presa, f.formas, {
+      skillsDoOponente: skillsDe(alvo ?? 0),
+      campo: invocacoesEmCampo(ctx.state.inimigos, f.posicao),
+    })
     inimigas[f.posicao] = acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
   }
 
@@ -236,8 +243,12 @@ function rodadaContraIa(ctx: ContextoDeBatalha, acaoDoJogador: PlayerAction) {
   )
 }
 
-/** Vida somada do time, em fração da máxima somada. */
-function fracaoDeVida(time: BattleState['aliados']): number {
+/**
+ * Vida somada do time, em fração da máxima somada. Só os lutadores: as
+ * invocações não decidem a luta (ver lutadorDePe no motor).
+ */
+function fracaoDeVida(todos: BattleState['aliados']): number {
+  const time = todos.filter(ehLutador)
   const max = time.reduce((s, c) => s + c.maxHp, 0)
   return max > 0 ? time.reduce((s, c) => s + Math.max(0, c.currentHp), 0) / max : 0
 }
@@ -343,7 +354,7 @@ async function persistRound(
           // foi atualizado para nextTurnNumber acima.
           round: expectedTurnNumber,
           actor: result.side,
-          skillId: result.skillId,
+          skillId: skillIdDaColuna(result.skillId),
           result: result as unknown as Prisma.InputJsonValue,
         },
       })

@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import type { ReactNode } from 'react'
 import { Droplet, Heart, Zap } from 'lucide-react'
 import { CharacterMonogram } from '@/app/components/CharacterImage'
 import FOCO_DOS_RETRATOS from '@/app/lib/battle/foco-dos-retratos.json'
@@ -35,6 +36,7 @@ export function FighterCard({
   transformationName,
   combatant,
   cor,
+  orbes,
 }: {
   name: string
   imageUrl: string | null
@@ -42,6 +44,8 @@ export function FighterCard({
   transformationName?: string
   combatant: CombatantState
   cor?: string | null
+  /** As orbes de invocação, para quem invoca (ver OrbesDeInvocacao). */
+  orbes?: ReactNode
 }) {
   const c = cor ?? 'var(--accent)'
   const foco = (imageUrl && FOCO[imageUrl]) || '50% 20%'
@@ -122,6 +126,7 @@ export function FighterCard({
               </span>
             )}
           </div>
+          {orbes}
 
           <StatBar
             label="HP"

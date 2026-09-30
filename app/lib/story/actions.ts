@@ -44,5 +44,7 @@ export async function startStoryBattle(stageId: string): Promise<never> {
       ? { kind: 'character', characterId: stage.enemyCharacterId, base: enemyBase, level: stage.enemyLevel }
       : { kind: 'monster', monsterId: stage.enemyMonsterId!, base: enemyBase, level: stage.enemyLevel },
     storyStageId: stage.id,
+    // Estágio com atributos de chefe é luta de chefe.
+    chefe: stage.bossHp != null,
   })
 }

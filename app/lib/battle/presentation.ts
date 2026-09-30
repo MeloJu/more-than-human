@@ -1,8 +1,17 @@
 import { resolveErrorMessage } from '@/app/lib/error-messages'
 import { saborDoDot } from './engine'
+import { defDeInvocacao } from './invocacoes'
 import type { DotFlavor, EffectType, Stat } from './types'
 
-export type EffectLike = { type: EffectType; stat?: Stat; magnitude: number; flavor?: DotFlavor; stack?: boolean }
+export type EffectLike = {
+  type: EffectType
+  stat?: Stat
+  magnitude: number
+  flavor?: DotFlavor
+  stack?: boolean
+  invocacao?: string
+  grupo?: string
+}
 
 /**
  * Ícone e nome de cada natureza de dano contínuo.
@@ -41,6 +50,9 @@ const EFFECT_ICON: Record<EffectType, string> = {
   PIERCE: '🗡️',
   COMBO_STUN: '⚡',
   COMBO_FOLLOWUP: '🔗',
+  INVOCAR: '✦',
+  CONSUMIR: '🌀',
+  ABATE: '⚔️',
 }
 
 export function describeEffect(e: EffectLike): string {
@@ -78,6 +90,16 @@ export function describeEffect(e: EffectLike): string {
       return `${EFFECT_ICON.COMBO_STUN} +${e.magnitude}% de dano contra alvo atordoado`
     case 'COMBO_FOLLOWUP':
       return `${EFFECT_ICON.COMBO_FOLLOWUP} +${e.magnitude}% de dano em sequência`
+    case 'INVOCAR': {
+      const def = e.invocacao ? defDeInvocacao(e.invocacao) : undefined
+      const nome = def?.nome ?? 'invocação'
+      const quantas = e.magnitude > 1 ? `${e.magnitude}× ${nome}` : nome
+      return `${EFFECT_ICON.INVOCAR} Chama ${quantas} para o campo${def?.guarda ? ' · protege você' : ''}`
+    }
+    case 'CONSUMIR':
+      return `${EFFECT_ICON.CONSUMIR} Consome as invocações em campo · +${e.magnitude} de poder por uma`
+    case 'ABATE':
+      return `${EFFECT_ICON.ABATE} Abaixo de ${e.magnitude}% da vida, o alvo cai (chefe não)`
   }
 }
 

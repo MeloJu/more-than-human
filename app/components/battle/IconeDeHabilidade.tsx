@@ -5,6 +5,7 @@ import {
   Droplet,
   Eye,
   Flame,
+  Ghost,
   Hand,
   Heart,
   Hourglass,
@@ -88,6 +89,10 @@ const POR_EFEITO: Partial<Record<EffectType, typeof Flame>> = {
   DOMAIN: Orbit,
   REVIVE: Sparkles,
   EXECUTE: Skull,
+  // A criatura chamada para o campo, e o redemoinho que a consome.
+  INVOCAR: Ghost,
+  CONSUMIR: Orbit,
+  ABATE: Skull,
 }
 
 const POR_CATEGORIA: Record<string, typeof Flame> = {

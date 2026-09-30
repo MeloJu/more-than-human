@@ -25,6 +25,8 @@ import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from 
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
 import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
+import { FaixaDeInvocacao, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import { emCampo } from '@/app/lib/battle/invocacoes'
 import { TelaDeVersus } from '@/app/components/battle/TelaDeVersus'
 import { alcanceDe } from '@/app/lib/battle/alcance'
 import { toSkillDef } from '@/app/lib/battle/queries'
@@ -127,6 +129,20 @@ export default async function BattleArenaPage({
   for (const p of party) nomesAliados[p.posicao] = nomeDe(p, 'aliados')
   const nomesInimigos: string[] = [state.inimigos[0]?.nome ?? enemy.name]
   for (const p of inimigosExtras) nomesInimigos[p.posicao] = nomeDe(p, 'inimigos')
+  // As invocações moram no mesmo array, depois dos lutadores, e não estão na
+  // tabela de participantes: o nome delas vem do estado ("Maldição 2").
+  state.aliados.forEach((c, i) => {
+    if (c.invocacao) nomesAliados[i] = c.nome ?? 'Invocação'
+  })
+  state.inimigos.forEach((c, i) => {
+    if (c.invocacao) nomesInimigos[i] = c.nome ?? 'Invocação'
+  })
+  const invocacoesAliadas = state.aliados.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
+  const invocacoesInimigas = state.inimigos.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
+  const orbesDe = (lado: 'aliados' | 'inimigos', dono: number, skills: Parameters<typeof gruposDoDono>[2] = []) => {
+    const grupos = gruposDoDono(state[lado], dono, skills)
+    return grupos.length > 0 ? <OrbesDeInvocacao grupos={grupos} time={state[lado]} dono={dono} /> : undefined
+  }
   const idsDeFormaDaParty = participantes
     .map((p) => state[p.lado === 'PLAYER' ? 'aliados' : 'inimigos'][p.posicao]?.activeTransformationId)
     .filter((id): id is string => Boolean(id))
@@ -317,6 +333,7 @@ export default async function BattleArenaPage({
             levelBadge={userCharacter.level}
             transformationName={formaAtivaDoJogador?.name}
             combatant={heroi(state)}
+            orbes={orbesDe('aliados', 0, Object.values(playerSkills))}
           />
         </CartaAnimada>
 
@@ -339,17 +356,28 @@ export default async function BattleArenaPage({
             levelBadge={vilao(state).nivel}
             transformationName={formaAtivaDoInimigo?.name}
             combatant={vilao(state)}
+            orbes={orbesDe('inimigos', 0)}
           />
         </CartaAnimada>
       </div>
 
       {/* A PARTY, em faixas logo abaixo das cartas: os aliados jogam sozinhos,
           então o que importa deles é quem está de pé e quanto aguenta. */}
-      {participantes.length > 0 && (
+      {(participantes.length > 0 || invocacoesAliadas.length > 0 || invocacoesInimigas.length > 0) && (
         // Aliados à esquerda, inimigos à direita: o mesmo lado da carta grande
-        // de cada um.
+        // de cada um. As invocações vêm antes da party: são do principal, e
+        // ficam logo abaixo da carta dele.
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
           <div className="space-y-4">
+            {invocacoesAliadas.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {invocacoesAliadas.map(({ c, posicao }) => (
+                  <CartaAnimada key={posicao} impacto={impactoDe(impacto, 'PLAYER', posicao)} rodada={ultimaRodada}>
+                    <FaixaDeInvocacao combatente={c} dono={nomesAliados[c.invocacao?.dono ?? 0] ?? userCharacter.nickname} />
+                  </CartaAnimada>
+                ))}
+              </div>
+            )}
             {party.map((p) => {
               const combatente = state.aliados[p.posicao]
               if (!combatente) return null
@@ -362,12 +390,22 @@ export default async function BattleArenaPage({
                     cor={p.character?.corDestaque}
                     formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
                     combatente={combatente}
+                    orbes={orbesDe('aliados', p.posicao)}
                   />
                 </CartaAnimada>
               )
             })}
           </div>
           <div className="space-y-4">
+            {invocacoesInimigas.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {invocacoesInimigas.map(({ c, posicao }) => (
+                  <CartaAnimada key={posicao} impacto={impactoDe(impacto, 'ENEMY', posicao)} rodada={ultimaRodada}>
+                    <FaixaDeInvocacao combatente={c} dono={nomesInimigos[c.invocacao?.dono ?? 0] ?? enemy.name} />
+                  </CartaAnimada>
+                ))}
+              </div>
+            )}
             {inimigosExtras.map((p) => {
               const combatente = state.inimigos[p.posicao]
               if (!combatente) return null
@@ -381,6 +419,7 @@ export default async function BattleArenaPage({
                     formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
                     combatente={combatente}
                     rotulo="Inimigo"
+                    orbes={orbesDe('inimigos', p.posicao)}
                   />
                 </CartaAnimada>
               )

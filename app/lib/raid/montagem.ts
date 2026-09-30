@@ -93,7 +93,13 @@ export async function montarAndar(params: {
   )
   state = comLutadores(state, 'PLAYER', contratados)
   state = comLutadores(state, 'ENEMY', extras)
-  state = { ...state, inimigos: state.inimigos.map((c, i) => (i === 0 ? { ...c, nome: principal.nome } : c)) }
+  // O chefe do andar é marcado no estado: o ABATE (Uzumaki) não o derruba de
+  // uma vez.
+  const chefe = Boolean(params.andar.chefe)
+  state = {
+    ...state,
+    inimigos: state.inimigos.map((c, i) => (i === 0 ? { ...c, nome: principal.nome, ...(chefe ? { chefe } : {}) } : c)),
+  }
   state = comReservas(state, params.reservas)
 
   return {

@@ -54,6 +54,23 @@ export type EffectType =
    * inclusive bloquear, se transformar ou ficar atordoado.
    */
   | 'COMBO_FOLLOWUP'
+  /**
+   * Chama `magnitude` invocações `invocacao` para o campo (ver
+   * app/lib/battle/invocacoes.ts). Não bate em ninguém: a rodada é gasta
+   * chamando, e quem bate é a invocação, a partir da rodada seguinte.
+   */
+  | 'INVOCAR'
+  /**
+   * Consome as invocações do grupo `grupo` em campo, e cada uma soma
+   * `magnitude` ao poder deste golpe — as esferas da ult da Syndra, no Uzumaki
+   * do Geto. Consumida não é destruída: não abre a espera de 3 rodadas.
+   */
+  | 'CONSUMIR'
+  /**
+   * Quem ficar abaixo de `magnitude`% da vida depois do golpe cai na hora.
+   * Chefe nunca: contra ele sobra o dano extra do EXECUTE que vem junto.
+   */
+  | 'ABATE'
 
 // Mechanical definition attached to a Skill (Skill.effects in the DB). A
 // skill can carry several of these alongside its normal power-based damage
@@ -75,6 +92,10 @@ export type SkillEffect = {
    * DOT em outros lugares do motor.
    */
   comboTag?: string
+  /** SÓ para INVOCAR: o id da invocação no catálogo (ver invocacoes.ts). */
+  invocacao?: string
+  /** SÓ para CONSUMIR: o grupo de invocações consumido ('maldicao'). */
+  grupo?: string
   stat?: Stat // BUFF/DEBUFF only
   magnitude: number // % for BUFF/DEBUFF/LIFESTEAL, flat amount for DOT/SHIELD/HEAL, % reflected for COUNTER
   duration?: number // rounds; absent = instantaneous (HEAL, LIFESTEAL)
@@ -216,6 +237,34 @@ export type CombatantState = {
   formaDano?: number
   formaGuarda?: number
   statusEffects: StatusEffectInstance[]
+  /**
+   * Presente só em INVOCAÇÃO: a criatura em campo, com vida própria, que
+   * bate sozinha e pode ser alvo. Mora no mesmo array do dono, depois dos
+   * lutadores de verdade — ver chamarInvocacoes em engine.ts.
+   */
+  invocacao?: InvocacaoEmCampo
+  /**
+   * Chefe de raid ou de história. O motor só lê isto no ABATE: chefe não cai
+   * de uma vez, toma dano extra no lugar.
+   */
+  chefe?: boolean
+}
+
+export type InvocacaoEmCampo = {
+  /** Id no catálogo de invocações (ver invocacoes.ts). */
+  def: string
+  /** Índice do dono no mesmo lado. */
+  dono: number
+  /** O golpe que chamou: é ele que entra na espera quando a invocação cai. */
+  skillId: string
+  /** Chegou nesta rodada: só bate a partir da próxima. */
+  recemChegada?: boolean
+  /**
+   * Fora de campo (caída, consumida ou recolhida). A vaga no array fica e é
+   * reaproveitada pela próxima chamada do mesmo dono, para o time não crescer
+   * a cada invocação.
+   */
+  fora?: boolean
 }
 
 /**
@@ -299,6 +348,25 @@ export type TurnResult = {
     | 'GUARD_BREAK'
     | 'REVIVE'
     | 'CHARGE'
+    | 'SUMMON'
+  /**
+   * O nome de quem agiu e de quem foi atingido, quando é invocação — gravado
+   * na hora, porque a vaga dela é reaproveitada e o nome pela posição mudaria.
+   */
+  nomeDoAtor?: string
+  nomeDoAlvo?: string
+  /** SUMMON: o id da invocação no catálogo. */
+  invocacao?: string
+  /** SUMMON: as posições em que as invocações chegaram. */
+  invocadas?: number[]
+  /** SUMMON: a invocação voltou porque o dono não pagou a manutenção. */
+  recolhida?: boolean
+  /** ATTACK: quantas invocações o golpe consumiu (ver CONSUMIR). */
+  consumidas?: number
+  /** ATTACK: o alvo caiu pelo ABATE, abaixo do limiar. */
+  abatido?: boolean
+  /** ATTACK: a invocação guardiã se pôs na frente do dono (ver `guarda`). */
+  interceptou?: boolean
   /** CHARGE: a carga foi perdida (atordoado no meio) em vez de começar. */
   cargaPerdida?: boolean
   /** ATTACK: este é o golpe carregado, saindo na rodada seguinte ao aviso. */

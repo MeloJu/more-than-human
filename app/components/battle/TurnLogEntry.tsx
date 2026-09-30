@@ -1,4 +1,5 @@
 import { describeEffect } from '@/app/lib/battle/presentation'
+import { defDeInvocacao } from '@/app/lib/battle/invocacoes'
 import type { Postura, TurnResult } from '@/app/lib/battle/types'
 
 /** Como a postura de quem agiu aparece no log — "usou Getsuga Tenshō em Ímpeto". */
@@ -83,8 +84,8 @@ export function TurnLogEntry({
     side === 'PLAYER'
       ? (posicao > 0 ? nomesAliados?.[posicao] : undefined) ?? playerName
       : (posicao > 0 ? nomesInimigos?.[posicao] : undefined) ?? enemyName
-  const actorName = nomeEm(turn.side, turn.posicao)
-  const alvoName = nomeEm(turn.side === 'PLAYER' ? 'ENEMY' : 'PLAYER', turn.posicaoDoAlvo)
+  const actorName = turn.nomeDoAtor ?? nomeEm(turn.side, turn.posicao)
+  const alvoName = turn.nomeDoAlvo ?? nomeEm(turn.side === 'PLAYER' ? 'ENEMY' : 'PLAYER', turn.posicaoDoAlvo)
 
   if (turn.kind === 'TRANSFORM') {
     return (
@@ -170,6 +171,37 @@ export function TurnLogEntry({
       </>
     )
   }
+  if (turn.kind === 'SUMMON') {
+    const def = turn.invocacao ? defDeInvocacao(turn.invocacao) : undefined
+    const cor = def?.cor
+    if (turn.recolhida) {
+      return (
+        <>
+          <span className="font-medium" style={{ color: cor }}>{turn.skillName}</span> voltou —{' '}
+          <span className="font-medium">{actorName}</span> não tinha energia para mantê-la em campo.
+        </>
+      )
+    }
+    const quantas = turn.invocadas?.length ?? 0
+    if (quantas === 0) {
+      return (
+        <>
+          <span className="font-medium">{actorName}</span> usou <span className="font-medium">{turn.skillName}</span>, mas o campo
+          já estava cheio.
+        </>
+      )
+    }
+    const nome = def?.nome ?? 'invocação'
+    return (
+      <>
+        <span className="font-medium">{actorName}</span> usou <span className="font-medium">{turn.skillName}</span> e chamou{' '}
+        <span className="font-medium" style={{ color: cor }}>
+          {quantas > 1 ? `${quantas} × ${nome}` : nome}
+        </span>{' '}
+        para o campo{def?.guarda ? ', de guarda na frente dele' : ''}.
+      </>
+    )
+  }
   if (turn.kind === 'STUNNED') {
     return (
       <>
@@ -219,6 +251,12 @@ export function TurnLogEntry({
       <span className="font-medium">{actorName}</span> {turn.carregado ? 'soltou' : 'usou'}{' '}
       <span className="font-medium">{turn.skillName}</span>
       {turn.carregado && <span className="text-red-500"> carregado</span>}
+      {typeof turn.consumidas === 'number' && turn.consumidas > 0 && (
+        <span className="text-violet-400">
+          {' '}
+          consumindo {turn.consumidas === 1 ? 'uma maldição' : `${turn.consumidas} maldições`}
+        </span>
+      )}
       {turn.postura && <span className="opacity-70"> {FRASE_DA_POSTURA[turn.postura]}</span>}
       {turn.errou && (turn.esquivou ? <>, mas {alvoName} esquivou</> : <> e o golpe passou longe</>)}
       {turn.countered &&
@@ -243,6 +281,8 @@ export function TurnLogEntry({
             </span>
           )}
           {turn.acertoGarantido && <span className="opacity-70">, ignorando a defesa</span>}
+          {turn.interceptou && <span className="opacity-70">, que se pôs na frente do dono</span>}
+          {turn.abatido && <span className="font-medium text-red-500">, e {alvoName} caiu na hora</span>}
         </>
       )}
       {typeof turn.healed === 'number' && turn.healed > 0 && <> e recuperou {turn.healed} de vida</>}

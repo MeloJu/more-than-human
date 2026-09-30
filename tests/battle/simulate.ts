@@ -1,5 +1,6 @@
 import { createInitialState, heroi, resolveRound, vilao } from '@/app/lib/battle/engine'
-import { acaoDaIa } from '@/app/lib/battle/ai'
+import { acaoDaIa, alvoDaIa } from '@/app/lib/battle/ai'
+import { invocacoesEmCampo } from '@/app/lib/battle/invocacoes'
 import { MAX_ROUNDS } from '@/app/lib/battle/constants'
 import type { BaseStats, Outcome, SkillDef, TransformationDef } from '@/app/lib/battle/types'
 
@@ -72,12 +73,38 @@ export function simulateBattle(jogador: Combatente, inimigo: Combatente, seed: n
 
   let rodadas = 0
   while (state.outcome === null && rodadas < MAX_ROUNDS) {
-    // Os dois lados decidem pela mesma função da batalha de verdade.
+    // Os dois lados decidem pela mesma função da batalha de verdade — com o
+    // campo de invocações de cada um e o alvo sorteado entre quem está de pé
+    // do outro lado, como rodadaContraIa faz. Sem invocação em campo os dois
+    // lados têm um só lutador, alvoDaIa não sorteia nada e a simulação sai
+    // igual à de antes.
+    const comAlvo = (acao: ReturnType<typeof acaoDaIa>, alvo: number | undefined) =>
+      acao.kind === 'ATTACK' && alvo !== undefined ? { ...acao, alvo } : acao
+    const alvoDoJogador = alvoDaIa(state.inimigos, rand)
+    const alvoDoInimigo = alvoDaIa(state.aliados, rand)
     const r = resolveRound(
       state,
       {
-        aliadas: [acaoDaIa(heroi(state), jogador.skills, vilao(state), formasJogador, { skillsDoOponente: inimigo.skills, rand })],
-        inimigas: [acaoDaIa(vilao(state), inimigo.skills, heroi(state), formasInimigo, { skillsDoOponente: jogador.skills, rand })],
+        aliadas: [
+          comAlvo(
+            acaoDaIa(heroi(state), jogador.skills, vilao(state), formasJogador, {
+              skillsDoOponente: inimigo.skills,
+              rand,
+              campo: invocacoesEmCampo(state.aliados, 0),
+            }),
+            alvoDoJogador
+          ),
+        ],
+        inimigas: [
+          comAlvo(
+            acaoDaIa(vilao(state), inimigo.skills, heroi(state), formasInimigo, {
+              skillsDoOponente: jogador.skills,
+              rand,
+              campo: invocacoesEmCampo(state.inimigos, 0),
+            }),
+            alvoDoInimigo
+          ),
+        ],
       },
       {
         playerSkills: jogadorPorId,

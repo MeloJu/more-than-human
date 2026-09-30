@@ -1,5 +1,6 @@
 import { ativarForma, custoDaPostura, isLegalMove, podeAtivar, podeBloquear } from './engine'
 import { alcanceDe } from './alcance'
+import { invocacaoDoGolpe } from './invocacoes'
 import type { AcaoDeCombate, CombatantState, Postura, SkillDef, TransformationDef } from './types'
 
 const LOW_HP_HEAL_THRESHOLD = 0.4
@@ -19,7 +20,47 @@ const LOW_HP_HEAL_THRESHOLD = 0.4
  * personagem, e esses dois fatores são aproximadamente iguais para todas elas.
  */
 export function danoEsperado(skill: SkillDef): number {
+  // O golpe que INVOCA não bate, mas vale o que a criatura vai bater: duas
+  // rodadas do golpe dela por cabeça chamada. Sem isso ele teria dano zero e
+  // ficaria sempre fora do loadout automático — o Geto chegaria sem maldição.
+  const chamada = invocacaoDoGolpe(skill)
+  if (chamada) return chamada.def.golpe.power * chamada.quantidade * 2
   return skill.power * ((skill.precision ?? 100) / 100)
+}
+
+/**
+ * O que a IA sabe do próprio campo: quantas invocações de cada grupo o
+ * combatente tem de pé agora (ver invocacoesEmCampo). Sem isto ela não
+ * invoca nada — não teria como saber se o campo já está cheio.
+ */
+export type CampoDaIa = Record<string, number>
+
+/** Com quantas no campo o CONSUMIR (Uzumaki) passa a valer a rodada. */
+export const IA_CONSUMIR_A_PARTIR_DE = 2
+
+/**
+ * A jogada de invocador, antes da gulosa por dano: guardiã primeiro (ela
+ * protege tudo que vem depois), depois encher o grupo que o CONSUMIR usa,
+ * depois consumir quando já vale. Devolve undefined quando nada disso cabe, e
+ * a IA segue como qualquer outra.
+ */
+function jogadaDeInvocador(legal: SkillDef[], campo: CampoDaIa): string | undefined {
+  const cabe = (s: SkillDef) => {
+    const chamada = invocacaoDoGolpe(s)
+    return chamada ? (campo[chamada.def.grupo] ?? 0) < chamada.def.limiteDoGrupo : false
+  }
+  const guardia = legal.find((s) => cabe(s) && invocacaoDoGolpe(s)?.def.guarda)
+  if (guardia) return guardia.id
+
+  const consumir = legal.find((s) => s.effects.some((e) => e.type === 'CONSUMIR'))
+  const grupo = consumir?.effects.find((e) => e.type === 'CONSUMIR')?.grupo
+  if (consumir && grupo && (campo[grupo] ?? 0) >= IA_CONSUMIR_A_PARTIR_DE) return consumir.id
+
+  // A que chama mais de uma vez de uma vez, se couber; senão a de uma.
+  const chamar = legal
+    .filter(cabe)
+    .sort((a, b) => (invocacaoDoGolpe(b)?.quantidade ?? 0) - (invocacaoDoGolpe(a)?.quantidade ?? 0))[0]
+  return chamar?.id
 }
 
 /**
@@ -136,7 +177,9 @@ export function pickAiSkill(
    * vai perder o choque —, e é opcional porque sem ele a IA apenas deixa de
    * fazer essa checagem.
    */
-  oponente?: CombatantState
+  oponente?: CombatantState,
+  /** O campo do invocador. Ausente, a IA não invoca. */
+  campo?: CampoDaIa
 ): string | null {
   const legal = availableSkills.filter((s) => isLegalMove(self, s))
   if (legal.length === 0) return null
@@ -174,7 +217,19 @@ export function pickAiSkill(
     if (dominio && !disputaPerdida) return dominio.id
   }
 
-  const damageSkills = legal
+  if (campo) {
+    const jogada = jogadaDeInvocador(legal, campo)
+    if (jogada) return jogada
+  }
+
+  // Consumir com o campo vazio é gastar o golpe grande pela metade: fica para
+  // quando não houver outro golpe.
+  const consomeSemCampo = (s: SkillDef) => {
+    const grupo = s.effects.find((e) => e.type === 'CONSUMIR')?.grupo
+    return grupo !== undefined && (campo?.[grupo] ?? 0) < IA_CONSUMIR_A_PARTIR_DE
+  }
+  const semDesperdicio = legal.filter((s) => s.power > 0 && !consomeSemCampo(s))
+  const damageSkills = (semDesperdicio.length > 0 ? semDesperdicio : legal)
     .filter((s) => s.power > 0)
     .sort((a, b) => danoEsperado(b) - danoEsperado(a) || a.energyCost - b.energyCost)
   if (damageSkills.length > 0) return damageSkills[0].id
@@ -234,7 +289,8 @@ export function deveBloquear(self: CombatantState, availableSkills: SkillDef[]):
   //
   // Uma heurística de IA não deveria mover balanceamento nessa escala sem uma
   // recurva dos estágios junto. A regra volta quando essa recurva for feita.
-  return !availableSkills.some((s) => s.power > 0 && isLegalMove(self, s))
+  // Chamar uma invocação também vale a rodada: é o golpe do invocador.
+  return !availableSkills.some((s) => (s.power > 0 || invocacaoDoGolpe(s) !== undefined) && isLegalMove(self, s))
 }
 
 /**
@@ -293,7 +349,7 @@ export function acaoDaIa(
    * (não a escolha desta rodada, que ela não vê) e a fonte de sorte. Sem o
    * arsenal, ela escolhe a postura sem palpite sobre o alcance do golpe.
    */
-  leitura: { skillsDoOponente?: SkillDef[]; rand?: () => number } = {}
+  leitura: { skillsDoOponente?: SkillDef[]; rand?: () => number; campo?: CampoDaIa } = {}
 ): AcaoDeCombate {
   const forma = escolherFormaDaIa(self, formas)
   if (forma && forma.consumesTurn !== false) return { kind: 'TRANSFORM', transformationId: forma.id }
@@ -302,7 +358,7 @@ export function acaoDaIa(
   const ativa = forma ?? (self.activeTransformationId ? formas[self.activeTransformationId] : undefined)
   const base = forma ? ativarForma(self, forma) : self
   const visto = ativa ? comManutencaoReservada(base, ativa) : base
-  const skillId = pickAiSkill(visto, skills, oponente)
+  const skillId = pickAiSkill(visto, skills, oponente, leitura.campo)
   const postura = escolherPosturaDaIa(visto, skills.find((s) => s.id === skillId) ?? null, oponente, leitura)
   return { kind: 'ATTACK', skillId, postura, ...(forma ? { liberar: forma.id } : {}) }
 }
@@ -317,12 +373,26 @@ export function acaoDaIa(
  *
  * Com um só do outro lado não sorteia nada e devolve undefined: o 1x1 não
  * gasta a fonte de sorte, e toda batalha e simulação antiga sai igual.
+ *
+ * INVOCAÇÃO PESA METADE no sorteio. Por igual, três maldições em campo
+ * levavam três de cada quatro golpes, e o Geto ganhava 90% das lutas sem
+ * apanhar: nenhum jogador ignora o invocador assim. Com peso igual para todos
+ * (só lutadores) a conta dá o mesmo índice do sorteio antigo.
  */
 export function alvoDaIa(outroLado: CombatantState[], rand: () => number = Math.random): number | undefined {
   if (outroLado.length <= 1) return undefined
-  const dePe = outroLado.map((c, i) => (c.currentHp > 0 ? i : -1)).filter((i) => i >= 0)
-  if (dePe.length === 0) return undefined
-  return dePe[Math.min(dePe.length - 1, Math.floor(rand() * dePe.length))]
+  const pesos = outroLado.map((c): number => (c.currentHp <= 0 ? 0 : c.invocacao ? 1 : 2))
+  const total = pesos.reduce((s, p) => s + p, 0)
+  if (total === 0) return undefined
+  let sorteio = rand() * total
+  let ultimo: number | undefined
+  for (let i = 0; i < pesos.length; i++) {
+    if (pesos[i] === 0) continue
+    ultimo = i
+    if (sorteio < pesos[i]) return i
+    sorteio -= pesos[i]
+  }
+  return ultimo
 }
 
 /**
