@@ -33,7 +33,7 @@ const features = [
     icon: Shield,
     title: 'Equipamentos',
     description:
-      'Compre Zanpakutō, trajes e acessórios com as moedas que a luta rende. Os melhores concedem habilidades próprias.',
+      'Compre armas, trajes e acessórios com as moedas que a luta rende, e forje os melhores com o que a raid deixa cair. Os melhores concedem habilidades próprias.',
   },
 ]
 

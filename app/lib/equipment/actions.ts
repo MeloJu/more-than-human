@@ -16,8 +16,10 @@ import { requireUser } from '@/app/lib/session'
 export async function buyEquipment(equipmentId: string): Promise<void> {
   const user = await requireUser()
 
-  const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId }, select: { price: true, slot: true } })
-  if (!equipment) redirect('/shop?error=not_found')
+  const equipment = await prisma.equipment.findUnique({ where: { id: equipmentId }, select: { price: true, slot: true, naLoja: true } })
+  // Fora da loja (épico, lendário, peça de forja) não se compra — nem por
+  // POST direto, que não passa pela tela.
+  if (!equipment || !equipment.naLoja) redirect('/shop?error=not_found')
 
   const alreadyOwned = await prisma.userEquipment.findUnique({
     where: { userId_equipmentId: { userId: user.id, equipmentId } },

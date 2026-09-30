@@ -442,6 +442,7 @@ model User {
   sessions             Session[]
   storyProgress        UserStoryProgress[]
   equipment            UserEquipment[]
+  itens                UserItem[]
   pvpQueue             PvpQueue?
   pvpBattlesAsOpponent Battle[]            @relation("OpponentUser")
   // Carteira da conta, compartilhada entre todos os personagens do usuário.
@@ -857,7 +858,8 @@ model UserCharacterSkill {
 }
 
 enum EquipmentSlot {
-  ZANPAKUTO
+  /// Era ZANPAKUTO: o elenco é de vários animes, e o espaço é de qualquer arma.
+  ARMA
   TRAJE
   ACESSORIO
 }
@@ -907,6 +909,10 @@ model Equipment {
 
   ownedBy UserEquipment[]
 
+  /// Vendido na loja. Épico e lendário saem daqui: só por drop de raid ou
+  /// pela forja (ver prisma/catalog/equipment.js).
+  naLoja Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -934,6 +940,10 @@ model UserEquipment {
 
   purchasedAt DateTime @default(now())
 
+  /// Refino da forja, de 0 a 3: cada nível soma uma fração dos bônus da peça
+  /// (ver REFINO_POR_NIVEL). É da cópia do jogador, não do catálogo.
+  refino Int @default(0)
+
   @@unique([userId, equipmentId])
   @@unique([equippedOnId, slot])
   @@index([userId])
@@ -953,4 +963,41 @@ model PvpQueue {
   joinedAt        DateTime      @default(now())
 
   @@index([joinedAt])
+}
+
+/// O que não é equipamento: MATERIAL (drop de raid, gasto na forja) e
+/// CONSUMÍVEL (poção, usada em batalha gastando a rodada).
+enum TipoDeItem {
+  MATERIAL
+  CONSUMIVEL
+}
+
+/// Item empilhável do catálogo (prisma/catalog/itens.js).
+model Item {
+  id        String          @id @default(cuid())
+  nome      String          @unique
+  descricao String
+  tipo      TipoDeItem
+  raridade  EquipmentRarity @default(COMUM)
+  /// Kanji do ícone.
+  marca     String
+  /// Preço na loja; nulo = não se compra (material só vem de drop).
+  preco     Int?
+  /// Consumível: o que ele faz, em fração do máximo — { vida?, energia? }.
+  efeito    Json?
+
+  donos UserItem[]
+}
+
+/// A mochila: quantos de cada item a conta tem. Zero some da tela, mas a
+/// linha pode ficar — é o que deixa o débito atômico (ver itens/acoes.ts).
+model UserItem {
+  id         String @id @default(cuid())
+  user       User   @relation(fields: [userId], references: [id])
+  userId     String
+  item       Item   @relation(fields: [itemId], references: [id])
+  itemId     String
+  quantidade Int    @default(0)
+
+  @@unique([userId, itemId])
 }

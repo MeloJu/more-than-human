@@ -25,7 +25,7 @@
  */
 const fs = require('fs');
 const path = require('path');
-const { PrismaClient } = require('@prisma/client');
+const { Prisma, PrismaClient } = require('@prisma/client');
 const storyCatalog = require('./catalog/story');
 const atributosNovos = require('./catalog/atributos-novos');
 const precisaoCatalog = require('./catalog/precisao');
@@ -48,6 +48,7 @@ const descricoesCatalog = require('./catalog/descricoes');
 const aposentadasCatalog = require('./catalog/aposentadas');
 const alcanceCatalog = require('./catalog/alcance');
 const monstrosCatalog = require('./catalog/monstros');
+const itensCatalog = require('./catalog/itens');
 
 const prisma = new PrismaClient();
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -259,6 +260,8 @@ async function syncEquipment(animeId, skillIdPorNome) {
       rarity: def.rarity,
       price: def.price,
       requiredLevel: def.requiredLevel ?? 1,
+      // Épico e lendário saem da loja por padrão: vêm de drop ou da forja.
+      naLoja: def.naLoja ?? (def.rarity === 'COMUM' || def.rarity === 'RARO'),
       flatHpBonus: def.flatHpBonus ?? 0,
       flatAttackBonus: def.flatAttackBonus ?? 0,
       flatDefenseBonus: def.flatDefenseBonus ?? 0,
@@ -664,6 +667,29 @@ async function syncPrecisao() {
     if (!DRY_RUN) {
       await prisma.skill.update({ where: { id: sk.id }, data: { precision: desejado } });
     }
+  }
+}
+
+/**
+ * Materiais e consumíveis. Ver prisma/catalog/itens.js. Por nome, e sem tocar
+ * na mochila de ninguém.
+ */
+async function syncItens() {
+  for (const def of itensCatalog.itens) {
+    const desejado = {
+      nome: def.nome,
+      descricao: def.descricao,
+      tipo: def.tipo,
+      raridade: def.raridade,
+      marca: def.marca,
+      preco: def.preco ?? null,
+      efeito: def.efeito ?? null,
+    };
+    const atual = await prisma.item.findUnique({ where: { nome: def.nome } });
+    registra('item', def.nome, diff(atual, desejado));
+    if (DRY_RUN) continue;
+    const dados = { ...desejado, efeito: desejado.efeito ?? Prisma.DbNull };
+    await prisma.item.upsert({ where: { nome: def.nome }, create: dados, update: dados });
   }
 }
 
@@ -1091,6 +1117,7 @@ async function main() {
   await syncKits();
   await syncSummoners();
   await syncMonstros();
+  await syncItens();
   await syncCharacterImages();
   await syncCores();
   await syncTransformations();

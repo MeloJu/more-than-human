@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { requireUser } from '@/app/lib/session'
 import { getInventory, getEquippedBySlot, getEquipmentBonus, getCoins, SLOT_ORDER, SLOT_LABEL } from '@/app/lib/equipment/queries'
+import { getMochila } from '@/app/lib/itens/queries'
+import { CartaDeItem } from '@/app/components/itens/CartaDeItem'
 import { equipItem, unequipItem } from '@/app/lib/equipment/actions'
 import { getSelectedCharacter } from '@/app/lib/progression/queries'
 import { EquipmentCard } from '@/app/components/equipment/EquipmentCard'
@@ -33,11 +35,12 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
     )
   }
 
-  const [inventory, equippedBySlot, bonus, coins] = await Promise.all([
+  const [inventory, equippedBySlot, bonus, coins, mochila] = await Promise.all([
     getInventory(user.id),
     getEquippedBySlot(selected.id),
     getEquipmentBonus(selected.id),
     getCoins(user.id),
+    getMochila(user.id),
   ])
 
   const totalBonus = [
@@ -149,6 +152,21 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
           </div>
         )}
       </section>
+
+      {/* A MOCHILA: materiais da raid (gastos na forja) e poções (usadas em
+          batalha). Só aparece quando há algo — conta nova não vê seção vazia. */}
+      {mochila.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="heading text-lg border-b border-border pb-2">
+            Mochila <span className="text-muted font-normal text-sm">({mochila.length})</span>
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {mochila.map((linha) => (
+              <CartaDeItem key={linha.id} item={linha.item} quantidade={linha.quantidade} />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }

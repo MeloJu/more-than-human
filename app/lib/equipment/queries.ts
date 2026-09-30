@@ -3,10 +3,10 @@ import type { EquipmentSlot } from '@prisma/client'
 import type { StatBonus } from '@/app/lib/battle/types'
 
 /** Ordem em que os slots aparecem na UI — do mais definidor pro acessório. */
-export const SLOT_ORDER: EquipmentSlot[] = ['ZANPAKUTO', 'TRAJE', 'ACESSORIO']
+export const SLOT_ORDER: EquipmentSlot[] = ['ARMA', 'TRAJE', 'ACESSORIO']
 
 export const SLOT_LABEL: Record<EquipmentSlot, string> = {
-  ZANPAKUTO: 'Zanpakutō',
+  ARMA: 'Arma',
   TRAJE: 'Traje',
   ACESSORIO: 'Acessório',
 }
@@ -20,7 +20,9 @@ export const SLOT_LABEL: Record<EquipmentSlot, string> = {
  */
 export async function getShopCatalog(userId: string) {
   const [items, owned] = await Promise.all([
+    // Só o que a loja vende: épico e lendário vêm de drop ou da forja.
     prisma.equipment.findMany({
+      where: { naLoja: true },
       orderBy: [{ slot: 'asc' }, { price: 'asc' }],
       include: { grantedSkill: { select: { name: true, power: true, energyCost: true, effects: true } } },
     }),
@@ -96,7 +98,7 @@ export async function getCoins(userId: string): Promise<number> {
  * Skills concedidas pelo equipamento ativo, no formato do motor.
  *
  * Elas entram na batalha POR CIMA dos 4 slots do loadout, não ocupando um
- * deles — é o que faz equipar um Zanpakutō valer a pena. Como são derivadas
+ * deles — é o que faz equipar uma arma valer a pena. Como são derivadas
  * do que está equipado, desequipar remove a skill sem precisar sincronizar
  * nada.
  */
