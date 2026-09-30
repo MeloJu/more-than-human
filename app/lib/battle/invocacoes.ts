@@ -62,6 +62,12 @@ export type DefDeInvocacao = {
    * nela. Golpe em área passa por cima — não há onde se pôr na frente.
    */
   guarda?: boolean
+  /**
+   * A RODA: cada golpe que a acerta vira aprendizado, e o próximo igual
+   * entra `porGolpe` mais fraco, até `maximo`. Repetir a mesma técnica contra
+   * ela vai perdendo força — é preciso variar. O Mahoraga da obra.
+   */
+  adapta?: { porGolpe: number; maximo: number }
   /** Apresentação: a cor e o kanji da orbe. */
   cor: string
   marca: string
@@ -195,6 +201,7 @@ export const INVOCACOES: Record<string, DefDeInvocacao> = {
     golpe: { nome: 'Espada da Extinção', power: 34, tags: ['shikigami', 'espada'], alcance: 'CORPO' },
     manutencao: 0,
     manutencaoVida: 0.025,
+    adapta: { porGolpe: 0.3, maximo: 0.6 },
     cor: '#fbbf24',
     marca: '輪',
   },

@@ -248,6 +248,11 @@ export type CombatantState = {
    * de uma vez, toma dano extra no lugar.
    */
   chefe?: boolean
+  /**
+   * Quanto do dano de cada golpe este combatente já aprendeu a ignorar, por
+   * id de habilidade (a roda do Mahoraga). Ver DefDeInvocacao.adapta.
+   */
+  adaptacao?: Record<string, number>
 }
 
 export type InvocacaoEmCampo = {
@@ -371,6 +376,8 @@ export type TurnResult = {
   consumidas?: number
   /** ATTACK: o alvo caiu pelo ABATE, abaixo do limiar. */
   abatido?: boolean
+  /** ATTACK: o alvo se adaptou ao golpe (a roda do Mahoraga girou). */
+  adaptou?: boolean
   /** ATTACK: a invocação guardiã se pôs na frente do dono (ver `guarda`). */
   interceptou?: boolean
   /** CHARGE: a carga foi perdida (atordoado no meio) em vez de começar. */

@@ -1055,7 +1055,13 @@ function performSkillUse(
    * Como cada lado se defende nesta rodada: o bloqueio inteiro (ver
    * passarPelaGuarda) e a postura de cada um (ver POSTURA_CUSTO).
    */
-  defesa: { bloqueia?: boolean; posturaAtacante?: Postura; posturaDefensor?: Postura } = {}
+  defesa: {
+    bloqueia?: boolean
+    posturaAtacante?: Postura
+    posturaDefensor?: Postura
+    /** Fração do dano que o defensor já aprendeu a ignorar (a roda do Mahoraga). */
+    adaptacao?: number
+  } = {}
 ): {
   attacker: CombatantState
   defender: CombatantState
@@ -1133,7 +1139,8 @@ function performSkillUse(
       (defesa.posturaAtacante === 'IMPETO' ? 1 + IMPETO_DANO : 1) *
       (defesa.posturaDefensor === 'IMPETO' ? 1 + IMPETO_EXPOSTO : 1) *
       // A janela de punição depois do golpe carregado — ver EXPOSTO_DANO.
-      ((defender.exposto ?? 0) > 0 ? 1 + EXPOSTO_DANO : 1)
+      ((defender.exposto ?? 0) > 0 ? 1 + EXPOSTO_DANO : 1) *
+      (1 - (defesa.adaptacao ?? 0))
     const computed = { ...bruto, damage: Math.max(1, Math.round(bruto.damage * impeto)) }
     // APARAR: só contra quem veio de perto. É a aposta da postura — contra
     // golpe à distância, a stamina foi gasta à toa.
@@ -1786,6 +1793,11 @@ function reviverAliado(
 }
 
 const mesmoLugar = (a: EmCampo, b: EmCampo) => a.lado === b.lado && a.indice === b.indice
+
+/** O golpe que a adaptação aprende: o id da habilidade, ou o ataque básico. */
+function chaveDaAdaptacao(skill: SkillDef | null): string {
+  return skill?.id ?? 'ataque-basico'
+}
 
 /**
  * De pé e lutador de verdade. É quem decide a luta: um lado com o invocador
@@ -2469,10 +2481,29 @@ export function resolveRound(
         bloqueia: bloqueando.has(chave(mira)),
         posturaAtacante: posturas.get(chave(p)),
         posturaDefensor: posturas.get(chave(mira)),
+        adaptacao: alvoAtual.adaptacao?.[chaveDaAdaptacao(skillDoGolpe)],
       }
     )
     atual = comCombatenteEm(atual, p, eraCarregado ? soltarCarga(r.attacker) : r.attacker)
     atual = comCombatenteEm(atual, mira, r.defender)
+
+    // A RODA GIRA: quem se adapta (o Mahoraga) aprende o golpe que acabou de
+    // levar, e o próximo igual entra mais fraco. Só golpe que encostou ensina.
+    let adaptou = false
+    const regraDeAdaptacao = alvoAtual.invocacao ? defDeInvocacao(alvoAtual.invocacao.def)?.adapta : undefined
+    const depoisDoGolpe = combatenteEm(atual, mira)
+    if (regraDeAdaptacao && (r.turnResult.damage ?? 0) > 0 && estaDePe(depoisDoGolpe)) {
+      const golpeAprendido = chaveDaAdaptacao(skillDoGolpe)
+      const antes = depoisDoGolpe.adaptacao?.[golpeAprendido] ?? 0
+      const agora = Math.min(regraDeAdaptacao.maximo, antes + regraDeAdaptacao.porGolpe)
+      if (agora > antes) {
+        atual = comCombatenteEm(atual, mira, {
+          ...depoisDoGolpe,
+          adaptacao: { ...depoisDoGolpe.adaptacao, [golpeAprendido]: agora },
+        })
+        adaptou = true
+      }
+    }
 
     // ABATE: abaixo do limiar depois do golpe, cai na hora. Chefe nunca —
     // contra ele fica o dano extra do EXECUTE que vem no mesmo golpe.
@@ -2503,6 +2534,7 @@ export function resolveRound(
         ...(consumidas > 0 ? { consumidas } : {}),
         ...(cumpriuOrdem && donoDaOrdem ? { ordem: true, donoDaOrdem: donoDaOrdem.indice } : {}),
         ...(interceptou ? { interceptou: true } : {}),
+        ...(adaptou ? { adaptou: true } : {}),
         ...(abatido ? { abatido: true, targetHpAfter: 0 } : {}),
       },
       ...r.eventos.map((ev) => em(ev, ev.side === p.lado ? p.indice : alvoDoGolpe.indice))

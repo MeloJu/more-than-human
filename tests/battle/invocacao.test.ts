@@ -340,6 +340,23 @@ describe('Megumi: um shikigami por vez, e a ordem', () => {
     expect(volta.state.aliados[1].invocacao?.fora).toBe(true)
   })
 
+  it('a roda do Mahoraga: o mesmo golpe entra mais fraco da segunda vez', () => {
+    const e = inicio({ hp: 1000 })
+    const comMahoraga = r(e, atacar('mahoraga')).state
+    const primeiro = r(comMahoraga, parado, atacar('sk', 1))
+    const golpe1 = primeiro.turnResults.find((x) => x.side === 'ENEMY' && x.kind === 'ATTACK')
+    expect(golpe1?.adaptou).toBe(true)
+    expect(primeiro.state.aliados[1].adaptacao?.sk).toBe(INVOCACOES.mahoraga.adapta?.porGolpe)
+
+    const segundo = r(primeiro.state, parado, atacar('sk', 1))
+    const golpe2 = segundo.turnResults.find((x) => x.side === 'ENEMY' && x.kind === 'ATTACK')
+    expect(golpe2?.damage ?? 0).toBeLessThan(golpe1?.damage ?? 0)
+
+    // Outro golpe não foi aprendido: entra inteiro.
+    const outro = r(primeiro.state, parado, atacar(null, 1))
+    expect(outro.state.aliados[1].adaptacao?.['ataque-basico']).toBe(INVOCACOES.mahoraga.adapta?.porGolpe)
+  })
+
   it('a sombra destruída do Jin-Woo volta mais rápido que a espera padrão', () => {
     const comSoldado = r(inicio(), atacar('soldado')).state
     const caiu = r(comSoldado, atacar(null, 0), atacar('sk', 1))

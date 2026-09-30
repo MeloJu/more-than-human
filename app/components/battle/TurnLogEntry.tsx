@@ -284,6 +284,7 @@ export function TurnLogEntry({
           )}
           {turn.acertoGarantido && <span className="opacity-70">, ignorando a defesa</span>}
           {turn.interceptou && <span className="opacity-70">, que se pôs na frente do dono</span>}
+          {turn.adaptou && <span className="text-amber-400"> — a roda gira, e {alvoName} se adapta ao golpe</span>}
           {turn.abatido && <span className="font-medium text-red-500">, e {alvoName} caiu na hora</span>}
         </>
       )}
