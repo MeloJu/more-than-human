@@ -1,0 +1,524 @@
+<title>HUD de Batalha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700;1,600;1,700;1,800&family=Geist:wght@400;500;600;700&family=Kaushan+Script&family=Yuji+Syuku&display=swap">
+<style>
+/* Layout: a página da luta como está hoje (cartas grandes com a arte), e um HUD flutuante
+   no estilo Sword Art Online — party no canto esquerdo, inimigos no direito — fixo na tela,
+   para a vida de todo mundo continuar à vista enquanto se rola até os golpes. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0a0f;
+  --bg-2: #101018;
+  --surface: #16161f;
+  --border: #2a2a38;
+  --muted: #9a9aae;
+  --text: #ececf3;
+  --accent: #ff6b1a;
+  --spirit: #4dd0e1;
+  --hp: #3ddc6e;
+  --hp-mid: #f5c518;
+  --hp-low: #ef4444;
+  --en: #38bdf8;
+  --st: #f59e0b;
+  --hud: rgba(12, 14, 22, .58);
+  --hud-linha: rgba(210, 225, 255, .55);
+  --font-brand: 'Kaushan Script', cursive;
+  --font-title: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+  --font-body: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-kanji: 'Yuji Syuku', 'Noto Serif JP', serif;
+  --chanfro: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 var(--font-body); padding-inline: 20px; padding-block: 28px 48px; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible { outline: 2px solid var(--spirit); outline-offset: 2px; }
+
+/* ---------- página do protótipo ---------- */
+.pagina { max-width: 1760px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.cabeca { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; }
+.kicker { font: 600 11px/1 var(--font-body); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 6px 0 0; font: italic 800 34px/1 var(--font-title); text-transform: uppercase; text-wrap: balance; }
+.versao { display: inline-block; margin-left: 10px; font: 600 11px/1 var(--font-body); letter-spacing: .14em; color: var(--spirit); vertical-align: middle; }
+.mudancas { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.mudanca { border-left: 2px solid var(--accent); padding: 4px 0 4px 12px; color: var(--muted); font-size: 13px; max-width: 46ch; }
+.mudanca b { color: var(--text); display: block; font-weight: 600; margin-bottom: 2px; }
+.telas { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+.moldura { display: flex; flex-direction: column; gap: 8px; }
+.moldura .rotulo { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; color: var(--muted); }
+.tela { position: relative; overflow: hidden; border: 1px solid var(--border);
+  background: radial-gradient(1200px 500px at 15% -10%, rgba(255,107,26,.10), transparent 60%), radial-gradient(1000px 500px at 95% 0%, rgba(77,208,225,.10), transparent 60%), var(--bg); }
+.tela.pc { width: 1280px; height: 800px; max-width: 100%; border-radius: 6px; }
+.tela.cel { width: 400px; height: 860px; border-radius: 26px; border-width: 6px; border-color: #1f1f2b; }
+.rolagem { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; }
+.nota { font-size: 12px; color: var(--muted); max-width: 72ch; }
+
+/* ---------- a página da luta, como é hoje ---------- */
+.nav { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid var(--border); background: rgba(10,10,15,.92); position: sticky; top: 0; z-index: 4; }
+.marca { font: 400 22px/1 var(--font-brand); display: flex; align-items: center; gap: 10px; }
+.marca i { width: 28px; height: 28px; background: var(--accent); border-radius: 6px; }
+.nav .links { display: flex; gap: 22px; font-size: 13px; color: var(--muted); }
+.nav .links b { color: var(--text); font-weight: 600; }
+.cel .nav .links { display: none; }
+.moedas { border: 1px solid #6b4a14; color: #fbbf24; padding: 4px 10px; border-radius: 8px; font-weight: 700; font-size: 12px; }
+.luta { display: flex; flex-direction: column; gap: 18px; padding: 18px 24px 28px; }
+.cel .luta { padding: 132px 12px 24px; gap: 14px; }
+.vs { display: flex; align-items: baseline; gap: 10px; font: 400 32px/1 var(--font-brand); }
+.vs small { font: 600 13px/1 var(--font-body); color: var(--muted); }
+.vs .a { color: var(--accent); } .vs .b { color: var(--spirit); }
+.cel .vs { font-size: 24px; flex-wrap: wrap; }
+.cartas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+.cel .cartas { grid-template-columns: 1fr; }
+.carta { position: relative; min-height: 380px; clip-path: var(--chanfro); background: var(--surface); }
+.carta::before { content: ''; position: absolute; inset: 0; clip-path: var(--chanfro); padding: 2px; background: var(--c); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.carta .arte { position: absolute; inset: 2px; clip-path: var(--chanfro);
+  background: radial-gradient(70% 60% at 50% 30%, color-mix(in srgb, var(--c) 55%, transparent), transparent 70%), linear-gradient(to top, rgba(10,10,15,.95) 10%, transparent 55%), #12121a;
+  display: grid; place-items: center; font: 400 120px/1 var(--font-kanji); color: color-mix(in srgb, var(--c) 70%, #fff); text-shadow: 0 0 40px var(--c); padding-bottom: 120px; }
+.carta .base { position: absolute; left: 16px; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; }
+.carta .nome { font: 700 24px/1 var(--font-body); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.selo-forma { font: 600 11px/1 var(--font-body); padding: 4px 8px; color: #fff; border: 1px solid var(--c); background: color-mix(in srgb, var(--c) 30%, rgba(10,10,15,.6)); border-radius: 2px 6px 2px 6px; }
+.carta.transformada { filter: drop-shadow(0 0 18px color-mix(in srgb, var(--c) 55%, transparent)); }
+.membro .forma-h { font: 400 11px/1 var(--font-kanji); color: var(--accent); margin-left: 4px; text-shadow: 0 0 8px var(--accent); }
+.cel .carta { min-height: 300px; }
+.cel .carta .arte { font-size: 90px; padding-bottom: 90px; }
+.barra { position: relative; height: 8px; background: rgba(255,255,255,.08); border-radius: 2px; overflow: hidden; }
+.barra > i { position: absolute; inset: 0 auto 0 0; border-radius: 2px; transition: width .7s cubic-bezier(.2,.8,.2,1), background-color .4s; }
+.linha-barra { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.historico { clip-path: var(--chanfro); background: var(--bg-2); border: 0; padding: 16px; display: flex; flex-direction: column; gap: 8px; font-size: 13px; min-height: 380px; }
+.historico h3, .acoes h3 { margin: 0; font: italic 800 17px/1 var(--font-title); text-transform: uppercase; letter-spacing: .04em; }
+.historico ol { margin: 0; padding-left: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
+.historico li b { color: var(--text); font-weight: 600; }
+.cel .historico { min-height: 0; }
+.dano { color: #fca5a5; font-variant-numeric: tabular-nums; }
+.cura { color: var(--mc); font-variant-numeric: tabular-nums; }
+/* O recorte chanfrado mora numa camada de FUNDO, e não no painel: clip-path no
+   painel cortaria o menu da mochila que abre por cima dos golpes. */
+.acoes { position: relative; z-index: 2; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+.acoes::before { content: ''; position: absolute; inset: 0; z-index: -1; clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px); background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 7%, var(--surface)), var(--surface)); }
+.acoes .rotulo-p { font: 600 10.5px/1 var(--font-body); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.posturas { display: flex; gap: 6px; flex-wrap: wrap; }
+.postura { border: 1px solid var(--border); background: var(--bg); padding: 6px 11px; border-radius: 2px 8px 2px 8px; font-size: 12.5px; font-weight: 600; }
+.postura small { color: #fbbf24; margin-left: 4px; font-size: 10.5px; }
+.postura[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg)); }
+.golpes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.cel .golpes { grid-template-columns: 1fr 1fr; gap: 8px; }
+.golpe { display: flex; flex-direction: column; gap: 3px; border: 1px solid var(--border); background: rgba(10,10,15,.6); padding: 10px 12px; text-align: left; min-height: 64px; border-radius: 2px 10px 2px 10px; }
+.golpe:hover { border-color: color-mix(in srgb, var(--accent) 70%, var(--border)); }
+.golpe[disabled] { opacity: .4; cursor: not-allowed; }
+.golpe .t { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.golpe b { font-weight: 600; font-size: 13.5px; line-height: 1.15; }
+.custo { font: 700 10px/1 var(--font-body); padding: 3px 5px; border-radius: 3px; color: var(--en); border: 1px solid color-mix(in srgb, var(--en) 45%, transparent); white-space: nowrap; }
+.custo.st { color: var(--st); border-color: color-mix(in srgb, var(--st) 45%, transparent); }
+.golpe .d { font-size: 11.5px; color: var(--muted); }
+/* A linha de cima das ações: as posturas, e a mochila compacta no fim. */
+.linha-postura { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.linha-postura .posturas { flex: 1; min-width: 0; }
+
+/* MOCHILA COMPRIMIDA: um botão só. Passar o mouse (ou tocar) abre a lista por
+   cima dos golpes; escolher uma poção já usa, e a lista fecha. */
+.menus { display: flex; gap: 8px; margin-left: auto; }
+.menu-compacto { position: relative; --mc: #86efac; }
+.menu-compacto.formas { --mc: var(--accent); }
+.menu-compacto.formas .menu-lista { width: 310px; }
+.item .custo-f { font-size: 10.5px; font-weight: 700; color: var(--en); white-space: nowrap; }
+.item .tag { font-size: 10.5px; color: var(--mc); }
+.item.ativa { background: color-mix(in srgb, var(--mc) 12%, transparent); }
+.menu-botao {
+  display: flex; align-items: center; gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--mc) 40%, var(--border)); background: var(--bg);
+  padding: 6px 11px; border-radius: 2px 8px 2px 8px; font-size: 12.5px; font-weight: 600;
+}
+.menu-botao .k { font: 400 14px/1 var(--font-kanji); color: var(--mc); }
+.menu-botao .q { font-size: 10.5px; font-weight: 700; color: #0a0a0f; background: var(--mc); padding: 1px 5px; border-radius: 6px; }
+.menu-lista {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 4; width: 250px;
+  display: none; flex-direction: column; gap: 4px; padding: 8px;
+  background: rgba(16,16,24,.96); border: 1px solid color-mix(in srgb, var(--mc) 35%, var(--border));
+  border-radius: 2px 10px 2px 10px; box-shadow: 0 14px 30px rgba(0,0,0,.6);
+}
+.menu-lista::before { content: ''; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
+.menu-compacto:hover .menu-lista, .menu-compacto:focus-within .menu-lista, .menu-compacto.aberta .menu-lista { display: flex; }
+.menu-lista .aviso { font-size: 11px; color: var(--muted); padding: 0 4px 2px; }
+.item {
+  display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center;
+  border: 0; background: transparent; padding: 6px 6px; border-radius: 2px 8px 2px 8px; text-align: left;
+}
+.item:hover:not([disabled]), .item:focus-visible { background: color-mix(in srgb, var(--mc) 12%, transparent); }
+.item[disabled] { opacity: .4; cursor: not-allowed; }
+.item .k { font: 400 17px/1 var(--font-kanji); color: var(--mc); text-align: center; }
+.item b { font-weight: 600; font-size: 13px; display: block; }
+.item small { font-size: 11px; color: var(--muted); display: block; }
+.item .q { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* ---------- o HUD flutuante, estilo SAO ---------- */
+.hud { position: absolute; z-index: 6; display: flex; flex-direction: column; gap: 6px; width: 290px; pointer-events: none; }
+.hud > * { pointer-events: auto; }
+.hud.dir { align-items: flex-end; }
+/* TRANSLÚCIDO em repouso, nítido quando a pessoa olha (mouse, foco, arrasto). */
+.hud { opacity: .62; transition: opacity .2s; }
+.hud:hover, .hud:focus-within, .hud.arrastando { opacity: 1; }
+.membro .topo, .membro .trilho, .membro .detalhe, .membro .lv { -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+
+/* A barra de título: segura para arrastar, e o botão comprime/expande. */
+.hud-cabeca { display: flex; align-items: center; gap: 6px; width: 100%; }
+.hud.dir .hud-cabeca { flex-direction: row-reverse; }
+.hud-pega {
+  display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0;
+  border: 0; background: none; padding: 2px 4px; cursor: grab; touch-action: none;
+  font: 700 10px/1 var(--font-title); letter-spacing: .3em; text-transform: uppercase; color: var(--hud-linha);
+}
+.hud.dir .hud-pega { flex-direction: row-reverse; }
+.hud.arrastando .hud-pega { cursor: grabbing; }
+.hud-pega .grip { letter-spacing: 0; font-size: 12px; opacity: .8; }
+.hud-botao {
+  width: 20px; height: 20px; display: grid; place-items: center; flex: none;
+  border: 1px solid var(--hud-linha); background: var(--hud); color: #dfe7ff;
+  font: 700 13px/1 var(--font-body); transform: rotate(45deg) scale(.82);
+}
+.hud-botao span { transform: rotate(-45deg); display: block; }
+
+/* COMPRIMIDO: cada membro vira só a barra de vida, fina, com o nome por cima. */
+.hud.compacto .membro { grid-template-columns: 1fr; }
+.hud.compacto .membro .lv, .hud.compacto .membro .topo, .hud.compacto .membro .detalhe { display: none; }
+.hud.compacto .membro .trilho { grid-column: 1; height: 7px; }
+.hud.compacto .membro.voce .trilho { height: 8px; }
+.hud.compacto .membro::after {
+  content: attr(data-curto); position: absolute; left: 4px; top: -11px;
+  font: italic 700 9.5px/1 var(--font-title); letter-spacing: .08em; text-transform: uppercase; color: #dfe7ff;
+}
+.hud.dir.compacto .membro::after { left: auto; right: 4px; }
+.hud.compacto { gap: 13px; }
+.hud.compacto .hud-cabeca { margin-bottom: 4px; }
+
+/* Cada membro: a barra angulada do SAO — nome à esquerda numa aba, barra de vida inclinada,
+   números embaixo. Passar o mouse abre energia, stamina e efeitos. */
+.membro {
+  --w: 100%;
+  position: relative; width: var(--w); border: 0; padding: 0; background: none; text-align: left;
+  display: grid; grid-template-columns: 30px 1fr; gap: 0 8px; align-items: center;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.55));
+}
+.membro.menor { --w: 86%; }
+.membro .lv { grid-row: span 2; width: 30px; height: 30px; display: grid; place-items: center;
+  background: var(--hud); border: 1px solid var(--hud-linha); transform: rotate(45deg) scale(.82);
+  font: 700 11px/1 var(--font-title); }
+.membro .lv span { transform: rotate(-45deg); display: block; }
+.membro .topo { display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  background: var(--hud); padding: 3px 10px 2px 8px;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+  border-top: 1px solid var(--hud-linha); }
+.membro .nome-h { font: italic 700 13px/1.1 var(--font-title); text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.membro .hp-num { font: 600 11px/1 var(--font-body); font-variant-numeric: tabular-nums; color: #dfe7ff; white-space: nowrap; }
+.membro .trilho { grid-column: 2; height: 10px; background: rgba(8,10,16,.85);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 7px) 100%, 0 100%);
+  border-bottom: 1px solid var(--hud-linha); position: relative; overflow: hidden; }
+.membro .trilho > i { position: absolute; inset: 1px auto 1px 0; transition: width .7s cubic-bezier(.2,.8,.2,1), background .4s;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cor) 85%, #fff), var(--cor)); }
+.hud.dir .membro { grid-template-columns: 1fr 30px; }
+.hud.dir .membro .lv { grid-column: 2; grid-row: 1 / span 2; }
+.hud.dir .membro .topo { grid-column: 1; grid-row: 1; clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%); padding: 3px 8px 2px 10px; }
+.hud.dir .membro .trilho { grid-column: 1; grid-row: 2; clip-path: polygon(7px 0, 100% 0, 100% 100%, 0 100%); transform: scaleX(-1); }
+.hud.dir .membro .trilho > i { }
+.membro .detalhe { grid-column: 2; display: none; gap: 4px; flex-direction: column; margin-top: 4px; padding: 6px 8px; background: var(--hud); border-left: 1px solid var(--hud-linha); font-size: 11px; color: #c9d3ee; }
+.hud.dir .membro .detalhe { grid-column: 1; border-left: 0; border-right: 1px solid var(--hud-linha); }
+.membro:hover .detalhe, .membro:focus-visible .detalhe, .membro.aberto .detalhe { display: flex; }
+.detalhe .par { display: grid; grid-template-columns: 22px 1fr auto; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+.detalhe .par .barra { height: 4px; }
+.detalhe .efeitos { display: flex; flex-wrap: wrap; gap: 4px; }
+.detalhe .efeito { padding: 1px 6px; background: rgba(255,255,255,.07); border-radius: 2px 6px 2px 6px; }
+.detalhe .efeito.ruim { color: #fca5a5; background: rgba(239,68,68,.14); }
+.membro.alvo .topo { border-top-color: var(--spirit); box-shadow: inset 0 0 0 1px var(--spirit); }
+.membro.alvo .lv { border-color: var(--spirit); background: color-mix(in srgb, var(--spirit) 30%, var(--hud)); }
+.membro .mira { display: none; font: 700 9px/1 var(--font-body); letter-spacing: .16em; color: #0a0a0f; background: var(--spirit); padding: 2px 5px; margin-right: 4px; }
+.membro.alvo .mira { display: inline-block; }
+.membro.caido { opacity: .45; filter: grayscale(1); }
+.membro.atingido .trilho { animation: pisca .45s; }
+@keyframes pisca { 30% { filter: brightness(2.2); } }
+.membro.voce .nome-h { color: #fff; }
+.membro.voce .trilho { height: 12px; }
+
+/* Celular: o HUD encolhe para as barras, e um toque abre. */
+.cel .hud { width: 168px; opacity: .8; }
+.cel .membro { grid-template-columns: 22px 1fr; gap: 0 6px; }
+.cel .hud.dir .membro { grid-template-columns: 1fr 22px; }
+.cel .membro .lv { width: 22px; height: 22px; font-size: 9px; }
+.cel .membro .nome-h { font-size: 11px; }
+.cel .membro .hp-num { font-size: 9.5px; }
+.cel .membro .trilho { height: 7px; }
+.cel .membro.voce .trilho { height: 8px; }
+.cel .membro:hover .detalhe { display: none; }
+.cel .membro.aberto .detalhe { display: flex; }
+
+@media (prefers-reduced-motion: reduce) {
+  .barra > i, .membro .trilho > i { transition: none; }
+  .membro.atingido .trilho { animation: none; }
+  .rolagem { scroll-behavior: auto; }
+}
+</style>
+
+<div class="pagina">
+  <div class="cabeca">
+    <div>
+      <div class="kicker">More Than Human · Proposta de tela</div>
+      <h1>HUD de Batalha <span class="versao">v6 · estilo SAO</span></h1>
+    </div>
+  </div>
+
+  <div class="mudancas">
+    <div class="mudanca"><b>As cartas ficam como estão</b>Seu personagem, o histórico e o inimigo principal continuam grandes, com a arte.</div>
+    <div class="mudanca"><b>A party vira o HUD do canto</b>Você e os aliados no canto esquerdo, com nome, nível e vida, como a party do SAO. As faixas no meio da página somem.</div>
+    <div class="mudanca"><b>Os inimigos no canto oposto</b>Todos com a vida, o chefe em cima. Clicar num deles mira nele.</div>
+    <div class="mudanca"><b>Ações limpas</b>Só a postura e os golpes. Formas e Mochila viram dois botões no fim da linha: passe o mouse (ou toque) para escolher. A faixa de formas no meio da página some.</div>
+    <div class="mudanca"><b>Translúcido, arrastável, comprimível</b>Em repouso o HUD fica meio transparente. Arraste pela barra de título para qualquer canto, ou comprima com o – para ficar só com as barras. Passe o mouse num membro para ver energia, stamina e efeitos.</div>
+  </div>
+
+  <div class="telas">
+    <div class="moldura">
+      <div class="rotulo"><span>Computador · 1280 × 800 · já rolado até os golpes</span><span>Role para cima e para baixo: o HUD fica</span></div>
+      <div class="tela pc" id="tela-pc"></div>
+    </div>
+    <div class="moldura">
+      <div class="rotulo"><span>Celular · 400 × 860</span><span>Toque num membro para abrir</span></div>
+      <div class="tela cel" id="tela-cel"></div>
+    </div>
+  </div>
+  <p class="nota">Protótipo de exemplo, com números de uma luta do andar 2 da raid (Floresta de Menos). Passe o mouse no HUD, clique num inimigo para mirar e use um golpe ou uma poção: a vida desce no HUD, que continua à vista onde quer que você esteja na página. No jogo, o kanji das cartas dá lugar à arte do personagem.</p>
+</div>
+
+<script>
+const estado = {
+  rodada: 3, alvo: 0, postura: 'NEUTRA', abertos: new Set(),
+  aliados: [
+    { nome: 'Hero', nv: 12, hp: 237, max: 295, en: 216, enMax: 244, st: 182, stMax: 197, c: '#ff6b1a', k: '忍', voce: true, efeitos: [] },
+    { nome: 'Orihime', nv: 12, hp: 171, max: 210, en: 140, enMax: 190, st: 160, stMax: 170, c: '#f59e0b', k: '盾', efeitos: ['Escudo 35'] },
+    { nome: 'Rukia', nv: 12, hp: 74, max: 228, en: 96, enMax: 200, st: 120, stMax: 180, c: '#7dd3fc', k: '雪', efeitos: ['ruim:↓ VEL 15% (1)'] },
+  ],
+  inimigos: [
+    { nome: 'Menos Grande', nv: 10, hp: 214, max: 291, en: 60, enMax: 187, st: 140, stMax: 166, c: '#a855f7', k: '虚', efeitos: ['ruim:Sangra 6/rodada (2)'] },
+    { nome: 'Hollow', nv: 10, hp: 125, max: 125, en: 40, enMax: 125, st: 90, stMax: 90, c: '#a1a1aa', k: '仮', efeitos: [] },
+  ],
+  log: [
+    '<b>Menos Grande</b> usou Cero Gigante (em área) — Hero <span class="dano">−22</span>, Orihime <span class="dano">−19</span>, Rukia <span class="dano">−24</span>.',
+    '<b>Hero</b> usou Shadow Clone Barrage em Menos Grande <span class="dano">−41</span> e recuperou <span class="cura">8</span>.',
+    '<b>Orihime</b> ergueu Santen Kesshun em Rukia — escudo 35.',
+    '<b>Hollow</b> usou Mordida Faminta em Rukia <span class="dano">−18</span>.',
+  ],
+}
+const GOLPES = [
+  { n: 'Rasengan', c: 28, d: '34 de poder · à distância', p: 34 },
+  { n: 'Shadow Clone Barrage', c: 22, d: '90% de precisão · vampirismo 20%', p: 26 },
+  { n: 'Armadilha de Arame', c: 12, d: '↓ VEL 8% por 2 rodadas', p: 12 },
+  { n: 'Uzumaki Barrier', c: 20, st: true, d: 'Escudo 35 · defensiva', p: 0 },
+  { n: 'Ataque Básico', c: 0, d: 'sem custo', p: 12 },
+  { n: 'Bloquear', c: 20, st: true, d: '−60% de dano · gasta a rodada', p: -1 },
+]
+const FORMAS = [
+  { n: 'Manto de Chakra da Kurama', k: '九', custo: '3 EN · 3 ST', d: 'ATQ +20% · VEL +15%', gasta: false },
+  { n: 'Modo Sábio', k: '仙', custo: '30 EN', d: 'ATQ +25% · DEF +10%', gasta: true, trancada: 'nível 14' },
+]
+const MOCHILA = [
+  { n: 'Poção', q: 2, vida: .3, k: '薬', d: 'Recupera 30% da vida' },
+  { n: 'Super Poção', q: 1, vida: .6, k: '癒', d: 'Recupera 60% da vida' },
+  { n: 'Éter', q: 1, en: .5, k: '気', d: 'Recupera 50% da energia' },
+]
+const POSTURAS = [['NEUTRA', 'Neutra', 'grátis'], ['ESQUIVA', 'Esquivar', '30 ST'], ['APARAR', 'Aparar', '37 ST'], ['GUARDA', 'Guarda', '15 ST'], ['IMPETO', 'Ímpeto', '25 ST']]
+const cor = (f) => (f > .5 ? 'var(--hp)' : f > .2 ? 'var(--hp-mid)' : 'var(--hp-low)')
+const pct = (a, b) => `${Math.max(0, Math.min(100, (a / b) * 100))}%`
+
+function membro(l, i, lado) {
+  const chave = lado + i
+  const mira = lado === 'ini'
+  const cls = ['membro', l.voce ? 'voce' : '', !l.voce && lado === 'ali' ? 'menor' : '', i > 0 && lado === 'ini' ? 'menor' : '', mira && i === estado.alvo ? 'alvo' : '', l.hp <= 0 ? 'caido' : '', estado.abertos.has(chave) ? 'aberto' : '', l.atingido ? 'atingido' : ''].join(' ')
+  const efeitos = l.efeitos.map((e) => `<span class="efeito ${e.startsWith('ruim:') ? 'ruim' : ''}">${e.replace('ruim:', '')}</span>`).join('')
+  return `<button type="button" class="${cls}" data-curto="${l.nome} · ${Math.max(0, l.hp)}" data-membro="${chave}" ${mira ? `data-alvo="${i}"` : ''} aria-label="${l.nome}, ${l.hp} de ${l.max} de vida${mira ? '. Clique para mirar' : ''}" style="--cor:${cor(l.hp / l.max)}">
+    <span class="lv"><span>${l.nv}</span></span>
+    <span class="topo"><span class="nome-h">${mira ? '<span class="mira">ALVO</span>' : ''}${l.nome}${l.forma ? `<span class="forma-h" title="${l.forma}">変</span>` : ''}</span><span class="hp-num">${Math.max(0, l.hp)}/${l.max}</span></span>
+    <span class="trilho"><i style="width:${pct(l.hp, l.max)}"></i></span>
+    <span class="detalhe">
+      <span class="par"><span>EN</span><span class="barra"><i style="width:${pct(l.en, l.enMax)};background:var(--en)"></i></span><span>${l.en}</span></span>
+      <span class="par"><span>ST</span><span class="barra"><i style="width:${pct(l.st, l.stMax)};background:var(--st)"></i></span><span>${l.st}</span></span>
+      ${efeitos ? `<span class="efeitos">${efeitos}</span>` : ''}
+    </span>
+  </button>`
+}
+
+function carta(l) {
+  return `<div class="carta ${l.forma ? 'transformada' : ''}" style="--c:${l.c}"><div class="arte" aria-hidden="true">${l.k}</div><div class="base">
+    <div class="nome">${l.nome}${l.forma ? `<span class="selo-forma">${l.forma}</span>` : ''}</div>
+    <div class="linha-barra"><span>HP</span><span>${Math.max(0, l.hp)} / ${l.max}</span></div><div class="barra"><i style="width:${pct(l.hp, l.max)};background:${cor(l.hp / l.max)}"></i></div>
+    <div class="linha-barra"><span>Energia</span><span>${l.en} / ${l.enMax}</span></div><div class="barra"><i style="width:${pct(l.en, l.enMax)};background:var(--en)"></i></div>
+  </div></div>`
+}
+
+function tela(tipo) {
+  const eu = estado.aliados[0]
+  const ini = estado.inimigos[0]
+  return `<div class="rolagem">
+    <div class="nav"><span class="marca"><i></i>More Than Human</span><span class="links"><span>Central</span><b>Batalha</b><span>História</span><span>Personagem</span><span>Loja</span></span><span class="moedas">◆ 1600</span></div>
+    <div class="luta">
+      <div class="vs"><span class="a">Hero</span><small>vs</small><span class="b">Menos Grande</span><small>Raid · Las Noches · Andar 2/5 · Rodada ${estado.rodada}</small></div>
+      <div class="cartas">${carta(eu)}<div class="historico"><h3>Histórico</h3><ol>${estado.log.map((l) => `<li>${l}</li>`).join('')}</ol></div>${carta(ini)}</div>
+      <div class="acoes">
+        <h3>Ações</h3>
+        <div class="linha-postura">
+          <div class="posturas" role="group" aria-label="Postura da rodada">${POSTURAS.map(([id, n, c]) => `<button type="button" class="postura" data-postura="${id}" aria-pressed="${estado.postura === id}">${n}<small>${c}</small></button>`).join('')}</div>
+          <div class="menus">
+          <div class="menu-compacto formas ${estado.formasAberta ? 'aberta' : ''}">
+            <button type="button" class="menu-botao" data-formas aria-expanded="${Boolean(estado.formasAberta)}" aria-haspopup="true"><span class="k" aria-hidden="true">変</span>Formas<span class="q">${FORMAS.filter((x) => !x.trancada).length}</span></button>
+            <div class="menu-lista" role="menu">
+              <span class="aviso">${estado.forma ? `Ativa: ${estado.forma}.` : 'Liberar uma forma muda seus atributos até ela acabar.'}</span>
+              ${FORMAS.map((x, i) => `<button type="button" class="item ${estado.forma === x.n ? 'ativa' : ''}" role="menuitem" data-forma="${i}" ${x.trancada || estado.forma ? 'disabled' : ''}><span class="k" aria-hidden="true">${x.k}</span><span><b>${x.n}</b><small>${x.d}</small><small class="tag">${x.trancada ? `libera no ${x.trancada}` : estado.forma === x.n ? 'ativa' : x.gasta ? 'gasta a rodada' : 'não gasta a rodada'}</small></span><span class="custo-f">${x.custo}</span></button>`).join('')}
+            </div>
+          </div>
+          <div class="menu-compacto mochila ${estado.mochilaAberta ? 'aberta' : ''}">
+            <button type="button" class="menu-botao" data-mochila aria-expanded="${estado.mochilaAberta}" aria-haspopup="true"><span class="k" aria-hidden="true">薬</span>Mochila<span class="q">${MOCHILA.reduce((s, m) => s + m.q, 0)}</span></button>
+            <div class="menu-lista" role="menu">
+              <span class="aviso">Beber gasta a rodada.</span>
+              ${MOCHILA.map((m, i) => `<button type="button" class="item" role="menuitem" data-item="${i}" ${m.q ? '' : 'disabled'}><span class="k" aria-hidden="true">${m.k}</span><span><b>${m.n}</b><small>${m.d}</small></span><span class="q">×${m.q}</span></button>`).join('')}
+            </div>
+          </div>
+          </div>
+        </div>
+        <div class="golpes">${GOLPES.map((g, i) => {
+          const sem = g.st ? eu.st < g.c : eu.en < g.c
+          return `<button type="button" class="golpe" data-golpe="${i}" ${sem ? 'disabled' : ''}><span class="t"><b>${g.n}</b>${g.c ? `<span class="custo ${g.st ? 'st' : ''}">${g.c} ${g.st ? 'ST' : 'EN'}</span>` : ''}</span><span class="d">${g.d}</span></button>`
+        }).join('')}</div>
+      </div>
+    </div>
+  </div>
+  ${hud(tipo, 'esq', 'Party', estado.aliados.map((l, i) => membro(l, i, 'ali')).join(''))}
+  ${hud(tipo, 'dir', 'Inimigos', estado.inimigos.map((l, i) => membro(l, i, 'ini')).join(''))}`
+}
+
+// Onde cada HUD está e se está comprimido, por tela. No jogo isso fica salvo no
+// navegador da pessoa (localStorage), e volta igual na próxima luta.
+const huds = {
+  pc: { esq: { x: 14, y: 116, compacto: false }, dir: { x: null, y: 116, compacto: false } },
+  cel: { esq: { x: 8, y: 64, compacto: false }, dir: { x: null, y: 64, compacto: true } },
+}
+
+function hud(tipo, lado, titulo, membros) {
+  const h = huds[tipo][lado]
+  const pos = h.x === null ? `top:${h.y}px;right:${tipo === 'pc' ? 14 : 8}px` : `top:${h.y}px;left:${h.x}px`
+  return `<div class="hud ${lado} ${h.compacto ? 'compacto' : ''}" data-hud="${tipo}:${lado}" style="${pos}">
+    <div class="hud-cabeca">
+      <button type="button" class="hud-pega" data-pega aria-label="Arrastar o HUD ${titulo}"><span class="grip" aria-hidden="true">⠿</span>${titulo}</button>
+      <button type="button" class="hud-botao" data-comprime aria-label="${h.compacto ? 'Expandir' : 'Comprimir'} o HUD ${titulo}" aria-expanded="${!h.compacto}"><span>${h.compacto ? '+' : '–'}</span></button>
+    </div>
+    ${membros}
+  </div>`
+}
+
+function render() {
+  for (const tipo of ['pc', 'cel']) {
+    const el = document.getElementById('tela-' + tipo)
+    const r = el.querySelector('.rolagem')
+    const topo = r ? r.scrollTop : null
+    el.innerHTML = tela(tipo)
+    const nova = el.querySelector('.rolagem')
+    nova.style.scrollBehavior = 'auto'
+    if (topo !== null) nova.scrollTop = topo
+    else if (tipo === 'pc') nova.scrollTop = nova.scrollHeight
+    nova.style.scrollBehavior = ''
+  }
+  for (const l of [...estado.aliados, ...estado.inimigos]) l.atingido = false
+}
+
+function rodar(acao) {
+  const eu = estado.aliados[0]
+  const alvo = estado.inimigos[estado.alvo]
+  const novas = []
+  if (acao.golpe) {
+    const g = acao.golpe
+    if (g.st) eu.st -= g.c; else eu.en -= g.c
+    if (g.p > 0) {
+      const dano = Math.round(g.p * 1.35 + (estado.postura === 'IMPETO' ? 9 : 0))
+      alvo.hp = Math.max(0, alvo.hp - dano); alvo.atingido = true
+      novas.push(`<b>Hero</b> usou ${g.n} em ${alvo.nome} <span class="dano">−${dano}</span>${alvo.hp <= 0 ? ' — caiu.' : '.'}`)
+    } else novas.push(g.p === 0 ? `<b>Hero</b> usou ${g.n} — escudo 35.` : `<b>Hero</b> firmou a guarda.`)
+  } else if (acao.item) {
+    const m = acao.item; m.q -= 1
+    if (m.vida) { const c = Math.min(eu.max - eu.hp, Math.round(eu.max * m.vida)); eu.hp += c; novas.push(`<b>Hero</b> bebeu ${m.n} e recuperou <span class="cura">${c}</span>.`) }
+    if (m.en) { const c = Math.min(eu.enMax - eu.en, Math.round(eu.enMax * m.en)); eu.en += c; novas.push(`<b>Hero</b> bebeu ${m.n} e recuperou <span class="cura">${c}</span> de energia.`) }
+  }
+  const vivos = estado.inimigos.filter((l) => l.hp > 0)
+  if (vivos.length) {
+    const quem = vivos[estado.rodada % vivos.length]
+    const pobre = estado.aliados[(estado.rodada + 1) % estado.aliados.length]
+    const dano = quem.nome === 'Hollow' ? 14 : 23
+    pobre.hp = Math.max(0, pobre.hp - dano); pobre.atingido = true
+    novas.push(`<b>${quem.nome}</b> atacou ${pobre.nome} <span class="dano">−${dano}</span>.`)
+  }
+  eu.en = Math.min(eu.enMax, eu.en + 12)
+  estado.rodada += 1
+  estado.log = [...novas, ...estado.log].slice(0, 9)
+  if (alvo.hp <= 0) { const prox = estado.inimigos.findIndex((l) => l.hp > 0); if (prox >= 0) estado.alvo = prox }
+  estado.postura = 'NEUTRA'
+  render()
+}
+
+// ARRASTAR pela barra de título, preso dentro da tela. Durante o arrasto o
+// estilo muda direto no elemento (sem redesenhar), e a posição fica guardada
+// no fim.
+let arrasto = null
+document.addEventListener('pointerdown', (e) => {
+  const pega = e.target.closest('[data-pega]')
+  if (!pega) return
+  const el = pega.closest('.hud')
+  const [tipo, lado] = el.dataset.hud.split(':')
+  const tela = el.parentElement.getBoundingClientRect()
+  const caixa = el.getBoundingClientRect()
+  arrasto = { el, tipo, lado, tela, dx: e.clientX - caixa.left, dy: e.clientY - caixa.top, w: caixa.width, h: caixa.height, moveu: false }
+  el.classList.add('arrastando')
+  pega.setPointerCapture(e.pointerId)
+})
+document.addEventListener('pointermove', (e) => {
+  if (!arrasto) return
+  const { el, tela, dx, dy, w, h } = arrasto
+  const x = Math.max(4, Math.min(tela.width - w - 4, e.clientX - tela.left - dx))
+  const y = Math.max(4, Math.min(tela.height - h - 4, e.clientY - tela.top - dy))
+  el.style.left = `${x}px`; el.style.right = 'auto'; el.style.top = `${y}px`
+  arrasto.x = x; arrasto.y = y; arrasto.moveu = true
+})
+document.addEventListener('pointerup', () => {
+  if (!arrasto) return
+  const { el, tipo, lado, x, y, moveu } = arrasto
+  el.classList.remove('arrastando')
+  if (moveu) Object.assign(huds[tipo][lado], { x, y })
+  arrasto = null
+})
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('button')
+  if (!t) return
+  if (t.hasAttribute('data-comprime')) {
+    const [tipo, lado] = t.closest('.hud').dataset.hud.split(':')
+    huds[tipo][lado].compacto = !huds[tipo][lado].compacto
+    render()
+    return
+  }
+  if (t.hasAttribute('data-pega')) return
+  if (t.hasAttribute('data-mochila')) { estado.mochilaAberta = !estado.mochilaAberta; estado.formasAberta = false; render(); return }
+  if (t.hasAttribute('data-formas')) { estado.formasAberta = !estado.formasAberta; estado.mochilaAberta = false; render(); return }
+  if (t.dataset.forma !== undefined) {
+    // Forma que não gasta a rodada sai na hora; a que gasta vira a ação da rodada.
+    const forma = FORMAS[Number(t.dataset.forma)]
+    const eu = estado.aliados[0]
+    estado.forma = forma.n; estado.formasAberta = false
+    eu.forma = forma.n.replace('Manto de Chakra da Kurama', 'Manto da Kurama')
+    eu.efeitos = [forma.n.replace('Manto de Chakra da Kurama', 'Manto da Kurama'), ...eu.efeitos]
+    eu.en -= 3; eu.st -= 3
+    if (forma.gasta) rodar({}); else { estado.log = [`<b>Hero</b> liberou ${forma.n}.`, ...estado.log].slice(0, 9); render() }
+    return
+  }
+  if (t.dataset.membro) {
+    if (t.dataset.alvo !== undefined) estado.alvo = Number(t.dataset.alvo)
+    const k = t.dataset.membro
+    estado.abertos.has(k) ? estado.abertos.delete(k) : estado.abertos.add(k)
+    render()
+  } else if (t.dataset.postura) { estado.postura = t.dataset.postura; render() }
+  else if (t.dataset.golpe !== undefined) rodar({ golpe: GOLPES[Number(t.dataset.golpe)] })
+  else if (t.dataset.item !== undefined) { estado.mochilaAberta = false; rodar({ item: MOCHILA[Number(t.dataset.item)] }) }
+})
+
+render()
+</script>

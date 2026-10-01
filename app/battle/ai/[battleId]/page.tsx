@@ -8,7 +8,6 @@ import { getRetratosDosFalantes, getStageOutro, parseDialogo } from '@/app/lib/s
 import { CenaDeDialogo } from '@/app/components/story/CenaDeDialogo'
 import { battleErrorMessage } from '@/app/lib/battle/presentation'
 import { FighterCard } from '@/app/components/battle/FighterCard'
-import { FaixaDeAliado } from '@/app/components/battle/FaixaDeAliado'
 import { BotaoDeForma } from '@/app/components/battle/BotaoDeForma'
 import { BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
@@ -16,21 +15,22 @@ import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
 import { BotaoDeBloqueio } from '@/app/components/battle/BotaoDeBloqueio'
 import { BotaoDeAtaqueBasico } from '@/app/components/battle/BotaoDeHabilidade'
 import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
-import { FaixaDeFormas } from '@/app/components/battle/FaixaDeFormas'
 import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
 import { FundoDoConfronto } from '@/app/components/battle/FundoDoConfronto'
 import { coresDoConfronto } from '@/app/lib/battle/cores'
 import { Swords } from 'lucide-react'
 import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
 import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
-import { CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
+import { AlvoAtual, CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
+import { HudDeBatalha, type MembroDoHud } from '@/app/components/battle/HudDeBatalha'
+import { MenuCompacto } from '@/app/components/battle/MenuCompacto'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
-import { FaixaDeInvocacao, FaixaDeTroca, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import { FaixaDeTroca, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
 import { COR_DA_RARIDADE } from '@/app/components/itens/CartaDeItem'
 import type { Recompensa } from '@/app/lib/raid/loot'
 import {
   comandoDoGolpe,
-  emCampo,
+  defDeInvocacao,
   evolucaoDoGolpe,
   golpeDeOrdem,
   ordensDisponiveis,
@@ -146,8 +146,6 @@ export default async function BattleArenaPage({
   state.inimigos.forEach((c, i) => {
     if (c.invocacao) nomesInimigos[i] = c.nome ?? 'Invocação'
   })
-  const invocacoesAliadas = state.aliados.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
-  const invocacoesInimigas = state.inimigos.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
   // TREINADOR (o Red): não luta, então os botões são só os golpes do Pokémon
   // em campo (e a Mega Evolução, com o Charizard), sem ataque básico nem
   // bloqueio; a troca fica numa faixa própria.
@@ -156,6 +154,38 @@ export default async function BattleArenaPage({
   const golpesVisiveis = Object.values(playerSkills).filter(
     (s) => !souTreinador || (comandoDoGolpe(s) ?? evolucaoDoGolpe(s)?.de) === pokemonNoCampo
   )
+  // O HUD: cada lutador e invocação em campo (Pokémon na pokébola e
+  // invocação que saiu ficam de fora), com nível, forma e efeitos.
+  const membrosDe = (lado: 'aliados' | 'inimigos'): MembroDoHud[] =>
+    state[lado]
+      .map((c, posicao) => ({ c, posicao }))
+      .filter(({ c }) => !c.invocacao?.fora)
+      .map(({ c, posicao }) => {
+        const nomes = lado === 'aliados' ? nomesAliados : nomesInimigos
+        const participante = participantes.find((p) => p.lado === (lado === 'aliados' ? 'PLAYER' : 'ENEMY') && p.posicao === posicao)
+        const forma =
+          posicao === 0
+            ? lado === 'aliados'
+              ? formaAtivaDoJogador?.name
+              : formaAtivaDoInimigo?.name ?? undefined
+            : formasDaParty.find((f) => f.id === c.activeTransformationId)?.name
+        return {
+          posicao,
+          nome: nomes[posicao] ?? c.nome ?? (lado === 'aliados' ? 'Aliado' : 'Inimigo'),
+          nivel: posicao === 0 ? (lado === 'aliados' ? userCharacter.level : vilao(state).nivel) : participante?.nivel ?? c.nivel,
+          marca: c.invocacao ? defDeInvocacao(c.invocacao.def)?.marca : undefined,
+          hp: c.currentHp,
+          max: c.maxHp,
+          en: c.currentEnergy,
+          enMax: c.maxEnergy,
+          st: c.currentStamina,
+          stMax: c.maxStamina,
+          forma,
+          efeitos: c.statusEffects,
+          voce: lado === 'aliados' && posicao === 0,
+          miravel: lado === 'inimigos' && c.currentHp > 0 && !c.treinador,
+        }
+      })
   const orbesDe = (lado: 'aliados' | 'inimigos', dono: number, skills: Parameters<typeof gruposDoDono>[2] = []) => {
     const grupos = gruposDoDono(state[lado], dono, skills)
     return grupos.length > 0 ? <OrbesDeInvocacao grupos={grupos} time={state[lado]} dono={dono} /> : undefined
@@ -250,6 +280,20 @@ export default async function BattleArenaPage({
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
       <FundoDoConfronto corJogador={corJogador} corInimigo={corInimigo} />
+      {/* O ALVO envolve a página: quem escolhe é o HUD (clique no inimigo), e
+          quem envia é cada golpe. Treinador inimigo e Pokémon na pokébola não
+          são alvo. */}
+      <ComAlvo
+        opcoes={state.inimigos
+          .map((c, posicao) => ({ c, posicao }))
+          .filter(({ c }) => !c.treinador && !c.invocacao?.fora)
+          .map(({ c, posicao }) => ({
+            posicao,
+            nome: nomesInimigos[posicao] ?? enemy.name,
+            vida: c.currentHp,
+            vidaMaxima: c.maxHp,
+          }))}
+      >
       {/* A entrada, só na luta recém-criada (e uma vez por navegador). */}
       {isActive && battle.turnNumber === 1 && turns.length === 0 && (
         <TelaDeVersus
@@ -428,72 +472,10 @@ export default async function BattleArenaPage({
         </CartaAnimada>
       </div>
 
-      {/* A PARTY, em faixas logo abaixo das cartas: os aliados jogam sozinhos,
-          então o que importa deles é quem está de pé e quanto aguenta. */}
-      {(participantes.length > 0 || invocacoesAliadas.length > 0 || invocacoesInimigas.length > 0) && (
-        // Aliados à esquerda, inimigos à direita: o mesmo lado da carta grande
-        // de cada um. As invocações vêm antes da party: são do principal, e
-        // ficam logo abaixo da carta dele.
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          <div className="space-y-4">
-            {invocacoesAliadas.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {invocacoesAliadas.map(({ c, posicao }) => (
-                  <CartaAnimada key={posicao} impacto={impactoDe(impacto, 'PLAYER', posicao)} rodada={ultimaRodada}>
-                    <FaixaDeInvocacao combatente={c} dono={nomesAliados[c.invocacao?.dono ?? 0] ?? userCharacter.nickname} />
-                  </CartaAnimada>
-                ))}
-              </div>
-            )}
-            {party.map((p) => {
-              const combatente = state.aliados[p.posicao]
-              if (!combatente) return null
-              return (
-                <CartaAnimada key={p.id} impacto={impactoDe(impacto, 'PLAYER', p.posicao)} rodada={ultimaRodada}>
-                  <FaixaDeAliado
-                    nome={nomesAliados[p.posicao]}
-                    imageUrl={p.character?.imageUrl ?? null}
-                    nivel={p.nivel}
-                    cor={p.character?.corDestaque}
-                    formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
-                    combatente={combatente}
-                    orbes={orbesDe('aliados', p.posicao)}
-                  />
-                </CartaAnimada>
-              )
-            })}
-          </div>
-          <div className="space-y-4">
-            {invocacoesInimigas.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {invocacoesInimigas.map(({ c, posicao }) => (
-                  <CartaAnimada key={posicao} impacto={impactoDe(impacto, 'ENEMY', posicao)} rodada={ultimaRodada}>
-                    <FaixaDeInvocacao combatente={c} dono={nomesInimigos[c.invocacao?.dono ?? 0] ?? enemy.name} />
-                  </CartaAnimada>
-                ))}
-              </div>
-            )}
-            {inimigosExtras.map((p) => {
-              const combatente = state.inimigos[p.posicao]
-              if (!combatente) return null
-              return (
-                <CartaAnimada key={p.id} impacto={impactoDe(impacto, 'ENEMY', p.posicao)} rodada={ultimaRodada}>
-                  <FaixaDeAliado
-                    nome={nomesInimigos[p.posicao]}
-                    imageUrl={p.character?.imageUrl ?? p.monster?.imageUrl ?? null}
-                    nivel={p.nivel}
-                    cor={p.character?.corDestaque ?? corInimigo}
-                    formaAtiva={formasDaParty.find((f) => f.id === combatente.activeTransformationId)?.name}
-                    combatente={combatente}
-                    rotulo="Inimigo"
-                    orbes={orbesDe('inimigos', p.posicao)}
-                  />
-                </CartaAnimada>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      {/* O HUD estilo SAO: a party e os inimigos, fixo na tela enquanto se rola
+          até os golpes — ver HudDeBatalha. Substitui as faixas que ficavam
+          aqui, empurrando as ações para baixo. */}
+      {isActive && <HudDeBatalha esquerda={membrosDe('aliados')} direita={membrosDe('inimigos')} />}
 
       {isActive && chefe && (
         <AvisoDoChefe
@@ -521,25 +503,6 @@ export default async function BattleArenaPage({
         />
       )}
 
-      {/* FORMAS EM FAIXA PRÓPRIA, abaixo dos cards. Antes moravam na coluna
-          do jogador; com a tira que rola para o lado elas cabem para qualquer
-          personagem — de nenhuma forma (a faixa nem aparece) até as seis do
-          Goku. */}
-      {isActive && availableTransformations.length > 0 && (
-        <FaixaDeFormas quantidade={availableTransformations.length} cor={corJogador}>
-          {availableTransformations.map((t) => (
-            <form key={t.id} action={activateTransformation.bind(null, battleId, t.id)} className="snap-start shrink-0">
-              <BotaoDeForma
-                forma={t}
-                energiaAtual={heroi(state).currentEnergy}
-                staminaAtual={heroi(state).currentStamina ?? 0}
-                cor={corJogador}
-              />
-            </form>
-          ))}
-        </FaixaDeFormas>
-      )}
-
       {/* AS AÇÕES OCUPAM A LARGURA INTEIRA. Numa coluna de um terço, oito
           habilidades com nome, custo, efeitos e precisão viravam uma torre que
           só cabia rolando — e rolar para escolher a jogada é rolar TODA rodada.
@@ -549,55 +512,79 @@ export default async function BattleArenaPage({
       {isActive && (
         <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${corJogador} 45%, var(--border))`} tinta>
           <div className="p-4 sm:p-5 space-y-4">
-            <TituloDeSecao icone={<Swords className="h-5 w-5" style={{ color: corJogador }} />}>Ações</TituloDeSecao>
-            {/* A chave é a rodada: o seletor volta para a Neutra a cada uma —
-                ver SeletorDePostura. */}
-            {/* Sem chave de rodada, ao contrário da postura: o alvo escolhido
-                continua o mesmo de uma rodada para a outra (focar um inimigo é
-                o normal), e se ele cair o seletor passa para o próximo de pé. */}
+            <TituloDeSecao
+              icone={<Swords className="h-5 w-5" style={{ color: corJogador }} />}
+              direita={<AlvoAtual cor={corInimigo} />}
+            >
+              Ações
+            </TituloDeSecao>
             {souTreinador && (
               <FaixaDeTroca time={state.aliados} dono={0} acao={(posicao) => trocarPokemon.bind(null, battleId, posicao)} />
             )}
-            {pocoes.length > 0 && (
-              <div className="space-y-2">
-                <div className="text-xs uppercase tracking-widest text-muted">Mochila · beber gasta a rodada</div>
-                <div className="flex flex-wrap gap-2">
-                  {pocoes.map((linha) => {
-                    const cor = COR_DA_RARIDADE[linha.item.raridade] ?? COR_DA_RARIDADE.COMUM
-                    return (
-                      <form key={linha.id} action={usarItem.bind(null, battleId, linha.itemId)}>
-                        <button
-                          type="submit"
-                          title={linha.item.descricao}
-                          className="flex items-center gap-2 border px-2.5 py-1.5 text-sm transition-all hover:brightness-125"
-                          style={{ borderRadius: '2px 8px 2px 8px', borderColor: `color-mix(in srgb, ${cor} 55%, var(--border))`, background: 'var(--background)' }}
-                        >
-                          <span aria-hidden className="font-kanji" style={{ color: cor }}>
-                            {linha.item.marca}
-                          </span>
-                          <span className="font-medium">{linha.item.nome}</span>
-                          <span className="tabular-nums text-muted">×{linha.quantidade}</span>
-                        </button>
-                      </form>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            {/* Treinador inimigo e Pokémon na pokébola não são alvo. */}
-            <ComAlvo
-              cor={corInimigo}
-              opcoes={state.inimigos
-                .map((c, posicao) => ({ c, posicao }))
-                .filter(({ c }) => !c.treinador && !c.invocacao?.fora)
-                .map(({ c, posicao }) => ({
-                  posicao,
-                  nome: nomesInimigos[posicao] ?? enemy.name,
-                  vida: c.currentHp,
-                  vidaMaxima: c.maxHp,
-                }))}
-            >
-              <ComPostura key={ultimaRodada} opcoes={posturas} stamina={heroi(state).currentStamina ?? 0} cor={corJogador}>
+              {/* A chave é a rodada: o seletor volta para a Neutra a cada uma —
+                  ver SeletorDePostura. Formas e Mochila ficam no fim da linha. */}
+              <ComPostura
+                key={ultimaRodada}
+                opcoes={posturas}
+                stamina={heroi(state).currentStamina ?? 0}
+                cor={corJogador}
+                extra={
+                  <>
+                    {availableTransformations.length > 0 && (
+                      <MenuCompacto
+                        rotulo="Formas"
+                        marca="変"
+                        cor={corJogador}
+                        contagem={availableTransformations.length}
+                        aviso="Liberar uma forma muda seus atributos enquanto ela durar."
+                      >
+                        {availableTransformations.map((t) => (
+                          <form key={t.id} action={activateTransformation.bind(null, battleId, t.id)}>
+                            <BotaoDeForma
+                              forma={t}
+                              energiaAtual={heroi(state).currentEnergy}
+                              staminaAtual={heroi(state).currentStamina ?? 0}
+                              cor={corJogador}
+                            />
+                          </form>
+                        ))}
+                      </MenuCompacto>
+                    )}
+                    {pocoes.length > 0 && (
+                      <MenuCompacto
+                        rotulo="Mochila"
+                        marca="薬"
+                        cor="#86efac"
+                        contagem={pocoes.reduce((soma, p) => soma + p.quantidade, 0)}
+                        aviso="Beber gasta a rodada."
+                      >
+                        {pocoes.map((linha) => {
+                          const cor = COR_DA_RARIDADE[linha.item.raridade] ?? COR_DA_RARIDADE.COMUM
+                          return (
+                            <form key={linha.id} action={usarItem.bind(null, battleId, linha.itemId)}>
+                              <button
+                                type="submit"
+                                role="menuitem"
+                                className="grid w-[16rem] max-w-full grid-cols-[1.75rem_1fr_auto] items-center gap-2 px-1.5 py-1.5 text-left transition-colors hover:bg-white/5"
+                                style={{ borderRadius: '2px 8px 2px 8px' }}
+                              >
+                                <span aria-hidden className="font-kanji text-lg text-center" style={{ color: cor }}>
+                                  {linha.item.marca}
+                                </span>
+                                <span className="min-w-0">
+                                  <span className="block text-sm font-semibold">{linha.item.nome}</span>
+                                  <span className="block truncate text-xs text-muted">{linha.item.descricao}</span>
+                                </span>
+                                <span className="text-xs tabular-nums text-muted">×{linha.quantidade}</span>
+                              </button>
+                            </form>
+                          )
+                        })}
+                      </MenuCompacto>
+                    )}
+                  </>
+                }
+              >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch mt-4">
                   {/* No treinador, o ataque básico é a Investida do Pokémon em campo. */}
                   {(!souTreinador || pokemonNoCampo) && (
@@ -634,10 +621,10 @@ export default async function BattleArenaPage({
                   )}
                 </div>
               </ComPostura>
-            </ComAlvo>
           </div>
         </PainelChanfrado>
       )}
+      </ComAlvo>
     </main>
   )
 }

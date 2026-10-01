@@ -14,7 +14,9 @@ import type { Postura } from '@/app/lib/battle/types'
  * a rodada como chave. Postura custa stamina, e herdar a da rodada anterior
  * sem perceber seria gastar a reserva por esquecimento.
  *
- * Versão funcional. O visual final vem na etapa de design.
+ * A linha das posturas é a de cima das ações; Formas e Mochila entram no fim
+ * dela (`extra`), e embaixo ficam só os golpes — desenho aprovado no
+ * protótipo do HUD de batalha (design/batalha/hud-de-batalha.html).
  */
 
 const Contexto = createContext<Postura>('NEUTRA')
@@ -30,11 +32,18 @@ export function ComPostura({
   opcoes,
   stamina,
   cor,
+  extra,
   children,
 }: {
   opcoes: OpcaoDePostura[]
   stamina: number
   cor: string
+  /**
+   * O que fica no fim da linha das posturas: os menus compactos de Formas e
+   * Mochila (ver MenuCompacto). A linha é a de cima das ações, e juntar os
+   * três nela deixa embaixo só os golpes.
+   */
+  extra?: ReactNode
   children: ReactNode
 }) {
   const [escolhida, setEscolhida] = useState<Postura>('NEUTRA')
@@ -42,7 +51,7 @@ export function ComPostura({
   return (
     <Contexto.Provider value={escolhida}>
       <div className="space-y-2">
-        <div className="text-xs uppercase tracking-widest text-muted">Postura da rodada</div>
+        <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Postura da rodada">
           {opcoes.map((o) => {
             const semStamina = o.custo > stamina
@@ -70,6 +79,8 @@ export function ComPostura({
               </button>
             )
           })}
+        </div>
+        {extra && <div className="ml-auto flex flex-wrap gap-2">{extra}</div>}
         </div>
         <p className="text-xs text-muted min-h-[1rem]">{opcoes.find((o) => o.postura === escolhida)?.resumo}</p>
       </div>
