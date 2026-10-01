@@ -9,9 +9,10 @@
 // quase preto, quase branco, dessaturado e a faixa de pele. Media simples
 // nao serve: media de imagem colorida tende a marrom acinzentado.
 //
-// A derivacao acerta a maioria e erra alguns — Deadpool sai amarelo porque o
+// A derivacao acerta a maioria e erra alguns — Deadpool saia amarelo porque o
 // vermelho dele perde para o fundo no retrato atual. A correcao e por
-// personagem, aqui, e sobrescreve a derivacao.
+// personagem, aqui, e sobrescreve a derivacao: as marcadas "Corrigido" foram
+// escolhidas a mao (Deadpool, Batman e Komamura).
 //
 // MORA EM Character, NAO EM Anime: Ichigo e Hitsugaya sao os dois de Bleach
 // e tem identidade cromatica oposta. Tema por universo pintaria os dois
@@ -20,13 +21,15 @@ const coresPorSlug = {
   'aaroniero-arruruerie': '#f8b659',
   'as-nodt': '#3172ce',
   'baraggan-luisenbarn': '#22aedd',
-  'batman': '#398bc6',
+  // Corrigido: a derivação pegou o azul da cidade. O amarelo do símbolo.
+  'batman': '#f2c230',
   'bazz-b': '#398bc6',
   'broly': '#f69b5b',
   'byakuya-kuchiki': '#c6395c',
   'chad': '#f5b55c',
   'daredevil': '#f89b59',
-  'deadpool': '#f8eb59',
+  // Corrigido: o vermelho do uniforme perde para a explosão no retrato.
+  'deadpool': '#dc2f2f',
   'emma-frost': '#f8d059',
   'gin-ichimaru': '#79a0d8',
   'goku': '#f87e56',
@@ -54,7 +57,8 @@ const coresPorSlug = {
   'rukia-kuchiki': '#69b3e7',
   'ryomen-sukuna': '#c6483c',
   'ryuken-ishida': '#f89b59',
-  'sajin-komamura': '#dc23cd',
+  // Corrigido: o magenta vinha das formas roxas do fundo. O pelo do lobo.
+  'sajin-komamura': '#c49a4a',
   'sasuke-uchiha': '#d88179',
   'satoru-gojo': '#f8b659',
   'shunsui-kyoraku': '#b36ae6',
@@ -89,11 +93,11 @@ const secundariasPorSlug = {
   'aaroniero-arruruerie': '#79a0d8',
   'as-nodt': '#f89b59',
   'baraggan-luisenbarn': '#c6ba39',
-  'batman': '#c0d879',
+  'batman': '#8d9bb5',
   'broly': '#2d8dd2',
   'byakuya-kuchiki': '#3945c6',
   'chad': '#dd2270',
-  'deadpool': '#39a3c6',
+  'deadpool': '#9aa3b0',
   'emma-frost': '#7981d8',
   'gin-ichimaru': '#e3c66d',
   'goku': '#0a45f5',
@@ -105,7 +109,7 @@ const secundariasPorSlug = {
   'momo-hinamori': '#d64b56',
   'retsu-unohana': '#f88059',
   'ryuken-ishida': '#79a0d8',
-  'sajin-komamura': '#d1b560',
+  'sajin-komamura': '#a9b4c8',
   'satoru-gojo': '#519ed5',
   'shunsui-kyoraku': '#e26f8b',
   'sui-feng': '#2f72d0',
