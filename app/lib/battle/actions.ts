@@ -42,12 +42,12 @@ import { darItens, gastarItens } from '@/app/lib/itens/queries'
 import { autoFillLoadout } from '@/app/lib/progression/loadout'
 import { recordStoryProgress } from '@/app/lib/story/progresso'
 import { MAX_ROUNDS, NPC_WINS_ON_WIN } from './constants'
+import { alvoDoFormulario, posturaDoFormulario } from './formulario'
 import type {
   AcaoDeCombate,
   BattleState,
   Outcome,
   PlayerAction,
-  Postura,
   SkillDef,
   TransformationDef,
   TurnResult,
@@ -552,25 +552,6 @@ export async function startAiBattle(userCharacterId: string): Promise<never> {
   })
 }
 
-const POSTURAS: readonly Postura[] = ['NEUTRA', 'ESQUIVA', 'APARAR', 'GUARDA', 'IMPETO']
-
-/** A postura enviada com o golpe. Valor desconhecido vira a neutra: o campo vem do navegador. */
-function posturaDoFormulario(dados?: FormData): Postura {
-  const valor = dados?.get('postura')
-  return POSTURAS.find((p) => p === valor) ?? 'NEUTRA'
-}
-
-/**
- * O alvo enviado com o golpe, como índice no lado inimigo. Fora do intervalo
- * ou ausente vira undefined, e o motor manda o golpe para o primeiro de pé.
- */
-function alvoDoFormulario(dados: FormData | undefined, state: BattleState): number | undefined {
-  const valor = dados?.get('alvo')
-  if (typeof valor !== 'string') return undefined
-  const n = Number(valor)
-  return Number.isInteger(n) && n >= 0 && n < state.inimigos.length ? n : undefined
-}
-
 export async function takeTurn(battleId: string, skillId: string | null, dados?: FormData): Promise<void> {
   const ctx = await loadActiveBattleContext(battleId)
   const chosenSkill = skillId ? ctx.playerSkills[skillId] ?? null : null
@@ -590,7 +571,7 @@ export async function takeTurn(battleId: string, skillId: string | null, dados?:
     kind: 'ATTACK',
     skillId,
     postura: posturaDoFormulario(dados),
-    alvo: alvoDoFormulario(dados, ctx.state),
+    alvo: alvoDoFormulario(dados, ctx.state.inimigos.length),
   })
 
   await finalizeRound(battleId, ctx, newState, turnResults)
@@ -615,7 +596,7 @@ export async function darOrdem(battleId: string, posicao: number, dados?: FormDa
     kind: 'ORDEM',
     invocacao: posicao,
     postura: posturaDoFormulario(dados),
-    alvo: alvoDoFormulario(dados, ctx.state),
+    alvo: alvoDoFormulario(dados, ctx.state.inimigos.length),
   })
 
   await finalizeRound(battleId, ctx, newState, turnResults)

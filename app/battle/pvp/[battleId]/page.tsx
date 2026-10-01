@@ -1,23 +1,33 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { prisma } from '@/app/lib/prisma'
 import { requireUser } from '@/app/lib/session'
 import { getPvpBattleView } from '@/app/lib/pvp/queries'
-import { submitPvpAction, forfeitPvpBattle } from '@/app/lib/pvp/actions'
-import { getEquippedSkills } from '@/app/lib/battle/queries'
+import {
+  bloquearPvp,
+  darOrdemPvp,
+  forfeitPvpBattle,
+  liberarFormaPvp,
+  submitPvpAction,
+  trocarPokemonPvp,
+  usarItemPvp,
+} from '@/app/lib/pvp/actions'
+import { getEquippedSkills, getPlayerTransformations } from '@/app/lib/battle/queries'
 import { battleErrorMessage } from '@/app/lib/battle/presentation'
 import { FighterCard } from '@/app/components/battle/FighterCard'
-import { BotaoDeAtaqueBasico, BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
 import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
-import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
+import { PainelChanfrado } from '@/app/components/battle/Moldura'
 import { FundoDoConfronto } from '@/app/components/battle/FundoDoConfronto'
 import { coresDoConfronto } from '@/app/lib/battle/cores'
-import { Swords } from 'lucide-react'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
 import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
 import { LiveBattleSync } from '@/app/components/pvp/LiveBattleSync'
 import { impactoDaRodada } from '@/app/lib/battle/rodada'
-import { FaixaDeInvocacao, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
-import { comandoDoGolpe, emCampo, evolucaoDoGolpe, pokemonEmCampo } from '@/app/lib/battle/invocacoes'
+import { OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import { ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
+import { HudDeBatalha, type MembroDoHud } from '@/app/components/battle/HudDeBatalha'
+import { PainelDeAcoes } from '@/app/components/battle/PainelDeAcoes'
+import { defDeInvocacao } from '@/app/lib/battle/invocacoes'
 import type { CombatantState, SkillDef, TurnResult } from '@/app/lib/battle/types'
 
 export default async function PvpArenaPage({
@@ -35,11 +45,15 @@ export default async function PvpArenaPage({
   const view = await getPvpBattleView(battleId, user.id)
   if (!view) notFound()
 
-  const { battle, me, foe, state, turns } = view
+  const { battle, me, foe, state } = view
+  // A consulta traz os turnos em ordem crescente; o histórico e a "última
+  // rodada" esperam a mais nova primeiro, como na luta contra a IA.
+  const turns = [...view.turns].reverse()
   const isActive = battle.status === 'ACTIVE'
-  const [mySkills, foeSkills] = await Promise.all([
+  const [mySkills, foeSkills, minhasFormas] = await Promise.all([
     getEquippedSkills(me.userCharacter.id),
     getEquippedSkills(foe.userCharacter.id),
+    getPlayerTransformations(me.userCharacter.characterId, me.userCharacter.level),
   ])
   // Os dois lados são jogador de verdade em PvP — diferente da IA, dá pra
   // mostrar a fala dos dois. Ver TurnLogEntry para onde isto é lido.
@@ -59,22 +73,58 @@ export default async function PvpArenaPage({
   const meuImpacto = view.isHost ? impacto.PLAYER : impacto.ENEMY
   const impactoDoOutro = view.isHost ? impacto.ENEMY : impacto.PLAYER
 
-  // As invocações de cada lado, na perspectiva de quem olha: o host é o lado
-  // PLAYER do motor. O PvP não tem ordem nem troca manual — o Red manda o
-  // próximo sozinho quando o Pokémon desmaia (ver resolveRound) —, mas o
-  // campo precisa aparecer para as duas pessoas.
+  // Cada lado na perspectiva de quem olha: o host é o lado PLAYER do motor.
   const meuTime = view.isHost ? state.aliados : state.inimigos
   const timeDoOutro = view.isHost ? state.inimigos : state.aliados
   const orbes = (time: CombatantState[], skills: SkillDef[]) => {
     const grupos = gruposDoDono(time, 0, skills)
     return grupos.length > 0 ? <OrbesDeInvocacao grupos={grupos} time={time} dono={0} /> : undefined
   }
-  const emCampoDe = (time: CombatantState[]) => time.map((c, posicao) => ({ c, posicao })).filter(({ c }) => emCampo(c))
-  // Treinador: os botões são os golpes do Pokémon em campo.
-  const pokemonNoCampo = me.combatant.treinador ? pokemonEmCampo(meuTime, 0)?.def.id : undefined
-  const meusGolpes = Object.values(mySkills).filter(
-    (s) => !me.combatant.treinador || (comandoDoGolpe(s) ?? evolucaoDoGolpe(s)?.de) === pokemonNoCampo
+
+  // As formas: as que dá para liberar agora, e o nome da que cada um está
+  // usando (a do outro, numa leitura pontual).
+  const formasLiberaveis = Object.values(minhasFormas).filter(
+    (t) => t.triggerType === 'MANUAL' && !me.combatant.activeTransformationId
   )
+  const minhaForma = me.combatant.activeTransformationId ? minhasFormas[me.combatant.activeTransformationId]?.name : undefined
+  const formaDoOutro = foe.combatant.activeTransformationId
+    ? (await prisma.transformation.findUnique({ where: { id: foe.combatant.activeTransformationId }, select: { name: true } }))?.name
+    : undefined
+
+  // A MOCHILA: as poções da conta. Beber gasta a rodada, como na IA.
+  const pocoes = isActive
+    ? await prisma.userItem.findMany({
+        where: { userId: user.id, quantidade: { gt: 0 }, item: { tipo: 'CONSUMIVEL' } },
+        include: { item: true },
+        orderBy: { item: { nome: 'asc' } },
+      })
+    : []
+
+  // O HUD: o lutador de cada lado e as invocações em campo (Pokémon na
+  // pokébola e invocação que saiu ficam de fora). O PvP não tem party.
+  const membrosDe = (time: CombatantState[], meu: boolean): MembroDoHud[] =>
+    time
+      .map((c, posicao) => ({ c, posicao }))
+      .filter(({ c }) => !c.invocacao?.fora)
+      .map(({ c, posicao }) => {
+        const dono = meu ? me : foe
+        return {
+          posicao,
+          nome: posicao === 0 ? dono.userCharacter.nickname : c.nome ?? 'Invocação',
+          nivel: posicao === 0 ? dono.userCharacter.level : c.nivel,
+          marca: c.invocacao ? defDeInvocacao(c.invocacao.def)?.marca : undefined,
+          hp: c.currentHp,
+          max: c.maxHp,
+          en: c.currentEnergy,
+          enMax: c.maxEnergy,
+          st: c.currentStamina,
+          stMax: c.maxStamina,
+          forma: posicao === 0 ? (meu ? minhaForma : formaDoOutro) : undefined,
+          efeitos: c.statusEffects,
+          voce: meu && posicao === 0,
+          miravel: !meu && c.currentHp > 0 && !c.treinador,
+        }
+      })
 
   // O motor nomeia os lados como player/enemy; o desfecho precisa ser lido na
   // perspectiva de quem está olhando, senão o convidado veria "Vitória!" ao
@@ -98,6 +148,19 @@ export default async function PvpArenaPage({
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 py-6 space-y-6">
       <FundoDoConfronto corJogador={minhaCor} corInimigo={corDoOutro} />
+      {/* O ALVO envolve a página: quem escolhe é o HUD (clique no inimigo), e
+          quem envia é cada golpe. Ver a mesma montagem na luta contra a IA. */}
+      <ComAlvo
+        opcoes={timeDoOutro
+          .map((c, posicao) => ({ c, posicao }))
+          .filter(({ c }) => !c.treinador && !c.invocacao?.fora)
+          .map(({ c, posicao }) => ({
+            posicao,
+            nome: posicao === 0 ? foe.userCharacter.nickname : c.nome ?? 'Invocação',
+            vida: c.currentHp,
+            vidaMaxima: c.maxHp,
+          }))}
+      >
       <CabecalhoDeBatalha
         nomeJogador={me.userCharacter.nickname}
         nomeInimigo={foe.userCharacter.nickname}
@@ -176,58 +239,47 @@ export default async function PvpArenaPage({
         </CartaAnimada>
       </div>
 
-      {(emCampoDe(meuTime).length > 0 || emCampoDe(timeDoOutro).length > 0) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {emCampoDe(meuTime).map(({ c, posicao }) => (
-              <FaixaDeInvocacao key={posicao} combatente={c} dono={me.userCharacter.nickname} />
-            ))}
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {emCampoDe(timeDoOutro).map(({ c, posicao }) => (
-              <FaixaDeInvocacao key={posicao} combatente={c} dono={foe.userCharacter.nickname} />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* O HUD estilo SAO, como na luta contra a IA: a vida dos dois lados (e
+          das invocações) fica na tela enquanto se rola até os golpes. */}
+      {isActive && <HudDeBatalha esquerda={membrosDe(meuTime, true)} direita={membrosDe(timeDoOutro, false)} />}
 
       {isActive && (
-        <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${minhaCor} 45%, var(--border))`} tinta>
-          <div className="p-4 sm:p-5 space-y-4">
-            <TituloDeSecao
-              icone={<Swords className="h-5 w-5" style={{ color: minhaCor }} />}
-              direita={
-                <span className="text-xs text-muted">
-                  {me.submitted
-                    ? foe.submitted
-                      ? 'Resolvendo a rodada…'
-                      : `Ação enviada ✓ — esperando ${foe.username}`
-                    : foe.submitted
-                      ? `${foe.username} já escolheu — ele não vê a sua jogada`
-                      : 'Os dois escolhem ao mesmo tempo'}
-                </span>
-              }
-            >
-              Ações
-            </TituloDeSecao>
-
-            {/* Depois de enviar, a grade some: a jogada está trancada, e
-                botões clicáveis ali sugeririam que dá para trocar. */}
-            {!me.submitted && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch">
-                <form action={submitPvpAction.bind(null, battleId, null)} className="h-full">
-                  <BotaoDeAtaqueBasico />
-                </form>
-                {meusGolpes.map((skill) => (
-                  <form key={skill.id} action={submitPvpAction.bind(null, battleId, skill.id)} className="h-full">
-                    <BotaoDeHabilidade skill={skill} combatente={me.combatant} />
-                  </form>
-                ))}
-              </div>
-            )}
-          </div>
-        </PainelChanfrado>
+        <PainelDeAcoes
+          cor={minhaCor}
+          corInimigo={corDoOutro}
+          combatente={me.combatant}
+          time={meuTime}
+          golpes={Object.values(mySkills)}
+          formas={formasLiberaveis}
+          pocoes={pocoes}
+          rodada={battle.turnNumber}
+          acoes={{
+            golpe: (skillId) => submitPvpAction.bind(null, battleId, skillId),
+            ordem: (posicao) => darOrdemPvp.bind(null, battleId, posicao),
+            trocar: (posicao) => trocarPokemonPvp.bind(null, battleId, posicao),
+            bloquear: bloquearPvp.bind(null, battleId),
+            forma: (id) => liberarFormaPvp.bind(null, battleId, id),
+            item: (itemId) => usarItemPvp.bind(null, battleId, itemId),
+          }}
+          status={
+            me.submitted
+              ? undefined
+              : foe.submitted
+                ? `@${foe.username} já escolheu e não vê a sua jogada.`
+                : 'Os dois escolhem ao mesmo tempo.'
+          }
+          // Depois de enviar, os botões somem: a jogada está trancada, e
+          // botões clicáveis ali sugeririam que dá para trocar.
+          travado={
+            me.submitted ? (
+              <p className="text-sm text-muted">
+                {foe.submitted ? 'Resolvendo a rodada…' : `Jogada enviada ✓ — esperando @${foe.username}.`}
+              </p>
+            ) : undefined
+          }
+        />
       )}
+      </ComAlvo>
     </main>
   )
 }

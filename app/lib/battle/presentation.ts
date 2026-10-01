@@ -130,6 +130,8 @@ const BATTLE_ERROR_MESSAGES: Record<string, string> = {
   pokemon_fora: 'Esse golpe é de um Pokémon que não está em campo.',
   troca_invalida: 'Esse Pokémon não pode entrar agora (desmaiado ou já em campo).',
   invalid_order: 'Essa invocação não pode receber ordem agora (fora de campo ou acabou de chegar).',
+  already_submitted: 'Você já enviou a jogada desta rodada.',
+  no_stamina: 'Stamina insuficiente para erguer a guarda.',
   party_cheia: 'A party só tem duas vagas de contrato.',
   contrato_repetido: 'O mesmo personagem foi contratado duas vezes.',
   contrato_proprio: 'Você não pode contratar o próprio personagem.',

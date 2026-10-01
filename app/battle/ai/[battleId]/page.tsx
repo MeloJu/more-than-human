@@ -8,34 +8,21 @@ import { getRetratosDosFalantes, getStageOutro, parseDialogo } from '@/app/lib/s
 import { CenaDeDialogo } from '@/app/components/story/CenaDeDialogo'
 import { battleErrorMessage } from '@/app/lib/battle/presentation'
 import { FighterCard } from '@/app/components/battle/FighterCard'
-import { BotaoDeForma } from '@/app/components/battle/BotaoDeForma'
-import { BotaoDeHabilidade } from '@/app/components/battle/BotaoDeHabilidade'
 import { HistoricoDeBatalha } from '@/app/components/battle/HistoricoDeBatalha'
 import { CartaAnimada } from '@/app/components/battle/CartaAnimada'
-import { BotaoDeBloqueio } from '@/app/components/battle/BotaoDeBloqueio'
-import { BotaoDeAtaqueBasico } from '@/app/components/battle/BotaoDeHabilidade'
 import { CabecalhoDeBatalha } from '@/app/components/battle/CabecalhoDeBatalha'
-import { PainelChanfrado, TituloDeSecao } from '@/app/components/battle/Moldura'
+import { PainelChanfrado } from '@/app/components/battle/Moldura'
 import { FundoDoConfronto } from '@/app/components/battle/FundoDoConfronto'
 import { coresDoConfronto } from '@/app/lib/battle/cores'
-import { Swords } from 'lucide-react'
-import { custoDaPostura, custoDeErguerGuarda, heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
-import { CampoDePostura, ComPostura, type OpcaoDePostura } from '@/app/components/battle/SeletorDePostura'
-import { AlvoAtual, CampoDeAlvo, ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
+import { heroi, migrarEstado, vilao } from '@/app/lib/battle/engine'
+import { ComAlvo } from '@/app/components/battle/SeletorDeAlvo'
 import { HudDeBatalha, type MembroDoHud } from '@/app/components/battle/HudDeBatalha'
-import { MenuCompacto } from '@/app/components/battle/MenuCompacto'
+import { PainelDeAcoes } from '@/app/components/battle/PainelDeAcoes'
 import { AvisoDoChefe } from '@/app/components/battle/AvisoDoChefe'
-import { FaixaDeTroca, OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
+import { OrbesDeInvocacao, gruposDoDono } from '@/app/components/battle/Invocacoes'
 import { COR_DA_RARIDADE } from '@/app/components/itens/CartaDeItem'
 import type { Recompensa } from '@/app/lib/raid/loot'
-import {
-  comandoDoGolpe,
-  defDeInvocacao,
-  evolucaoDoGolpe,
-  golpeDeOrdem,
-  ordensDisponiveis,
-  pokemonEmCampo,
-} from '@/app/lib/battle/invocacoes'
+import { defDeInvocacao } from '@/app/lib/battle/invocacoes'
 import { TelaDeVersus } from '@/app/components/battle/TelaDeVersus'
 import { alcanceDe } from '@/app/lib/battle/alcance'
 import { toSkillDef } from '@/app/lib/battle/queries'
@@ -146,14 +133,6 @@ export default async function BattleArenaPage({
   state.inimigos.forEach((c, i) => {
     if (c.invocacao) nomesInimigos[i] = c.nome ?? 'Invocação'
   })
-  // TREINADOR (o Red): não luta, então os botões são só os golpes do Pokémon
-  // em campo (e a Mega Evolução, com o Charizard), sem ataque básico nem
-  // bloqueio; a troca fica numa faixa própria.
-  const souTreinador = Boolean(heroi(state).treinador)
-  const pokemonNoCampo = pokemonEmCampo(state.aliados, 0)?.def.id
-  const golpesVisiveis = Object.values(playerSkills).filter(
-    (s) => !souTreinador || (comandoDoGolpe(s) ?? evolucaoDoGolpe(s)?.de) === pokemonNoCampo
-  )
   // O HUD: cada lutador e invocação em campo (Pokémon na pokébola e
   // invocação que saiu ficam de fora), com nível, forma e efeitos.
   const membrosDe = (lado: 'aliados' | 'inimigos'): MembroDoHud[] =>
@@ -256,17 +235,6 @@ export default async function BattleArenaPage({
     ? await prisma.transformation.findUnique({ where: { id: idDaFormaDoInimigo }, select: { name: true } })
     : null
 
-
-  // As posturas, com o custo JÁ para este combatente (ver custoDaPostura).
-  const posturas: OpcaoDePostura[] = (
-    [
-      ['NEUTRA', 'Neutra', 'Sem postura. Recupera stamina a mais nesta rodada.'],
-      ['ESQUIVA', 'Esquivar', 'Chance de desviar do golpe inteiro. Não funciona contra golpe em área.'],
-      ['APARAR', 'Aparar', 'Anula golpe corpo a corpo e contra-ataca. Contra golpe à distância, não adianta.'],
-      ['GUARDA', 'Guarda', 'Reduz o dano de qualquer golpe, pagando o que absorve em stamina.'],
-      ['IMPETO', 'Ímpeto', 'Seu golpe bate mais forte, mas você também apanha mais.'],
-    ] as const
-  ).map(([postura, nome, resumo]) => ({ postura, nome, resumo, custo: custoDaPostura(heroi(state), postura) }))
 
   // A cor de cada lado vem da arte do personagem, e a guarda de contraste
   // garante que os dois lados nunca saiam iguais: se colidirem (Ichigo e Jean
@@ -510,119 +478,24 @@ export default async function BattleArenaPage({
       {/* Tingido na cor do jogador: são as jogadas DELE, e o painel pertence
           ao lado esquerdo da cena. */}
       {isActive && (
-        <PainelChanfrado corte={18} cor={`color-mix(in srgb, ${corJogador} 45%, var(--border))`} tinta>
-          <div className="p-4 sm:p-5 space-y-4">
-            <TituloDeSecao
-              icone={<Swords className="h-5 w-5" style={{ color: corJogador }} />}
-              direita={<AlvoAtual cor={corInimigo} />}
-            >
-              Ações
-            </TituloDeSecao>
-            {souTreinador && (
-              <FaixaDeTroca time={state.aliados} dono={0} acao={(posicao) => trocarPokemon.bind(null, battleId, posicao)} />
-            )}
-              {/* A chave é a rodada: o seletor volta para a Neutra a cada uma —
-                  ver SeletorDePostura. Formas e Mochila ficam no fim da linha. */}
-              <ComPostura
-                key={ultimaRodada}
-                opcoes={posturas}
-                stamina={heroi(state).currentStamina ?? 0}
-                cor={corJogador}
-                extra={
-                  <>
-                    {availableTransformations.length > 0 && (
-                      <MenuCompacto
-                        rotulo="Formas"
-                        marca="変"
-                        cor={corJogador}
-                        contagem={availableTransformations.length}
-                        aviso="Liberar uma forma muda seus atributos enquanto ela durar."
-                      >
-                        {availableTransformations.map((t) => (
-                          <form key={t.id} action={activateTransformation.bind(null, battleId, t.id)}>
-                            <BotaoDeForma
-                              forma={t}
-                              energiaAtual={heroi(state).currentEnergy}
-                              staminaAtual={heroi(state).currentStamina ?? 0}
-                              cor={corJogador}
-                            />
-                          </form>
-                        ))}
-                      </MenuCompacto>
-                    )}
-                    {pocoes.length > 0 && (
-                      <MenuCompacto
-                        rotulo="Mochila"
-                        marca="薬"
-                        cor="#86efac"
-                        contagem={pocoes.reduce((soma, p) => soma + p.quantidade, 0)}
-                        aviso="Beber gasta a rodada."
-                      >
-                        {pocoes.map((linha) => {
-                          const cor = COR_DA_RARIDADE[linha.item.raridade] ?? COR_DA_RARIDADE.COMUM
-                          return (
-                            <form key={linha.id} action={usarItem.bind(null, battleId, linha.itemId)}>
-                              <button
-                                type="submit"
-                                role="menuitem"
-                                className="grid w-[16rem] max-w-full grid-cols-[1.75rem_1fr_auto] items-center gap-2 px-1.5 py-1.5 text-left transition-colors hover:bg-white/5"
-                                style={{ borderRadius: '2px 8px 2px 8px' }}
-                              >
-                                <span aria-hidden className="font-kanji text-lg text-center" style={{ color: cor }}>
-                                  {linha.item.marca}
-                                </span>
-                                <span className="min-w-0">
-                                  <span className="block text-sm font-semibold">{linha.item.nome}</span>
-                                  <span className="block truncate text-xs text-muted">{linha.item.descricao}</span>
-                                </span>
-                                <span className="text-xs tabular-nums text-muted">×{linha.quantidade}</span>
-                              </button>
-                            </form>
-                          )
-                        })}
-                      </MenuCompacto>
-                    )}
-                  </>
-                }
-              >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-stretch mt-4">
-                  {/* No treinador, o ataque básico é a Investida do Pokémon em campo. */}
-                  {(!souTreinador || pokemonNoCampo) && (
-                    <form action={takeTurn.bind(null, battleId, null)} className="h-full">
-                      <CampoDePostura />
-                      <CampoDeAlvo />
-                      <BotaoDeAtaqueBasico />
-                    </form>
-                  )}
-                  {golpesVisiveis.map((skill) => (
-                    <form key={skill.id} action={takeTurn.bind(null, battleId, skill.id)} className="h-full">
-                      <CampoDePostura />
-                      <CampoDeAlvo />
-                      <BotaoDeHabilidade skill={skill} combatente={heroi(state)} />
-                    </form>
-                  ))}
-                  {/* A ORDEM para a invocação em campo: o especial dela no
-                      lugar do ataque sozinho. Só aparece quando há quem obedeça. */}
-                  {ordensDisponiveis(state.aliados, 0).map(({ posicao, def }) => {
-                    const golpe = golpeDeOrdem(def, posicao)
-                    if (!golpe) return null
-                    return (
-                      <form key={golpe.id} action={darOrdem.bind(null, battleId, posicao)} className="h-full">
-                        <CampoDePostura />
-                        <CampoDeAlvo />
-                        <BotaoDeHabilidade skill={golpe} combatente={heroi(state)} />
-                      </form>
-                    )
-                  })}
-                  {!souTreinador && (
-                    <form action={blockTurn.bind(null, battleId)} className="h-full">
-                      <BotaoDeBloqueio combatente={heroi(state)} custo={custoDeErguerGuarda(heroi(state))} />
-                    </form>
-                  )}
-                </div>
-              </ComPostura>
-          </div>
-        </PainelChanfrado>
+        <PainelDeAcoes
+          cor={corJogador}
+          corInimigo={corInimigo}
+          combatente={heroi(state)}
+          time={state.aliados}
+          golpes={Object.values(playerSkills)}
+          formas={availableTransformations}
+          pocoes={pocoes}
+          rodada={ultimaRodada}
+          acoes={{
+            golpe: (skillId) => takeTurn.bind(null, battleId, skillId),
+            ordem: (posicao) => darOrdem.bind(null, battleId, posicao),
+            trocar: (posicao) => trocarPokemon.bind(null, battleId, posicao),
+            bloquear: blockTurn.bind(null, battleId),
+            forma: (id) => activateTransformation.bind(null, battleId, id),
+            item: (itemId) => usarItem.bind(null, battleId, itemId),
+          }}
+        />
       )}
       </ComAlvo>
     </main>
