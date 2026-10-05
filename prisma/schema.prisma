@@ -448,6 +448,12 @@ model User {
   // Carteira da conta, compartilhada entre todos os personagens do usuário.
   // Ganha no modo história; gasta na loja (ainda não implementada).
   coins                Int                 @default(0)
+
+  /// RECOMPENSA DIÁRIA (ver app/lib/login/diario.ts): quando foi o último
+  /// resgate e em que dia da sequência de 7 ele caiu. Duas colunas e não uma
+  /// tabela: só o último resgate importa para saber se a sequência continua.
+  ultimoResgate        DateTime?
+  sequenciaDiaria      Int                 @default(0)
 }
 
 model UserCharacter {

@@ -16,6 +16,14 @@ import type { Contrato } from '@/app/lib/raid/montagem'
 import { CharacterMonogram } from '@/app/components/CharacterImage'
 import { PainelChanfrado, TagDeCusto, TituloDeSecao } from '@/app/components/battle/Moldura'
 import FOCO_DOS_RETRATOS from '@/app/lib/battle/foco-dos-retratos.json'
+import { DIAS_DA_SEQUENCIA, MOEDAS_DO_DIA, recompensaDoDia, situacaoDoResgate, venceuHoje } from '@/app/lib/login/diario'
+import { resgatarRecompensaDiaria } from '@/app/lib/login/actions'
+import { resolveErrorMessage } from '@/app/lib/error-messages'
+
+const ERROS_DA_CENTRAL: Record<string, string> = {
+  ja_resgatado: 'A recompensa de hoje já foi resgatada. Volte amanhã.',
+  sem_vitoria_hoje: 'Vença uma luta hoje, em qualquer modo, para resgatar a recompensa.',
+}
 
 const FOCO = FOCO_DOS_RETRATOS as Record<string, string>
 
@@ -32,7 +40,13 @@ const FOCO = FOCO_DOS_RETRATOS as Record<string, string>
  * UM BOTÃO PRINCIPAL: o da coisa mais urgente. Os outros são fantasma — ver a
  * regra 5 do sistema de design.
  */
-export default async function CentralPage() {
+export default async function CentralPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; resgatado?: string }>
+}) {
+  const { error, resgatado } = await searchParams
+  const errorMessage = resolveErrorMessage(ERROS_DA_CENTRAL, error, 'Não deu para resgatar agora.')
   const user = await requireUser()
   const data = await getDashboardUser(user.id)
 
@@ -58,7 +72,7 @@ export default async function CentralPage() {
   const uc = data.selectedCharacter
   const cor = uc.character.corDestaque ?? 'var(--accent)'
 
-  const [treeBonus, equipmentBonus, capitulos, vitoriasHoje, incursao, equipadas, vestidos] = await Promise.all([
+  const [treeBonus, equipmentBonus, capitulos, vitoriasHoje, incursao, equipadas, vestidos, conta, jaVenceuHoje] = await Promise.all([
     getTreeBonus(uc.id),
     getEquipmentBonus(uc.id),
     getStoryChapters(uc.id),
@@ -69,6 +83,8 @@ export default async function CentralPage() {
     }),
     getEquippedSkillRows(uc.id),
     getEquippedBySlot(uc.id),
+    prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { ultimoResgate: true, sequenciaDiaria: true } }),
+    venceuHoje(user.id),
   ])
   // Mesma composição usada em /status e no combate: o número da tela bate com
   // o da luta.
@@ -96,6 +112,16 @@ export default async function CentralPage() {
   const urgente: 'raid' | 'historia' | 'treino' = incursao ? 'raid' : proximoEstagio ? 'historia' : 'treino'
   const principal = 'btn-primary px-5 py-2.5 text-sm'
   const fantasma = 'btn-ghost px-4 py-2.5 text-sm'
+
+  // A recompensa diária: a sequência de 7 dias, liberada pela primeira
+  // vitória do dia (ver app/lib/login/diario.ts).
+  const diaria = situacaoDoResgate(conta.ultimoResgate, conta.sequenciaDiaria)
+  const premioDoDia = recompensaDoDia(diaria.dia)
+  const podeResgatar = !diaria.resgatadoHoje && jaVenceuHoje
+  const diaResgatado = Number(resgatado)
+  const acabouDeResgatar = Number.isInteger(diaResgatado) && diaResgatado >= 1 && diaResgatado <= DIAS_DA_SEQUENCIA
+    ? recompensaDoDia(diaResgatado)
+    : null
 
   const loadout = [...equipadas].sort((a, b) => a.slot - b.slot).map((r) => toSkillDef(r.skill))
 
@@ -306,6 +332,70 @@ export default async function CentralPage() {
               </div>
             </PainelChanfrado>
           </div>
+
+          {errorMessage && (
+            <div className="rounded-md border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm text-red-300">{errorMessage}</div>
+          )}
+
+          <PainelChanfrado cor={podeResgatar ? '#f2c230' : undefined} brilho={podeResgatar}>
+            <div className="p-5 space-y-4">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="kicker">Recompensa diária</div>
+                  <div className="text-lg font-bold">
+                    {diaria.resgatadoHoje
+                      ? `Dia ${diaria.dia} resgatado`
+                      : `Dia ${diaria.dia}: ${premioDoDia.moedas} moedas${premioDoDia.pontos ? ' e 1 ponto de atributo' : ''}`}
+                  </div>
+                  <p className="text-sm text-muted">
+                    {acabouDeResgatar && diaria.resgatadoHoje
+                      ? `+${acabouDeResgatar.moedas} moedas${acabouDeResgatar.pontos ? ' e 1 ponto de atributo para ' + uc.nickname : ''}. Volte amanhã: o dia vira às 21h de Brasília.`
+                      : diaria.resgatadoHoje
+                        ? 'Volte amanhã para o próximo dia. O dia vira às 21h de Brasília (meia-noite UTC).'
+                        : podeResgatar
+                          ? 'Você já venceu hoje. Pode resgatar.'
+                          : `Vença uma luta hoje, em qualquer modo, para resgatar.${diaria.feitos > 0 ? ` Sua sequência está em ${diaria.feitos} dia${diaria.feitos > 1 ? 's' : ''}; passar o dia sem resgatar zera.` : ''}`}
+                  </p>
+                </div>
+                {podeResgatar && (
+                  <form action={resgatarRecompensaDiaria}>
+                    <button
+                      type="submit"
+                      className="px-4 py-2.5 text-sm font-bold border transition-all hover:brightness-125"
+                      style={{ borderRadius: '2px 8px 2px 8px', borderColor: '#f2c230', color: '#f2c230', background: 'color-mix(in srgb, #f2c230 10%, transparent)' }}
+                    >
+                      Resgatar
+                    </button>
+                  </form>
+                )}
+              </div>
+              <ol className="grid grid-cols-7 gap-1.5" aria-label={`Sequência: ${diaria.feitos} de ${DIAS_DA_SEQUENCIA} dias`}>
+                {MOEDAS_DO_DIA.map((moedas, i) => {
+                  const dia = i + 1
+                  const feito = dia <= diaria.feitos
+                  const proximo = !diaria.resgatadoHoje && dia === diaria.dia
+                  return (
+                    <li
+                      key={dia}
+                      className={`flex flex-col items-center gap-0.5 px-0.5 py-2 text-center border ${
+                        feito
+                          ? 'border-green-400/50 bg-green-400/10'
+                          : proximo
+                            ? 'border-[#f2c230]/70 bg-[#f2c230]/10'
+                            : 'border-dashed border-zinc-600'
+                      }`}
+                      style={{ borderRadius: '2px 8px 2px 8px' }}
+                      aria-current={proximo ? 'step' : undefined}
+                    >
+                      <span className="text-[11px] text-muted">Dia {dia}</span>
+                      <span className={`text-sm font-bold tabular-nums ${feito ? 'text-green-300' : ''}`}>{feito ? '✓' : moedas}</span>
+                      {dia === DIAS_DA_SEQUENCIA && <span className="text-[10px] leading-tight text-accent">+1 ponto</span>}
+                    </li>
+                  )
+                })}
+              </ol>
+            </div>
+          </PainelChanfrado>
 
           <div className="space-y-3">
             <TituloDeSecao direita={<Link href="/status" className="text-sm font-semibold text-accent">Trocar habilidades</Link>}>
