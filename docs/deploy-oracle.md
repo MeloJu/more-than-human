@@ -85,13 +85,13 @@ A `E2.1.Micro` subiu de primeira, em 51 segundos, porque a cota é separada.
 ## 4. Criar o `.env` na VM
 
 Só o `.env` precisa ser criado à mão — o `docker-compose.prod.yml` e o
-`Caddyfile` são enviados pela própria pipeline a cada deploy, então não
+`Caddyfile` (em `deploy/` no repositório) são enviados pela própria pipeline a cada deploy, então não
 precisam de `scp` manual (e não ficam desatualizados na VM).
 
 ```bash
 ssh -i ~/.ssh/animebattler ubuntu@<public_ip>
 cd ~/animebattler          # o cloud-init já criou esta pasta
-nano .env                  # conteúdo: ver .env.prod.example
+nano .env                  # conteúdo: ver deploy/.env.prod.example
 ```
 
 **Atenção ao `COOKIE_SECURE`.** Se `SITE_ADDRESS` for o IP puro, o Caddy
@@ -135,7 +135,7 @@ passo 8). Ele:
    `E2.1.Micro` é amd64, Ampere é arm64; imagem da arquitetura errada não
    roda);
 2. publica no GHCR com duas tags: `latest` e o SHA do commit;
-3. envia `docker-compose.prod.yml` e `Caddyfile` pra VM;
+3. envia `deploy/docker-compose.prod.yml` e `deploy/Caddyfile` pra VM, soltos em `~/animebattler`;
 4. autentica no GHCR, dá `pull` e sobe tudo, fixando a imagem no SHA;
 5. **espera o healthcheck (`/api/health`) passar** antes de dar o job por
    concluído — se o container entrar em loop de restart, o deploy falha e
@@ -227,7 +227,7 @@ emite certificado normalmente.
 
 ## Cuidado ao rodar `docker compose` na mão na VM
 
-O `docker-compose.prod.yml` resolve a imagem como `${IMAGE_TAG:-latest}`, e o
+O `deploy/docker-compose.prod.yml` resolve a imagem como `${IMAGE_TAG:-latest}`, e o
 deploy grava o `IMAGE_TAG` no `.env` da VM justamente para esse fallback nunca
 ser usado.
 

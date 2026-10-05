@@ -188,6 +188,10 @@ O Terraform é modular por provedor, um root independente por nuvem em
 O bootstrap de cada VM (Docker, firewall local) é compartilhado entre os dois
 em [infra/shared/cloud-init.yaml](infra/shared/cloud-init.yaml).
 
+O que roda na VM fica em [deploy/](deploy): o compose de produção (app,
+Postgres e Caddy), o Caddyfile e o exemplo do `.env` da VM. Na raiz ficam só
+o `Dockerfile` e o compose de desenvolvimento.
+
 Em produção, conteúdo novo entra por `npm run catalog:sync` — **nunca** pelo
 seed.
 

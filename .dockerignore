@@ -15,6 +15,6 @@ docs
 scripts
 Dockerfile
 docker-compose*.yml
-Caddyfile
+deploy
 README.md
 tsconfig.tsbuildinfo

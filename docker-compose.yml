@@ -1,4 +1,4 @@
-# Ambiente de desenvolvimento. Produção é o docker-compose.prod.yml.
+# Ambiente de desenvolvimento. Produção é o deploy/docker-compose.prod.yml.
 services:
   db:
     image: postgres:16-alpine

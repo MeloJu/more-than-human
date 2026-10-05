@@ -1,4 +1,6 @@
-# Compose de produção — roda na VM, não localmente. Diferenças pro
+# Compose de produção — roda na VM, não localmente. No repo mora em deploy/,
+# junto com o Caddyfile; a pipeline copia os dois soltos para ~/animebattler
+# na VM, ao lado do .env. Diferenças pro
 # docker-compose.yml de dev: sem bind mount (usa a imagem já publicada no
 # GHCR pelo CD), Caddy na frente fazendo TLS, nenhuma porta de app/db
 # exposta direto pro host. Segredos vêm de um .env que só existe na VM

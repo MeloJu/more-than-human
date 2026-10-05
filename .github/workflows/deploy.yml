@@ -107,14 +107,19 @@ jobs:
       # Mantém compose e Caddyfile da VM em sincronia com o repo. Antes isso
       # era um scp manual feito uma vez, que ia silenciosamente ficando velho a
       # cada mudança no repositório.
+      #
+      # No repo eles moram em deploy/; na VM ficam soltos em ~/animebattler,
+      # ao lado do .env — o strip_components tira a pasta na cópia, então o
+      # layout da VM (e os comandos dela) não mudaram com a mudança de pasta.
       - name: Copy compose files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "docker-compose.prod.yml,Caddyfile"
+          source: "deploy/docker-compose.prod.yml,deploy/Caddyfile"
           target: "~/animebattler"
+          strip_components: 1
 
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1

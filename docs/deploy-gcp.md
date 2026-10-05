@@ -90,7 +90,7 @@ ele imprime o `public_ip` — anota esse IP, é o `SITE_ADDRESS` e o
 ```bash
 ssh -i ~/.ssh/animebattler-gcp ubuntu@<public_ip>
 cd ~/animebattler          # o cloud-init já criou esta pasta
-nano .env                  # conteúdo: ver .env.prod.example
+nano .env                  # conteúdo: ver deploy/.env.prod.example
 ```
 
 Mesma ressalva da Oracle: se `SITE_ADDRESS` for o IP puro (sem domínio), o
