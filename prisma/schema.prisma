@@ -454,6 +454,7 @@ model User {
   /// tabela: só o último resgate importa para saber se a sequência continua.
   ultimoResgate        DateTime?
   sequenciaDiaria      Int                 @default(0)
+  missoesResgatadas    MissaoResgatada[]
 }
 
 model UserCharacter {
@@ -1010,4 +1011,19 @@ model UserItem {
   quantidade Int    @default(0)
 
   @@unique([userId, itemId])
+}
+
+/// Uma missão diária resgatada (ver app/lib/missoes/catalogo.ts). As missões
+/// do dia não são gravadas — o sorteio é determinístico por conta e dia —,
+/// só o resgate, e o unique impede resgatar a mesma duas vezes.
+model MissaoResgatada {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  /// O dia (meia-noite UTC) da missão.
+  dia       DateTime
+  missaoId  String
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dia, missaoId])
 }

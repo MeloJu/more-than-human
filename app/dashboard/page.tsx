@@ -19,10 +19,16 @@ import FOCO_DOS_RETRATOS from '@/app/lib/battle/foco-dos-retratos.json'
 import { DIAS_DA_SEQUENCIA, MOEDAS_DO_DIA, recompensaDoDia, situacaoDoResgate, venceuHoje } from '@/app/lib/login/diario'
 import { resgatarRecompensaDiaria } from '@/app/lib/login/actions'
 import { resolveErrorMessage } from '@/app/lib/error-messages'
+import { missoesDeHoje } from '@/app/lib/missoes/queries'
+import { resgatarMissao } from '@/app/lib/missoes/actions'
+import { BONUS_DAS_TRES } from '@/app/lib/missoes/catalogo'
 
 const ERROS_DA_CENTRAL: Record<string, string> = {
   ja_resgatado: 'A recompensa de hoje já foi resgatada. Volte amanhã.',
   sem_vitoria_hoje: 'Vença uma luta hoje, em qualquer modo, para resgatar a recompensa.',
+  missao_invalida: 'Essa missão não é uma das de hoje.',
+  missao_resgatada: 'Essa missão já foi resgatada.',
+  missao_incompleta: 'Essa missão ainda não foi cumprida.',
 }
 
 const FOCO = FOCO_DOS_RETRATOS as Record<string, string>
@@ -43,9 +49,9 @@ const FOCO = FOCO_DOS_RETRATOS as Record<string, string>
 export default async function CentralPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; resgatado?: string }>
+  searchParams: Promise<{ error?: string; resgatado?: string; bonus?: string }>
 }) {
-  const { error, resgatado } = await searchParams
+  const { error, resgatado, bonus } = await searchParams
   const errorMessage = resolveErrorMessage(ERROS_DA_CENTRAL, error, 'Não deu para resgatar agora.')
   const user = await requireUser()
   const data = await getDashboardUser(user.id)
@@ -72,7 +78,7 @@ export default async function CentralPage({
   const uc = data.selectedCharacter
   const cor = uc.character.corDestaque ?? 'var(--accent)'
 
-  const [treeBonus, equipmentBonus, capitulos, vitoriasHoje, incursao, equipadas, vestidos, conta, jaVenceuHoje] = await Promise.all([
+  const [treeBonus, equipmentBonus, capitulos, vitoriasHoje, incursao, equipadas, vestidos, conta, jaVenceuHoje, missoes] = await Promise.all([
     getTreeBonus(uc.id),
     getEquipmentBonus(uc.id),
     getStoryChapters(uc.id),
@@ -85,6 +91,7 @@ export default async function CentralPage({
     getEquippedBySlot(uc.id),
     prisma.user.findUniqueOrThrow({ where: { id: user.id }, select: { ultimoResgate: true, sequenciaDiaria: true } }),
     venceuHoje(user.id),
+    missoesDeHoje(user.id),
   ])
   // Mesma composição usada em /status e no combate: o número da tela bate com
   // o da luta.
@@ -394,6 +401,53 @@ export default async function CentralPage({
                   )
                 })}
               </ol>
+            </div>
+          </PainelChanfrado>
+
+          {/* As missões do dia (ver app/lib/missoes/catalogo.ts): três por
+              conta, sorteadas pelo dia, medidas nas lutas de hoje. */}
+          <PainelChanfrado>
+            <div className="p-5 space-y-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="kicker">Missões do dia</div>
+                <span className="text-xs text-muted">
+                  {missoes.todasResgatadas
+                    ? `As três feitas: +${BONUS_DAS_TRES.quantidade} ${BONUS_DAS_TRES.nome}${bonus ? ' na mochila' : ''}.`
+                    : `Complete as três: +${BONUS_DAS_TRES.quantidade} ${BONUS_DAS_TRES.nome}`}
+                </span>
+              </div>
+              <ul className="divide-y divide-border">
+                {missoes.missoes.map((m) => (
+                  <li key={m.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1.5 py-2.5">
+                    <div className="min-w-0 space-y-1.5">
+                      <div className={`text-sm font-semibold ${m.resgatada ? 'text-muted line-through decoration-1' : ''}`}>{m.titulo}</div>
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-[5px] flex-1 max-w-[16rem] bg-black/45" aria-hidden>
+                          <div className={`h-full ${m.completa ? 'bg-green-400' : 'bg-accent'}`} style={{ width: `${(m.feito / m.meta) * 100}%` }} />
+                        </div>
+                        <span className="text-xs tabular-nums text-muted">
+                          {m.feito.toLocaleString('pt-BR')} / {m.meta.toLocaleString('pt-BR')}
+                        </span>
+                      </div>
+                    </div>
+                    {m.resgatada ? (
+                      <span className="text-xs font-semibold text-green-300">✓ +{m.moedas}</span>
+                    ) : m.completa ? (
+                      <form action={resgatarMissao.bind(null, m.id)}>
+                        <button
+                          type="submit"
+                          className="px-3 py-1.5 text-xs font-bold border transition-all hover:brightness-125"
+                          style={{ borderRadius: '2px 8px 2px 8px', borderColor: '#f2c230', color: '#f2c230', background: 'color-mix(in srgb, #f2c230 10%, transparent)' }}
+                        >
+                          Resgatar +{m.moedas}
+                        </button>
+                      </form>
+                    ) : (
+                      <span className="text-xs tabular-nums text-muted">+{m.moedas} moedas</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
             </div>
           </PainelChanfrado>
 
