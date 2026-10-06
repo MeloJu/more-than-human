@@ -192,6 +192,12 @@ O que roda na VM fica em [deploy/](deploy): o compose de produção (app,
 Postgres e Caddy), o Caddyfile e o exemplo do `.env` da VM. Na raiz ficam só
 o `Dockerfile` e o compose de desenvolvimento.
 
+Na mesma VM roda o monitoramento: Prometheus coletando a VM (node-exporter)
+e o app (`/api/metrics`, só na rede interna), e Grafana em `/grafana`, com
+login. Cada serviço tem teto de memória, para que, se faltar RAM na VM de
+1 GB, caia o monitoramento e nunca o jogo. Fonte de dados e painel são
+versionados em [deploy/grafana](deploy/grafana).
+
 Em produção, conteúdo novo entra por `npm run catalog:sync` — **nunca** pelo
 seed.
 

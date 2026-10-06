@@ -81,8 +81,77 @@ services:
       timeout: 5s
       retries: 10
 
+  # ---------- MONITORAMENTO ----------
+  #
+  # Prometheus coleta, node-exporter mede a VM, Grafana desenha (em /grafana,
+  # atrás do Caddy, com login). A VM tem 1 GB de RAM, então CADA serviço tem
+  # teto de memória: se alguém tiver de cair por falta de memória, cai o
+  # monitoramento, nunca o jogo. Medido antes de subir: 452 MB disponíveis
+  # (depois de desligar fwupd, packagekit e udisks2, ver cloud-init).
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    mem_limit: 192m
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Duas travas de retenção: 15 dias OU 1 GB, o que vier primeiro.
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=1GB
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    # Só no 127.0.0.1 da VM: nada de internet. Para abrir no navegador,
+    # um túnel: ssh -L 9090:localhost:9090 ubuntu@<ip>, e http://localhost:9090.
+    ports:
+      - "127.0.0.1:9090:9090"
+
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    restart: unless-stopped
+    mem_limit: 48m
+    # Mede a VM, não o container: enxerga o / do host (só leitura) e os
+    # processos do host.
+    command:
+      - --path.rootfs=/host
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+
+  grafana:
+    image: grafana/grafana-oss:13.0.2
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      # O Go só aperta o coletor de lixo perto deste valor: abaixo do teto do
+      # container (256m), para o Grafana se conter antes de ser morto por OOM.
+      GOMEMLIMIT: 200MiB
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?defina GRAFANA_ADMIN_PASSWORD no .env da VM}
+      # Servido em https://<site>/grafana, atrás do Caddy.
+      GF_SERVER_ROOT_URL: https://${SITE_ADDRESS:-localhost}/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      # Ninguém se cadastra nem entra sem login.
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # Nada de baixar plugin, checar versão ou mandar estatística no boot:
+      # memória e rede contadas.
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
 volumes:
   pgdata:
   imagens_otimizadas:
+  prometheus_data:
+  grafana_data:
   caddy_data:
   caddy_config:

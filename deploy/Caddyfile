@@ -10,5 +10,19 @@
 # Com domínio real, sem prefixo, o Caddy emite TLS válido via Let's Encrypt
 # sozinho — nenhuma outra config precisa mudar.
 {$SITE_ADDRESS:localhost} {
-	reverse_proxy app:3000
+	# As métricas do app são só para o Prometheus, que as lê pela rede
+	# interna do compose (app:3000). Da internet, não existem.
+	handle /api/metrics* {
+		respond 404
+	}
+
+	# O Grafana, com o login dele (sem cadastro, sem anônimo). O caminho vai
+	# inteiro: ele está configurado para servir sob /grafana.
+	handle /grafana* {
+		reverse_proxy grafana:3000
+	}
+
+	handle {
+		reverse_proxy app:3000
+	}
 }

@@ -41,6 +41,13 @@ runcmd:
   # Inserido no topo da chain (posição 1) pra sempre vencer qualquer regra
   # de DROP que já exista mais abaixo. Idempotente/inofensivo nos provedores
   # onde isso já vem liberado.
+  # Serviços de desktop que a imagem Ubuntu traz e uma VM de nuvem não usa.
+  # Medido na E2.1.Micro: o fwupd (atualizador de firmware) sozinho ocupava
+  # 119 MB dos 956 MB — mais que o jogo. Desligar os três abriu espaço para o
+  # monitoramento. iscsid e multipathd ficam: o disco da VM pode depender deles.
+  - systemctl disable --now fwupd.service packagekit.service udisks2.service
+  - systemctl mask fwupd.service packagekit.service udisks2.service
+
   - iptables -I INPUT 1 -p tcp --dport 443 -j ACCEPT
   - iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT
   - netfilter-persistent save

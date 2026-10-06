@@ -1,0 +1,13 @@
+# Os painéis do Grafana vêm de arquivos JSON versionados (deploy/grafana/
+# dashboards). Editar pela interface funciona, mas a mudança some no próximo
+# deploy — o painel de verdade é o arquivo.
+apiVersion: 1
+
+providers:
+  - name: More Than Human
+    folder: More Than Human
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

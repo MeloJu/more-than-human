@@ -1,0 +1,15 @@
+# A fonte de dados do Grafana, criada no boot a partir deste arquivo — o
+# Grafana sobe já ligado ao Prometheus, sem clique na interface. Versionado
+# junto com o resto do deploy, então uma VM nova sai igual.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 30s

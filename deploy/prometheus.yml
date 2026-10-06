@@ -1,0 +1,30 @@
+# Prometheus da VM: coleta a cada 30 s, de dentro da rede do docker compose.
+#
+# Nada aqui é exposto na internet. O Prometheus não tem porta no host nem
+# rota no Caddy; quem lê dele é o Grafana, pela rede interna. Para olhar o
+# Prometheus direto, um túnel SSH:
+#   ssh -L 9090:localhost:9090 ubuntu@<ip>  (com a porta publicada só em 127.0.0.1)
+#
+# 30 s e não os 15 s padrão: a VM tem 1 GB de RAM, e para um jogo pequeno a
+# diferença de resolução não muda nenhuma decisão.
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # O próprio Prometheus: memória, amostras, tamanho do banco de séries.
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # A VM: CPU, memória, swap, disco, rede (node-exporter).
+  - job_name: node
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # O app: processo Node (heap, event loop) e números do jogo
+  # (ver app/lib/metricas.ts).
+  - job_name: app
+    metrics_path: /api/metrics
+    static_configs:
+      - targets: ['app:3000']

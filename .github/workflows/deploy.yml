@@ -117,7 +117,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "deploy/docker-compose.prod.yml,deploy/Caddyfile"
+          source: "deploy/docker-compose.prod.yml,deploy/Caddyfile,deploy/prometheus.yml,deploy/grafana"
           target: "~/animebattler"
           strip_components: 1
 
