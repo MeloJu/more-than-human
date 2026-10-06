@@ -225,6 +225,49 @@ Não precisa comprar: um subdomínio grátis do [DuckDNS](https://www.duckdns.or
 (`animebattler.duckdns.org`) apontando pro IP público já resolve e o Caddy
 emite certificado normalmente.
 
+## 10. (Opcional) Caçar a Ampere
+
+A Ampere (A1.Flex, 2 OCPU e 12 GB no limite gratuito desta conta) vive sem
+capacidade em São Paulo. O workflow [Caçar Ampere](../.github/workflows/cacar-ampere.yml)
+tenta criá-la a cada 15 minutos, pelo próprio Terraform desta pasta, até
+conseguir; aí abre uma issue e se desliga.
+
+**Só faça isto com a conta GRATUITA.** Nela a Oracle só entrega máquina da
+piscina gratuita: sem capacidade, a criação falha e nada é cobrado. Numa conta
+Pay As You Go, a máquina viria da piscina paga e seria cobrada (resposta do
+suporte da Oracle, 2026-10-06).
+
+1. **Um usuário só para isto**, para a chave que fica no GitHub não ser a de
+   administrador. Em *Identity → Users*, crie `cacador-ampere`; em
+   *Groups*, o grupo `cacadores-de-ampere` com ele dentro; e em *Policies*
+   (no compartimento raiz):
+
+   ```
+   Allow group cacadores-de-ampere to manage instance-family in tenancy where request.permission != INSTANCE_DELETE
+   Allow group cacadores-de-ampere to use virtual-network-family in tenancy
+   Allow group cacadores-de-ampere to inspect compartments in tenancy
+   Allow group cacadores-de-ampere to read objectstorage-namespaces in tenancy
+   Allow group cacadores-de-ampere to read buckets in tenancy where target.bucket.name = animebattler-tfstate
+   Allow group cacadores-de-ampere to manage objects in tenancy where target.bucket.name = animebattler-tfstate
+   ```
+
+   Ele cria instância mas não apaga nenhuma, mexe na rede só para ligar a
+   VM nova, e no Object Storage só toca o bucket do state. Se faltar alguma
+   permissão, o passo de plan falha com o erro da Oracle no log — não fica
+   tentando em silêncio.
+2. **Uma API key para ele** (como no passo 1, mas no perfil do
+   `cacador-ampere`).
+3. **Os secrets no GitHub** (*Settings → Secrets and variables → Actions*):
+   `OCI_TENANCY_OCID`, `OCI_USER_OCID`, `OCI_FINGERPRINT`,
+   `OCI_PRIVATE_KEY` (o conteúdo do .pem), `OCI_COMPARTMENT_OCID`,
+   `OCI_NAMESPACE`; e as variáveis `OCI_SSH_PUBLIC_KEY` (a chave pública
+   SSH, a mesma da VM atual) e `OCI_SSH_ALLOWED_CIDR`.
+4. **Ligar:** `gh workflow enable cacar-ampere.yml`. Para desligar antes de
+   conseguir: `gh workflow disable cacar-ampere.yml`.
+
+Quando a issue "Ampere criada" aparecer, confira no dia seguinte em
+*Billing → Cost Analysis* que a máquina aparece com custo zero.
+
 ## Cuidado ao rodar `docker compose` na mão na VM
 
 O `deploy/docker-compose.prod.yml` resolve a imagem como `${IMAGE_TAG:-latest}`, e o

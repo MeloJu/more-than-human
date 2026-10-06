@@ -1,0 +1,156 @@
+# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free (2 OCPU, 12 GB) a
+# cada 15 minutos, até a Oracle ter capacidade livre em São Paulo.
+#
+# Por que assim, e não pelo console:
+# - Na conta GRATUITA, a Oracle só entrega máquina da piscina gratuita. Sem
+#   capacidade, a criação falha com "Out of host capacity" e nada é cobrado.
+#   Esse erro é a garantia de que, quando der certo, a máquina é de graça
+#   (confirmado pelo suporte da Oracle em 2026-10-06). Numa conta paga, a
+#   máquina viria da piscina paga — e seria cobrada.
+# - É o próprio Terraform de infra/oracle (o recurso oci_core_instance.ampere,
+#   atrás da flag enable_ampere): quando a criação passa, a máquina já nasce
+#   no estado, sem import depois.
+# - -target=oci_core_instance.ampere: a tentativa só mexe na Ampere. A VM do
+#   jogo, a rede e o resto do estado ficam de fora.
+#
+# Quando consegue, abre uma issue (o GitHub avisa por e-mail) e DESLIGA este
+# workflow. Para ligar de novo: gh workflow enable cacar-ampere.yml
+#
+# Segredos necessários (Settings → Secrets and variables → Actions), de um
+# usuário da Oracle só para isto, com permissão apenas de criar instância:
+#   OCI_TENANCY_OCID, OCI_USER_OCID, OCI_FINGERPRINT, OCI_PRIVATE_KEY,
+#   OCI_COMPARTMENT_OCID, OCI_NAMESPACE
+# Variáveis (não são segredo):
+#   OCI_SSH_PUBLIC_KEY (a chave pública SSH da VM), OCI_SSH_ALLOWED_CIDR
+name: Caçar Ampere
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # avisa abrindo uma issue
+  actions: write # se desliga depois de conseguir
+
+# Uma tentativa por vez: duas ao mesmo tempo disputariam o lock do estado.
+concurrency:
+  group: cacar-ampere
+  cancel-in-progress: false
+
+jobs:
+  tentar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/oracle
+    env:
+      TF_IN_AUTOMATION: 'true'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.9
+          terraform_wrapper: false
+
+      # A chave da API vira um ~/.oci/config só durante este job; o runner é
+      # descartado no fim.
+      - name: Credenciais da Oracle
+        env:
+          OCI_TENANCY_OCID: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_USER_OCID: ${{ secrets.OCI_USER_OCID }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
+          OCI_COMPARTMENT_OCID: ${{ secrets.OCI_COMPARTMENT_OCID }}
+          OCI_NAMESPACE: ${{ secrets.OCI_NAMESPACE }}
+          OCI_SSH_PUBLIC_KEY: ${{ vars.OCI_SSH_PUBLIC_KEY }}
+          OCI_SSH_ALLOWED_CIDR: ${{ vars.OCI_SSH_ALLOWED_CIDR }}
+        run: |
+          mkdir -p ~/.oci
+          printf '%s\n' "$OCI_PRIVATE_KEY" > ~/.oci/chave.pem
+          chmod 600 ~/.oci/chave.pem
+          cat > ~/.oci/config <<EOF
+          [DEFAULT]
+          user=$OCI_USER_OCID
+          fingerprint=$OCI_FINGERPRINT
+          tenancy=$OCI_TENANCY_OCID
+          region=sa-saopaulo-1
+          key_file=$HOME/.oci/chave.pem
+          EOF
+          printf '%s\n' "$OCI_SSH_PUBLIC_KEY" > ~/.oci/vm.pub
+          cat > terraform.tfvars <<EOF
+          tenancy_ocid        = "$OCI_TENANCY_OCID"
+          region              = "sa-saopaulo-1"
+          compartment_ocid    = "$OCI_COMPARTMENT_OCID"
+          ssh_public_key_path = "$HOME/.oci/vm.pub"
+          instance_shape      = "VM.Standard.E2.1.Micro"
+          ssh_allowed_cidr    = "$OCI_SSH_ALLOWED_CIDR"
+          enable_ampere       = true
+          EOF
+          cat > backend.hcl <<EOF
+          bucket              = "animebattler-tfstate"
+          namespace           = "$OCI_NAMESPACE"
+          key                 = "oracle/terraform.tfstate"
+          region              = "sa-saopaulo-1"
+          auth                = "APIKey"
+          config_file_profile = "DEFAULT"
+          EOF
+
+      - name: Init
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      # Antes de tentar: a Ampere já existe no estado? Então este workflow
+      # cumpriu o papel — se desliga e para.
+      - name: Já existe?
+        id: plano
+        run: |
+          set +e
+          terraform plan -input=false -lock-timeout=2m -target=oci_core_instance.ampere -detailed-exitcode -out=plano > plano.txt 2>&1
+          codigo=$?
+          set -e
+          cat plano.txt | tail -20
+          if [ "$codigo" = "0" ]; then
+            echo "A Ampere já está no estado. Desligando o workflow."
+            gh workflow disable cacar-ampere.yml
+            echo "existe=sim" >> "$GITHUB_OUTPUT"
+          elif [ "$codigo" = "2" ]; then
+            echo "existe=nao" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::O plan falhou (não é falta de capacidade). Veja o log acima."
+            exit 1
+          fi
+
+      - name: Tentar criar
+        if: steps.plano.outputs.existe == 'nao'
+        id: criar
+        run: |
+          set +e
+          terraform apply -input=false -lock-timeout=2m -auto-approve plano > apply.txt 2>&1
+          codigo=$?
+          set -e
+          tail -25 apply.txt
+          if [ "$codigo" = "0" ]; then
+            echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
+          elif grep -qiE "out of (host )?capacity|TooManyRequests|429" apply.txt; then
+            # O normal enquanto não há capacidade: nada foi criado, nada é
+            # cobrado. Tenta de novo daqui a 15 minutos.
+            echo "Sem capacidade livre agora. Próxima tentativa em 15 minutos."
+          else
+            echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
+            exit 1
+          fi
+
+      - name: Avisar e se desligar
+        if: steps.criar.outputs.conseguiu == 'sim'
+        run: |
+          ip=$(terraform output -raw ampere_public_ip 2>/dev/null || echo "veja no console")
+          gh issue create --repo "$GITHUB_REPOSITORY" \
+            --title "Ampere criada (2 OCPU, 12 GB)" \
+            --body "O workflow Caçar Ampere conseguiu a máquina em $(date -u '+%Y-%m-%d %H:%M UTC'). IP público: $ip. O workflow foi desligado. Próximo passo: conferir em Billing → Cost Analysis, no dia seguinte, que ela aparece com custo zero."
+          gh workflow disable cacar-ampere.yml
