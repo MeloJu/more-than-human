@@ -178,6 +178,25 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
+            # ARQUIVO MONTADO SOZINHO NÃO SE ATUALIZA. O Caddyfile e o
+            # prometheus.yml entram no container como bind mount de UM arquivo,
+            # que o Docker prende pelo inode quando o container sobe. A cópia do
+            # passo anterior grava um arquivo novo (outro inode), e o container
+            # seguia lendo o velho — achado real: a rota do Grafana e o bloqueio
+            # de /api/metrics só valeram depois de reiniciar o Caddy à mão.
+            # Compara o que o container enxerga com o arquivo da pasta e
+            # reinicia só quem mudou; o restart remonta pelo caminho.
+            recarregar_se_mudou() {
+              visto=$(docker compose -f docker-compose.prod.yml exec -T "$1" cat "$2" 2>/dev/null | sha256sum | cut -d" " -f1)
+              novo=$(sha256sum "$3" | cut -d" " -f1)
+              if [ "$visto" != "$novo" ]; then
+                echo "$3 mudou: reiniciando $1"
+                docker compose -f docker-compose.prod.yml restart "$1"
+              fi
+            }
+            recarregar_se_mudou caddy /etc/caddy/Caddyfile Caddyfile
+            recarregar_se_mudou prometheus /etc/prometheus/prometheus.yml prometheus.yml
+
             # Deploy só termina quando o healthcheck passa de verdade. Sem isso
             # o job ficava verde mesmo com o container em loop de restart.
             echo "Aguardando o app ficar healthy..."
