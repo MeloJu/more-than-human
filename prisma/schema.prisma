@@ -455,6 +455,7 @@ model User {
   ultimoResgate        DateTime?
   sequenciaDiaria      Int                 @default(0)
   missoesResgatadas    MissaoResgatada[]
+  acoesDeAdmin         AdminLog[]
 }
 
 model UserCharacter {
@@ -1026,4 +1027,21 @@ model MissaoResgatada {
   createdAt DateTime @default(now())
 
   @@unique([userId, dia, missaoId])
+}
+
+/// O registro da área de admin (ver app/lib/admin/actions.ts): toda ação de
+/// admin que muda o jogo de alguém fica aqui, com quem fez, o quê e em quem.
+/// Só se acrescenta; nada apaga ou edita uma linha.
+model AdminLog {
+  id        String   @id @default(cuid())
+  admin     User     @relation(fields: [adminId], references: [id])
+  adminId   String
+  /// O que foi feito: dar_moedas, dar_item, dar_pontos, encerrar_luta, limpar_fila_pvp.
+  acao      String
+  /// Em quem ou em quê (conta, personagem ou luta), legível.
+  alvo      String?
+  detalhe   Json?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
 }

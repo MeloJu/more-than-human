@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "catalog:sync": "node prisma/sync-catalog.js",
     "balance:referencia": "node scripts/verifica-referencia.js",
-    "catalog:check": "node prisma/sync-catalog.js --dry-run"
+    "catalog:check": "node prisma/sync-catalog.js --dry-run",
+    "admin:promover": "node prisma/promover-admin.js"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",

@@ -52,6 +52,12 @@ export default async function AppNav() {
             <Link href="/characters" className="nav-link md:hidden">
               Catálogo
             </Link>
+            {/* Só aparece para admin; a área confere de novo no servidor (requireAdmin). */}
+            {user?.role === "ADMIN" && (
+              <Link href="/admin" className="nav-link">
+                Admin
+              </Link>
+            )}
             {authed && <span className="coin-badge">◆ {coins}</span>}
             {authed ? (
               <form action={logoutAction}>
