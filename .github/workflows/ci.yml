@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       # Build nativo amd64, só pra validar o Dockerfile rápido. O artefato que
       # vai pra produção é buildado e publicado no deploy.yml.
