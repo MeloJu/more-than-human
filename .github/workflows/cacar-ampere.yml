@@ -1,5 +1,11 @@
-# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free (2 OCPU, 12 GB) a
-# cada 15 minutos, até a Oracle ter capacidade livre em São Paulo.
+# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free (2 OCPU, 12 GB) UMA
+# VEZ POR MINUTO, até a Oracle ter capacidade livre em São Paulo.
+#
+# Como chega em 1 minuto: o cron do GitHub não aceita menos de 5 e ainda
+# atrasa. Então o agendamento só INICIA uma execução a cada 30 minutos, e
+# dentro dela um laço tenta 1 vez por minuto durante ~28 minutos. Execuções
+# não se sobrepõem (concurrency), então praticamente não há brecha. Repositório
+# público: minutos de Actions são grátis.
 #
 # Por que assim, e não pelo console:
 # - Na conta GRATUITA, a Oracle só entrega máquina da piscina gratuita. Sem
@@ -26,7 +32,7 @@ name: Caçar Ampere
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -42,7 +48,7 @@ concurrency:
 jobs:
   tentar:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: infra/oracle
@@ -130,21 +136,33 @@ jobs:
         if: steps.plano.outputs.existe == 'nao'
         id: criar
         run: |
-          set +e
-          terraform apply -input=false -lock-timeout=2m -auto-approve plano > apply.txt 2>&1
-          codigo=$?
-          set -e
-          tail -25 apply.txt
-          if [ "$codigo" = "0" ]; then
-            echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
-          elif grep -qiE "out of (host )?capacity|TooManyRequests|429" apply.txt; then
-            # O normal enquanto não há capacidade: nada foi criado, nada é
-            # cobrado. Tenta de novo daqui a 15 minutos.
-            echo "Sem capacidade livre agora. Próxima tentativa em 15 minutos."
-          else
-            echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
-            exit 1
-          fi
+          # O laço: 1 tentativa por minuto, por ~28 minutos. O plano salvo
+          # continua valendo entre as tentativas, porque uma criação que falha
+          # não muda o state. Acima de 1 por minuto a Oracle devolve 429.
+          fim=$(( $(date +%s) + 28 * 60 ))
+          n=0
+          while [ "$(date +%s)" -lt "$fim" ]; do
+            n=$((n + 1))
+            set +e
+            terraform apply -input=false -lock-timeout=2m -auto-approve plano > apply.txt 2>&1
+            codigo=$?
+            set -e
+            if [ "$codigo" = "0" ]; then
+              tail -25 apply.txt
+              echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif grep -qiE "out of (host )?capacity|TooManyRequests|429" apply.txt; then
+              # O normal enquanto não há capacidade: nada foi criado, nada é
+              # cobrado.
+              echo "tentativa $n: sem capacidade livre ($(date -u +%H:%M:%S) UTC)"
+              sleep 60
+            else
+              tail -25 apply.txt
+              echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
+              exit 1
+            fi
+          done
+          echo "$n tentativas sem capacidade. A próxima execução começa em instantes."
 
       - name: Avisar e se desligar
         if: steps.criar.outputs.conseguiu == 'sim'
