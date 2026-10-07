@@ -59,6 +59,10 @@ resource "oci_core_instance" "app" {
   # é essa a forma que ferramenta de análise estática (Checkov CKV_OCI_4)
   # reconhece — as duas formas configuram o mesmo campo na API da Oracle.
   launch_options {
+    # A API da Oracle exige o tipo de rede sempre que launch_options existe
+    # (400 "NetworkType must be specified" — achado na primeira tentativa real).
+    # É o mesmo modo que a VM atual já usa.
+    network_type                        = "PARAVIRTUALIZED"
     is_pv_encryption_in_transit_enabled = true
   }
 
@@ -121,6 +125,10 @@ resource "oci_core_instance" "ampere" {
   # é essa a forma que ferramenta de análise estática (Checkov CKV_OCI_4)
   # reconhece — as duas formas configuram o mesmo campo na API da Oracle.
   launch_options {
+    # A API da Oracle exige o tipo de rede sempre que launch_options existe
+    # (400 "NetworkType must be specified" — achado na primeira tentativa real).
+    # É o mesmo modo que a VM atual já usa.
+    network_type                        = "PARAVIRTUALIZED"
     is_pv_encryption_in_transit_enabled = true
   }
 
