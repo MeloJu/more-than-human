@@ -71,6 +71,16 @@ resource "oci_core_instance" "app" {
     ssh_authorized_keys = file(var.ssh_public_key_path)
     user_data           = base64encode(file("${path.module}/../shared/cloud-init.yaml"))
   }
+
+  # O cloud-init só roda no PRIMEIRO boot. Mudar o arquivo depois não muda
+  # uma VM que já existe, mas na Oracle trocar o user_data FORÇA RECRIAR a
+  # instância: um ajuste no cloud-init (como desligar o fwupd) destruiria a VM
+  # do jogo, com o banco dentro. Achado real ao rodar o plan em 2026-10-07.
+  # Para aplicar uma mudança de cloud-init, é na VM, à mão — e a VM nova que
+  # nascer já sai com o arquivo atual.
+  lifecycle {
+    ignore_changes = [metadata["user_data"]]
+  }
 }
 
 # Instância Ampere opcional (2 OCPU/12GB), muito mais potente que a micro.
