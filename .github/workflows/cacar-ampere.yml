@@ -1,5 +1,9 @@
-# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free (2 OCPU, 12 GB) A
-# CADA 30 SEGUNDOS, até a Oracle ter capacidade livre em São Paulo.
+# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free A CADA 30 SEGUNDOS,
+# até a Oracle ter capacidade livre em São Paulo. Tenta DOIS tamanhos por
+# ciclo, o que a conta permitir primeiro vence:
+#   grande:  2 OCPU e 12 GB (a cota inteira);
+#   pequena: 1 OCPU e  6 GB (metade — pode achar vaga mais fácil, e a outra
+#            metade da cota fica para uma segunda máquina depois).
 #
 # Como chega em 1 minuto: o cron do GitHub não aceita menos de 5 e ainda
 # atrasa. Então o agendamento só INICIA uma execução a cada 30 minutos, e
@@ -117,8 +121,12 @@ jobs:
         id: plano
         run: |
           set +e
-          terraform plan -input=false -lock-timeout=2m -target=oci_core_instance.ampere -detailed-exitcode -out=plano > plano.txt 2>&1
+          terraform plan -input=false -lock-timeout=2m -target=oci_core_instance.ampere -var instance_ocpus=2 -var instance_memory_gb=12 -detailed-exitcode -out=plano-grande > plano.txt 2>&1
           codigo=$?
+          if [ "$codigo" = "2" ]; then
+            terraform plan -input=false -lock-timeout=2m -target=oci_core_instance.ampere -var instance_ocpus=1 -var instance_memory_gb=6 -out=plano-pequeno > plano-pequeno.txt 2>&1
+            [ $? = 0 ] || codigo=1
+          fi
           set -e
           cat plano.txt | tail -20
           if [ "$codigo" = "0" ]; then
@@ -145,35 +153,45 @@ jobs:
           n=0
           while [ "$(date +%s)" -lt "$fim" ]; do
             n=$((n + 1))
-            set +e
-            terraform apply -input=false -lock-timeout=2m -auto-approve plano > apply.txt 2>&1
-            codigo=$?
-            set -e
-            if [ "$codigo" = "0" ]; then
-              tail -25 apply.txt
-              echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif grep -qiE "TooManyRequests|429-|Too many requests" apply.txt; then
+            limite=0
+            for tamanho in grande pequena; do
+              plano="plano-grande"
+              [ "$tamanho" = "pequena" ] && plano="plano-pequeno"
+              set +e
+              terraform apply -input=false -lock-timeout=2m -auto-approve "$plano" > apply.txt 2>&1
+              codigo=$?
+              set -e
+              if [ "$codigo" = "0" ]; then
+                tail -25 apply.txt
+                echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
+                echo "tamanho=$tamanho" >> "$GITHUB_OUTPUT"
+                exit 0
+              elif grep -qiE "TooManyRequests|429-|Too many requests" apply.txt; then
+                limite=1
+              elif grep -qiE "out of (host )?capacity" apply.txt; then
+                # O normal enquanto não há capacidade: nada foi criado, nada
+                # é cobrado.
+                echo "tentativa $n ($tamanho): sem capacidade ($(date -u +%H:%M:%S) UTC)"
+              else
+                tail -25 apply.txt
+                echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
+                exit 1
+              fi
+            done
+            if [ "$limite" = "1" ]; then
               echo "tentativa $n: a Oracle pediu para ir mais devagar (429). Pausa de 3 minutos."
               sleep 180
-            elif grep -qiE "out of (host )?capacity" apply.txt; then
-              # O normal enquanto não há capacidade: nada foi criado, nada é
-              # cobrado.
-              echo "tentativa $n: sem capacidade livre ($(date -u +%H:%M:%S) UTC)"
-              sleep 30
             else
-              tail -25 apply.txt
-              echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
-              exit 1
+              sleep 30
             fi
           done
-          echo "$n tentativas sem capacidade. A próxima execução começa em instantes."
+          echo "$n ciclos sem capacidade. A próxima execução começa em instantes."
 
       - name: Avisar e se desligar
         if: steps.criar.outputs.conseguiu == 'sim'
         run: |
           ip=$(terraform output -raw ampere_public_ip 2>/dev/null || echo "veja no console")
           gh issue create --repo "$GITHUB_REPOSITORY" \
-            --title "Ampere criada (2 OCPU, 12 GB)" \
-            --body "O workflow Caçar Ampere conseguiu a máquina em $(date -u '+%Y-%m-%d %H:%M UTC'). IP público: $ip. O workflow foi desligado. Próximo passo: conferir em Billing → Cost Analysis, no dia seguinte, que ela aparece com custo zero."
+            --title "Ampere criada (${{ steps.criar.outputs.tamanho }})" \
+            --body "O workflow Caçar Ampere conseguiu a máquina ${{ steps.criar.outputs.tamanho }} em $(date -u '+%Y-%m-%d %H:%M UTC'). IP público: $ip. O workflow foi desligado. Próximo passo: conferir em Billing → Cost Analysis, no dia seguinte, que ela aparece com custo zero."
           gh workflow disable cacar-ampere.yml
