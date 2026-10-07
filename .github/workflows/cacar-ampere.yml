@@ -1,9 +1,9 @@
-# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free (2 OCPU, 12 GB) UMA
-# VEZ POR MINUTO, até a Oracle ter capacidade livre em São Paulo.
+# CAÇAR A AMPERE: tenta criar a VM Ampere do Always Free (2 OCPU, 12 GB) A
+# CADA 30 SEGUNDOS, até a Oracle ter capacidade livre em São Paulo.
 #
 # Como chega em 1 minuto: o cron do GitHub não aceita menos de 5 e ainda
 # atrasa. Então o agendamento só INICIA uma execução a cada 30 minutos, e
-# dentro dela um laço tenta 1 vez por minuto durante ~28 minutos. Execuções
+# dentro dela um laço tenta a cada 30 segundos durante ~28 minutos. Execuções
 # não se sobrepõem (concurrency), então praticamente não há brecha. Repositório
 # público: minutos de Actions são grátis.
 #
@@ -136,9 +136,11 @@ jobs:
         if: steps.plano.outputs.existe == 'nao'
         id: criar
         run: |
-          # O laço: 1 tentativa por minuto, por ~28 minutos. O plano salvo
-          # continua valendo entre as tentativas, porque uma criação que falha
-          # não muda o state. Acima de 1 por minuto a Oracle devolve 429.
+          # O laço: 1 tentativa a cada 30 segundos, por ~28 minutos. O plano
+          # salvo continua valendo entre as tentativas, porque uma criação que
+          # falha não muda o state. Se a Oracle responder 429 (muitas
+          # requisições), é sinal de que apertamos demais: espera 3 minutos em
+          # vez de insistir, e o laço segue.
           fim=$(( $(date +%s) + 28 * 60 ))
           n=0
           while [ "$(date +%s)" -lt "$fim" ]; do
@@ -151,11 +153,14 @@ jobs:
               tail -25 apply.txt
               echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
               exit 0
-            elif grep -qiE "out of (host )?capacity|TooManyRequests|429" apply.txt; then
+            elif grep -qiE "TooManyRequests|429-|Too many requests" apply.txt; then
+              echo "tentativa $n: a Oracle pediu para ir mais devagar (429). Pausa de 3 minutos."
+              sleep 180
+            elif grep -qiE "out of (host )?capacity" apply.txt; then
               # O normal enquanto não há capacidade: nada foi criado, nada é
               # cobrado.
               echo "tentativa $n: sem capacidade livre ($(date -u +%H:%M:%S) UTC)"
-              sleep 60
+              sleep 30
             else
               tail -25 apply.txt
               echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
