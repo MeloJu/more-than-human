@@ -237,29 +237,28 @@ piscina gratuita: sem capacidade, a criação falha e nada é cobrado. Numa cont
 Pay As You Go, a máquina viria da piscina paga e seria cobrada (resposta do
 suporte da Oracle, 2026-10-06).
 
-1. **Um usuário só para isto**, para a chave que fica no GitHub não ser a de
-   administrador. Em *Identity → Users*, crie `cacador-ampere`; em
-   *Groups*, o grupo `cacadores-de-ampere` com ele dentro; e em *Policies*
-   (no compartimento raiz):
+1. **O usuário, o grupo, a política e a chave são código**: `infra/oracle-bootstrap/acesso.tf`,
+   sem clicar no console. O usuário `cacador-ampere` cria instância mas não
+   apaga nenhuma, mexe na rede só para ligar a VM nova e no Object Storage só
+   toca o bucket do state. Gere o par de chaves na sua máquina (a privada
+   nunca passa pelo Terraform nem pelo state):
 
    ```
-   Allow group cacadores-de-ampere to manage instance-family in tenancy where request.permission != INSTANCE_DELETE
-   Allow group cacadores-de-ampere to use virtual-network-family in tenancy
-   Allow group cacadores-de-ampere to inspect compartments in tenancy
-   Allow group cacadores-de-ampere to read objectstorage-namespaces in tenancy
-   Allow group cacadores-de-ampere to read buckets in tenancy where target.bucket.name = animebattler-tfstate
-   Allow group cacadores-de-ampere to manage objects in tenancy where target.bucket.name = animebattler-tfstate
+   openssl genrsa -out ~/.oci/oci_api_key_cacador.pem 2048
+   openssl rsa -in ~/.oci/oci_api_key_cacador.pem -pubout -out ~/.oci/oci_api_key_cacador_public.pem
    ```
 
-   Ele cria instância mas não apaga nenhuma, mexe na rede só para ligar a
-   VM nova, e no Object Storage só toca o bucket do state. Se faltar alguma
-   permissão, o passo de plan falha com o erro da Oracle no log — não fica
-   tentando em silêncio.
-2. **Uma API key para ele** (como no passo 1, mas no perfil do
-   `cacador-ampere`).
+   e aplique (em `infra/oracle-bootstrap`, com `tenancy_ocid` no
+   `terraform.tfvars`):
+
+   ```
+   terraform apply -var cacador_chave_publica_path=~/.oci/oci_api_key_cacador_public.pem -var cacador_email=voce@exemplo.com
+   ```
+2. **Os valores do workflow** saem dos outputs: `terraform output cacador_user_ocid`
+   e `terraform output cacador_fingerprint`.
 3. **Os secrets no GitHub** (*Settings → Secrets and variables → Actions*):
    `OCI_TENANCY_OCID`, `OCI_USER_OCID`, `OCI_FINGERPRINT`,
-   `OCI_PRIVATE_KEY` (o conteúdo do .pem), `OCI_COMPARTMENT_OCID`,
+   `OCI_PRIVATE_KEY` (do arquivo, sem passar pelo chat: `gh secret set OCI_PRIVATE_KEY < ~/.oci/oci_api_key_cacador.pem`), `OCI_COMPARTMENT_OCID`,
    `OCI_NAMESPACE`; e as variáveis `OCI_SSH_PUBLIC_KEY` (a chave pública
    SSH, a mesma da VM atual) e `OCI_SSH_ALLOWED_CIDR`.
 4. **Ligar:** `gh workflow enable cacar-ampere.yml`. Para desligar antes de

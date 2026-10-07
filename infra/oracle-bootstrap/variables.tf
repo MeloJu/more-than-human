@@ -20,3 +20,21 @@ variable "bucket_name" {
   type        = string
   default     = "animebattler-tfstate"
 }
+
+variable "tenancy_ocid" {
+  description = "OCID da tenancy: onde moram usuários, grupos e políticas."
+  type        = string
+  default     = null
+}
+
+variable "cacador_chave_publica_path" {
+  description = "Caminho da chave PÚBLICA da API do usuário cacador-ampere. Vazio (padrão) = não cria o usuário."
+  type        = string
+  default     = ""
+}
+
+variable "cacador_email" {
+  description = "E-mail do usuário cacador-ampere (a Oracle exige um; ele não faz login, só usa a chave da API)."
+  type        = string
+  default     = null
+}

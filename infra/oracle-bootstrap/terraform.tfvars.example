@@ -7,3 +7,8 @@ compartment_ocid = "ocid1.tenancy.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 # Só se quiser fugir dos defaults:
 # region      = "sa-saopaulo-1"
 # bucket_name = "animebattler-tfstate"
+
+# Preencha só para criar o usuário da caça à Ampere (ver acesso.tf):
+# tenancy_ocid               = "ocid1.tenancy.oc1..aaaaaaaaxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+# cacador_chave_publica_path = "C:/Users/voce/.oci/oci_api_key_cacador_public.pem"
+# cacador_email              = "voce@exemplo.com"
