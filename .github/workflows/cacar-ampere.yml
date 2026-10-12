@@ -5,11 +5,13 @@
 #   pequena: 1 OCPU e  6 GB (metade — pode achar vaga mais fácil, e a outra
 #            metade da cota fica para uma segunda máquina depois).
 #
-# Como chega em 1 minuto: o cron do GitHub não aceita menos de 5 e ainda
-# atrasa. Então o agendamento só INICIA uma execução a cada 30 minutos, e
-# dentro dela um laço tenta a cada 30 segundos durante ~28 minutos. Execuções
-# não se sobrepõem (concurrency), então praticamente não há brecha. Repositório
-# público: minutos de Actions são grátis.
+# Como fica contínuo: o agendador (cron) do GitHub atrasa e pula horários —
+# medido em 2026-10-12, as execuções vinham a cada 3 a 6 horas, e a caça
+# ficava ativa uns 10% do tempo. Então não dependemos dele: cada execução
+# tenta por ~5h45 (o limite de um job é 6h) e, ao terminar, DISPARA A PRÓXIMA
+# sozinha. O cron de 30 minutos ficou só de rede de segurança, caso a cadeia
+# se quebre. Execuções não se sobrepõem (concurrency). Repositório público:
+# minutos de Actions são grátis.
 #
 # Por que assim, e não pelo console:
 # - Na conta GRATUITA, a Oracle só entrega máquina da piscina gratuita. Sem
@@ -52,7 +54,7 @@ concurrency:
 jobs:
   tentar:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 355
     defaults:
       run:
         working-directory: infra/oracle
@@ -144,12 +146,12 @@ jobs:
         if: steps.plano.outputs.existe == 'nao'
         id: criar
         run: |
-          # O laço: 1 tentativa a cada 30 segundos, por ~28 minutos. O plano
+          # O laço: 1 tentativa a cada 30 segundos, por ~5h45. O plano
           # salvo continua valendo entre as tentativas, porque uma criação que
           # falha não muda o state. Se a Oracle responder 429 (muitas
           # requisições), é sinal de que apertamos demais: espera 3 minutos em
           # vez de insistir, e o laço segue.
-          fim=$(( $(date +%s) + 28 * 60 ))
+          fim=$(( $(date +%s) + 345 * 60 ))
           n=0
           while [ "$(date +%s)" -lt "$fim" ]; do
             n=$((n + 1))
@@ -185,7 +187,15 @@ jobs:
               sleep 30
             fi
           done
-          echo "$n ciclos sem capacidade. A próxima execução começa em instantes."
+          echo "$n ciclos sem capacidade. Passando o bastão para a próxima execução."
+
+      # O bastão: sem capacidade, dispara a execução seguinte antes de este job
+      # acabar (ela espera na fila do concurrency e começa assim que este
+      # termina). Só se o laço terminou normal: um erro de outro tipo NÃO se
+      # repete sozinho, senão ficaria falhando em ciclo.
+      - name: Passar o bastão
+        if: success() && steps.plano.outputs.existe == 'nao' && steps.criar.outputs.conseguiu != 'sim'
+        run: gh workflow run cacar-ampere.yml --repo "$GITHUB_REPOSITORY"
 
       - name: Avisar e se desligar
         if: steps.criar.outputs.conseguiu == 'sim'
