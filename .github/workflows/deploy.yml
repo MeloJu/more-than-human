@@ -112,7 +112,7 @@ jobs:
       # ao lado do .env — o strip_components tira a pasta na cópia, então o
       # layout da VM (e os comandos dela) não mudaram com a mudança de pasta.
       - name: Copy compose files to VM
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
