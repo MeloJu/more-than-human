@@ -153,6 +153,11 @@ jobs:
           # vez de insistir, e o laço segue.
           fim=$(( $(date +%s) + 345 * 60 ))
           n=0
+          # Erros que não são falta de capacidade ficam contados: um isolado
+          # (o lock do state sumiu uma vez em 909 tentativas, em 2026-10-21)
+          # não pode matar uma caça de horas, mas 5 seguidos é algo quebrado
+          # de verdade e para por aqui, sem passar o bastão.
+          outros=0
           while [ "$(date +%s)" -lt "$fim" ]; do
             n=$((n + 1))
             limite=0
@@ -163,6 +168,18 @@ jobs:
               terraform apply -input=false -lock-timeout=2m -auto-approve "$plano" > apply.txt 2>&1
               codigo=$?
               set -e
+              if [ "$codigo" != "0" ] && ! grep -qiE "TooManyRequests|429-|Too many requests|out of (host )?capacity" apply.txt; then
+                outros=$((outros + 1))
+                tail -12 apply.txt
+                echo "::warning::tentativa $n ($tamanho): erro que não é falta de capacidade ($outros seguido(s))."
+                if [ "$outros" -ge 5 ]; then
+                  echo "::error::5 erros seguidos que não são falta de capacidade. Veja o log acima."
+                  exit 1
+                fi
+                sleep 60
+                continue
+              fi
+              outros=0
               if [ "$codigo" = "0" ]; then
                 tail -25 apply.txt
                 echo "conseguiu=sim" >> "$GITHUB_OUTPUT"
@@ -174,10 +191,6 @@ jobs:
                 # O normal enquanto não há capacidade: nada foi criado, nada
                 # é cobrado.
                 echo "tentativa $n ($tamanho): sem capacidade ($(date -u +%H:%M:%S) UTC)"
-              else
-                tail -25 apply.txt
-                echo "::error::Falhou por outro motivo (não capacidade). Veja o log acima."
-                exit 1
               fi
             done
             if [ "$limite" = "1" ]; then
